@@ -1,26 +1,260 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Always scan app code for classes (new folders were missed by the running dev server). */
+@source "../app";
+@source "../components";
+@source "../lib";
+@source "../node_modules/streamdown/dist/*.js";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-paper: var(--paper);
+  --color-lawn: var(--lawn);
+  --color-field: var(--field);
+  --color-lip: var(--lip);
+  --color-danger-bg: var(--danger-bg);
+  --color-ok-bg: var(--ok-bg);
+  --color-chip-sky: var(--chip-sky);
+  --color-night: var(--night);
+  --color-panel: var(--panel);
+  --color-panel-sunken: var(--panel-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-hairline: var(--hairline);
+  --color-honey: var(--honey);
+  --color-status-working: var(--status-working);
+  --color-status-waiting: var(--status-waiting);
+  --color-status-error: var(--status-error);
+  --color-status-resting: var(--status-resting);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-courier);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* Dotty field-notes palette — see DESIGN.md */
+  --paper: #e3dccb;
+  --lawn: #8cc15d;
+  --night: #20263d;
+  --field: #fbf7f0; /* text inputs, cards inside panels */
+  --lip: #2b2620; /* hard bottom edge under sticker buttons/cards */
+  --danger-bg: #ffdacb;
+  --ok-bg: #e3edd2;
+  --chip-sky: #d6e6f3;
+  --panel: #f4eee3;
+  --panel-sunken: #ebe3d4;
+  --ink: #2b2620;
+  --ink-muted: #7d7468;
+  --hairline: #d9cebb;
+  --honey: #f0dab1;
+  --status-working: #7f9f6f;
+  --status-waiting: #d49a52;
+  --status-error: #c16565;
+  --status-resting: #a39c93;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --card-foreground: var(--ink);
+  --popover: var(--panel);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #f8f3ea;
+  --secondary: var(--panel-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--panel-sunken);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--honey);
+  --accent-foreground: var(--ink);
+  --destructive: #b5473f;
+  --border: var(--hairline);
+  --input: var(--hairline);
+  --ring: #5b7fe5;
+  --chart-1: #7f9f6f;
+  --chart-2: #d49a52;
+  --chart-3: #8e7cc3;
+  --chart-4: #5c8fd6;
+  --chart-5: #c16565;
+  --radius: 0.875rem;
+  --sidebar: var(--panel);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #f8f3ea;
+  --sidebar-accent: var(--panel-sunken);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: #5b7fe5;
+}
+
+/* Dusk: the same field-notes system at night (toggle in the header). */
+.dark {
+  --paper: #1d1b18;
+  --panel: #27241f;
+  --panel-sunken: #1f1c18;
+  --ink: #f1e9d8;
+  --ink-muted: #a89f90;
+  --hairline: #3d3830;
+  --honey: #5e4a26;
+  --lawn: #35592b;
+  --night: #12151f;
+  --field: #1a1815;
+  --lip: #0b0a08;
+  --danger-bg: #4a2420;
+  --ok-bg: #22351c;
+  --chip-sky: #2b3d4f;
+  --status-working: #93b783;
+  --status-waiting: #e0a95f;
+  --status-error: #d9776f;
+  --status-resting: #8f887f;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --card-foreground: var(--ink);
+  --popover: var(--panel);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #1d1b18;
+  --secondary: var(--panel-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--panel-sunken);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--honey);
+  --accent-foreground: var(--ink);
+  --destructive: #e07a6f;
+  --border: var(--hairline);
+  --input: var(--hairline);
+  --ring: #7fa4ef;
+  --sidebar: var(--panel);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #1d1b18;
+  --sidebar-accent: var(--panel-sunken);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: #7fa4ef;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Field-notes panel: cream card, thin ink outline, soft paper shadow */
+  .fn-panel {
+    @apply rounded-[14px] border-[1.5px] border-ink/80 bg-panel;
+    box-shadow: 0 1.5px 0 rgb(43 38 32 / 0.18), 0 10px 24px -14px rgb(43 38 32 / 0.35);
+  }
+  .fn-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink/80 bg-panel px-3 py-1 font-mono text-[13px] leading-none text-ink transition-colors hover:bg-panel-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50;
+  }
+  .fn-pill[data-active="true"] {
+    @apply bg-honey;
+  }
+  /* Chunky sticker button from the dotty-home header: ink outline + hard bottom lip */
+  .fn-sticker {
+    @apply inline-flex h-11 items-center gap-2 rounded-[12px] border-2 border-ink bg-panel px-3.5 text-[15px] font-bold whitespace-nowrap text-ink transition-[transform,box-shadow] duration-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60;
+    box-shadow: 0 3px 0 0 var(--lip);
+  }
+  .fn-sticker:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 0 0 var(--lip);
+  }
+  .fn-sticker:not(:disabled):active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 0 var(--lip);
+  }
+  .fn-label {
+    @apply font-mono text-[13px] tracking-tight text-ink-muted;
+  }
+}
+
+.lawn-bg {
+  background-color: var(--lawn);
+  background-image:
+    radial-gradient(60% 45% at 18% 25%, rgb(255 255 255 / 0.07), transparent 70%),
+    radial-gradient(55% 50% at 85% 80%, rgb(40 90 20 / 0.08), transparent 70%);
+}
+
+.paper-bg {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(rgb(43 38 32 / 0.05) 0.8px, transparent 0.8px),
+    radial-gradient(120% 90% at 50% 40%, rgb(255 255 255 / 0.35), transparent 70%);
+  background-size: 14px 14px, 100% 100%;
+}
+
+@keyframes fn-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.25); }
+}
+.fn-pulse { animation: fn-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .fn-pulse { animation: none; }
+}
+
+@keyframes fn-reveal {
+  0% { box-shadow: 0 0 0 0 rgb(250 207 115 / 0.95); }
+  100% { box-shadow: 0 0 0 14px rgb(250 207 115 / 0); }
+}
+.fn-reveal { animation: fn-reveal 0.9s ease-out 2; }
+
+/* Used by the shadcn Message Scroller (not shipped by this shadcn version). */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+}
+@utility scrollbar-gutter-stable {
+  scrollbar-gutter: stable;
 }
