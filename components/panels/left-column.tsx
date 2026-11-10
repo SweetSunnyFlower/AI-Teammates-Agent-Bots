@@ -218,7 +218,7 @@ function WaitingPanel(accordion: AccordionProps) {
 }
 
 function FinishedPanel(accordion: AccordionProps) {
-  const { snapshot, botById, selectBot } = useOffice();
+  const { snapshot, botById, openReply } = useOffice();
   return (
     <Panel {...accordion} title="finished" dotColor={STATUS_META.working.color} count={snapshot.finished.length}>
       {snapshot.finished.length === 0 && (
@@ -232,7 +232,8 @@ function FinishedPanel(accordion: AccordionProps) {
             <li key={f.id}>
               <button
                 type="button"
-                onClick={() => selectBot(bot.id, "activity")}
+                onClick={() => openReply(bot.id, f.id)}
+                title="Read the report"
                 className="flex w-full gap-2.5 rounded-[10px] px-1.5 py-1.5 text-left hover:bg-panel-sunken"
               >
                 <BotAvatar bot={{ ...bot, status: "working" }} size={26} className="mt-0.5 shrink-0" />

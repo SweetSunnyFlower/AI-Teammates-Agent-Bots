@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOffice, type RevealSection } from "@/components/office/office-provider";
@@ -33,13 +33,11 @@ export function Panel({
   bodyClassName?: string;
   children: ReactNode;
 }) {
-  const [flash, setFlash] = useState(0);
   const { reveal } = useOffice();
+  // Flash when the top bar reveals this panel (derived during render, keyed by the reveal nonce).
+  const [flash, setFlash] = useState(0);
+  if (reveal && reveal.section === revealKey && reveal.nonce !== flash) setFlash(reveal.nonce);
   const bodyId = `panel-body-${title.replace(/\s+/g, "-")}`;
-
-  useEffect(() => {
-    if (reveal && reveal.section === revealKey) setFlash(reveal.nonce);
-  }, [reveal, revealKey]);
 
   return (
     <section

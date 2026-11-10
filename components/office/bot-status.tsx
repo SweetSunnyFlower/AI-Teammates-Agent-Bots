@@ -34,8 +34,17 @@ export function BotStatus({
 }
 
 /** Just the dot; pings only while the bot is working or waiting on you. */
-export function BotStatusIndicator({ status, className }: { status: BotStatusValue; className?: string }) {
-  const animated = status === "working" || status === "waiting";
+export function BotStatusIndicator({
+  status,
+  className,
+  active = true,
+}: {
+  status: BotStatusValue;
+  className?: string;
+  /** False when nothing is in this state (e.g. "0 Working") — then it stays still. */
+  active?: boolean;
+}) {
+  const animated = active && (status === "working" || status === "waiting");
   return (
     <StatusIndicator
       className={cn(!animated && "before:hidden", "motion-reduce:before:hidden", className)}

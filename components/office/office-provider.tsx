@@ -13,6 +13,7 @@ import {
 } from "react";
 import type { CameraControlsImpl } from "@react-three/drei";
 import type { Vector3 } from "three";
+import { toast } from "sonner";
 import { floorsTopDown } from "@/lib/office/floors";
 import type { Bot, Department, InboxItem, OfficeSnapshot } from "@/lib/office/types";
 
@@ -35,6 +36,13 @@ export type Editor =
   | { type: "bot"; botId?: string; departmentId?: string }
   | { type: "department"; departmentId?: string }
   | null;
+
+/** A short speech bubble over a bot in the office (start / finish / handoff). */
+export interface BotBubble {
+  text: string;
+  kind: "start" | "done" | "fail" | "info";
+  key: number;
+}
 
 /** The elevator shows this many floors at a time. */
 export const VISIBLE_FLOORS = 5;
@@ -74,6 +82,13 @@ interface OfficeState {
 
   /** A message waiting to be sent by a bot's chat once it opens (from "Ask the Head"). */
   pendingAsk: { botId: string; text: string; nonce: number } | null;
+
+  /** Live speech bubbles over bots, keyed by bot id. */
+  bubbles: Record<string, BotBubble>;
+  /** Open a bot's chat scrolled to (and highlighting) a task's report. */
+  openReply: (botId: string, taskId: string) => void;
+  focusMessage: { botId: string; prefix: string; nonce: number } | null;
+  clearFocusMessage: () => void;
   /** Open a bot's chat and send `text` there. */
   askBot: (botId: string, text: string) => void;
   clearPendingAsk: () => void;
@@ -162,10 +177,15 @@ export function OfficeProvider({
     };
   }, [snapshot.bots, snapshot.departments]);
 
-  const selectBot = useCallback((botId: string | null, tab?: DrawerTab) => {
-    setSelectedBotId(botId);
-    if (tab) setDrawerTab(tab);
-  }, []);
+  // The Head bot opens on Chat (you talk to it); everyone else opens on Activity.
+  const headId = useMemo(() => snapshot.bots.find((b) => b.role === "head")?.id ?? null, [snapshot.bots]);
+  const selectBot = useCallback(
+    (botId: string | null, tab?: DrawerTab) => {
+      setSelectedBotId(botId);
+      if (botId) setDrawerTab(tab ?? (botId === headId ? "chat" : "activity"));
+    },
+    [headId],
+  );
 
   const maxElevator = Math.max(0, floors.length - VISIBLE_FLOORS);
   const clampElevator = useCallback((v: number) => Math.min(Math.max(v, 0), maxElevator), [maxElevator]);
@@ -275,7 +295,64 @@ export function OfficeProvider({
   }, []);
   const clearPendingAsk = useCallback(() => setPendingAsk(null), []);
 
+  const [focusMessage, setFocusMessage] = useState<OfficeState["focusMessage"]>(null);
+  const openReply = useCallback((botId: string, taskId: string) => {
+    setSelectedBotId(botId);
+    setDrawerTab("chat");
+    setFocusMessage({ botId, prefix: `task-${taskId}`, nonce: Date.now() });
+  }, []);
+  const clearFocusMessage = useCallback(() => setFocusMessage(null), []);
+
+  // Bubbles + toasts for new background-run activity (not for what was there on page load).
+  const [bubbles, setBubbles] = useState<Record<string, BotBubble>>({});
+  const seenActivity = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const ids = snapshot.activity.map((a) => a.id);
+    if (!seenActivity.current) {
+      seenActivity.current = new Set(ids);
+      return;
+    }
+    const seen = seenActivity.current;
+    const fresh = snapshot.activity.filter((a) => !seen.has(a.id)).reverse(); // oldest first
+    ids.forEach((id) => seen.add(id));
+    const timers: number[] = [];
+    for (const a of fresh) {
+      const bot = snapshot.bots.find((b) => b.id === a.botId);
+      if (!bot) continue;
+      const title = /“(.+?)”/.exec(a.text)?.[1] ?? a.text;
+      let bubble: Omit<BotBubble, "key"> | null = null;
+      if (a.type === "run_started") bubble = { kind: "start", text: `On it — ${title}` };
+      else if (a.type === "run_finished") {
+        bubble = { kind: "done", text: `Done ✓ ${title}` };
+        toast.success(`${bot.name} finished`, {
+          description: title,
+          action: a.taskId ? { label: "Read reply", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
+        });
+      } else if (a.type === "run_failed") {
+        bubble = { kind: "fail", text: `Stuck — ${title}` };
+        toast.error(`${bot.name} couldn't finish`, {
+          description: title,
+          action: a.taskId ? { label: "See why", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
+        });
+      } else if (a.type === "tool" && a.text.startsWith("handed")) bubble = { kind: "info", text: a.text.replace(/^handed/, "Handed") };
+      if (!bubble) continue;
+      const key = Date.now() + Math.random();
+      setBubbles((b) => ({ ...b, [bot.id]: { ...bubble!, key } }));
+      timers.push(
+        window.setTimeout(
+          () => setBubbles((b) => (b[bot.id]?.key === key ? Object.fromEntries(Object.entries(b).filter(([id]) => id !== bot.id)) : b)),
+          bubble.kind === "start" || bubble.kind === "info" ? 6000 : 9000,
+        ),
+      );
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [snapshot.activity, snapshot.bots, openReply]);
+
   const value: OfficeState = {
+    bubbles,
+    openReply,
+    focusMessage,
+    clearFocusMessage,
     pendingAsk,
     askBot,
     clearPendingAsk,

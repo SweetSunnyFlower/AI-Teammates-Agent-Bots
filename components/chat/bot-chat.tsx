@@ -8,10 +8,11 @@ import { ArrowUp, ClipboardList, Loader2, MessageCircleQuestion, NotebookPen, Ro
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import { answerQuestion, loadThread, startNewChat, type ThreadMessage } from "@/app/(routes)/workspace/chat-actions";
+import { createClient } from "@/lib/supabase/client";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice } from "@/components/office/office-provider";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import { Message, MessageAvatar, MessageContent } from "@/components/ui/message";
 import {
   MessageScroller,
@@ -33,7 +34,8 @@ const THINKING_WORDS = ["Whirring", "Thinking", "Ideating", "Unraveling", "Ponde
 
 /** One continuous thread per bot. "New chat" adds a divider; the bot only remembers what's below it. */
 export function BotChat({ bot }: { bot: Bot }) {
-  const { canEdit, snapshot, pendingAsk, clearPendingAsk } = useOffice();
+  const { canEdit, snapshot, pendingAsk, clearPendingAsk, focusMessage, clearFocusMessage } = useOffice();
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -72,6 +74,45 @@ export function BotChat({ bot }: { bot: Bot }) {
       cancelled = true;
     };
   }, [bot.id, canEdit, setMessages]);
+
+  // Live thread: run reports (and messages from other tabs) appear without a reload.
+  useEffect(() => {
+    if (!canEdit || !loaded) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`thread:${bot.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `bot_id=eq.${bot.id}` }, (payload) => {
+        const row = payload.new as { id: string; ui_id: string | null; role: ThreadMessage["role"]; kind: string; parts: ThreadMessage["parts"]; created_at: string };
+        const id = row.ui_id ?? row.id;
+        setMessages((current) =>
+          current.some((m) => m.id === id)
+            ? current
+            : [...current, { id, role: row.role, parts: row.kind === "divider" ? [] : row.parts, metadata: { createdAt: row.created_at, divider: row.kind === "divider" || undefined } }],
+        );
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [bot.id, canEdit, loaded, setMessages]);
+
+  // "Read reply": scroll to the task's report and highlight it for a moment.
+  useEffect(() => {
+    if (!loaded || !focusMessage || focusMessage.botId !== bot.id) return;
+    const target = [...messages].reverse().find((m) => m.id.startsWith(focusMessage.prefix));
+    if (!target) return; // not arrived yet — this runs again when messages update
+    let clear: number | undefined;
+    const frame = window.requestAnimationFrame(() => {
+      clearFocusMessage();
+      setHighlightId(target.id);
+      document.getElementById(`msg-${target.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      clear = window.setTimeout(() => setHighlightId(null), 2600);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(clear);
+    };
+  }, [loaded, focusMessage, bot.id, messages, clearFocusMessage]);
 
   // "Ask the Head" hands its message over once the thread is loaded.
   useEffect(() => {
@@ -147,7 +188,16 @@ export function BotChat({ bot }: { bot: Bot }) {
                 <Greeting bot={bot} />
               ) : (
                 messages.map((m, i) => (
-                  <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === "user"}>
+                  <MessageScrollerItem
+                    key={m.id}
+                    id={`msg-${m.id}`}
+                    messageId={m.id}
+                    scrollAnchor={m.role === "user"}
+                    className={cn(
+                      "scroll-my-6 rounded-[14px] transition-[background-color,box-shadow] duration-700",
+                      highlightId === m.id && "bg-honey/60 ring-2 ring-[#f0dab1] ring-offset-4 ring-offset-panel",
+                    )}
+                  >
                     {m.metadata?.divider ? (
                       <Divider at={m.metadata.createdAt} />
                     ) : (
@@ -186,13 +236,13 @@ export function BotChat({ bot }: { bot: Bot }) {
       </MessageScrollerProvider>
 
       <form
-        className="border-t border-hairline p-3"
+        className="border-t border-hairline px-3 py-2"
         onSubmit={(e) => {
           e.preventDefault();
           send();
         }}
       >
-        <InputGroup className="rounded-[14px] border-2 border-ink/60 bg-field has-[[data-slot=input-group-control]:focus-visible]:border-ink">
+        <InputGroup className="h-auto min-h-10 rounded-full border-2 border-ink/60 bg-field pr-1 has-[[data-slot=input-group-control]:focus-visible]:border-ink">
           <InputGroupTextarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -205,11 +255,10 @@ export function BotChat({ bot }: { bot: Bot }) {
             rows={1}
             maxLength={4000}
             placeholder={`Message ${bot.name}…`}
-            aria-label={`Message ${bot.name}`}
-            className="max-h-32 min-h-11 px-3 text-[14px]"
+            aria-label={`Message ${bot.name} (Enter to send, Shift+Enter for a new line)`}
+            className="field-sizing-content max-h-24 min-h-9 py-2 pl-4 text-[14px] leading-5"
           />
-          <InputGroupAddon align="block-end" className="justify-between px-2 pb-2">
-            <InputGroupText className="font-mono text-[11px]">enter to send · shift+enter for a new line</InputGroupText>
+          <InputGroupAddon align="inline-end" className="self-end pb-1">
             {busy ? (
               <InputGroupButton size="icon-sm" variant="outline" className="rounded-full border-2 border-ink" aria-label="Stop" onClick={() => void stop()}>
                 <Square className="size-3 fill-current" />
@@ -344,7 +393,8 @@ function ToolChip({ part }: { part: ToolPart }) {
   if (name === "create_task") {
     const title = String(part.output?.title ?? part.input?.title ?? "a task");
     const who = part.output?.assignee ? ` for ${String(part.output.assignee)}` : "";
-    label = failed ? `Couldn't create “${title}”: ${String(part.output?.error ?? "error")}` : done ? `Created task “${title}”${who}` : `Creating “${title}”…`;
+    const queued = done && part.output?.started === false ? " · waiting to start" : done ? " · running" : "";
+    label = failed ? `Couldn't create “${title}”: ${String(part.output?.error ?? "error")}` : done ? `Created task “${title}”${who}${queued}` : `Creating “${title}”…`;
   } else if (name === "update_notes") {
     Icon = NotebookPen;
     label = done ? "Updated notes" : "Updating notes…";

@@ -13,6 +13,7 @@ import { gatewayModelFor, hasAiGateway } from "@/lib/ai/models";
 import { buildChatTools, buildInstructions, loadChatContext } from "@/lib/chat/bot-context";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { startTaskRun } from "@/lib/runs/start";
 
 // Chat replies stream for a while; give tool calls room to finish.
 export const maxDuration = 60;
@@ -87,7 +88,12 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
     return json(500, "Couldn't save your message — check your connection and try again.");
   }
 
-  const tools = buildChatTools(supabase, chat);
+  // Tasks created in chat start their background run immediately.
+  const tools = buildChatTools(supabase, chat, {
+    onTaskCreated: async (task) => {
+      if (!(await startTaskRun(task))) throw new Error("Background runs aren't configured yet");
+    },
+  });
   const history = (rows ?? [])
     .reverse()
     .filter((r) => r.ui_id !== userMessage.id)

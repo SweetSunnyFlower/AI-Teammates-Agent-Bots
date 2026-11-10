@@ -1,13 +1,12 @@
 "use client";
 
-import { ArrowLeft, Check, Pencil, Send, X } from "lucide-react";
+import { ArrowLeft, Check, Pencil, X } from "lucide-react";
 import { floorColors, floorTag } from "@/lib/office/floors";
 import { STATUS_META } from "@/lib/office/status";
 import { GATED_TOOLS } from "@/lib/office/tools";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice, type DrawerTab } from "@/components/office/office-provider";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -63,7 +62,10 @@ export function BotDrawer({ botId }: { botId: string }) {
           <BotStatus status={bot.status} label={bot.status === "waiting" ? "waiting on you" : meta.label} className="mt-1.5" />
         </div>
       </header>
-      <p className="mx-4 rounded-[10px] bg-panel-sunken px-3 py-2 text-[13px] leading-snug text-ink/85">{bot.statusDetail}</p>
+      {/* Only when it says more than the status pill already does (e.g. what it's working on). */}
+      {bot.statusDetail && !["resting", "working", "waiting", "error"].includes(bot.statusDetail.trim().toLowerCase()) && (
+        <p className="mx-4 rounded-[10px] bg-panel-sunken px-3 py-2 text-[13px] leading-snug text-ink/85">{bot.statusDetail}</p>
+      )}
 
       <Tabs value={drawerTab} onValueChange={(v) => setDrawerTab(v as DrawerTab)} className="mt-3 min-h-0 flex-1 gap-0">
         <TabsList variant="line" className="w-full justify-start border-b border-hairline px-3">

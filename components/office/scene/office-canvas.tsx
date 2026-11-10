@@ -38,6 +38,7 @@ export default function OfficeCanvas() {
       <Controls />
       <CameraRig />
       <OverlayProjector />
+      <FrameKeeper />
 
       <Lights />
       <Building />
@@ -99,6 +100,50 @@ function Building() {
       <ContactShadows position={[0, groundY + 0.01, 0]} scale={24} opacity={0.3} blur={2.6} far={FLOOR_GAP} frames={1} color={dusk ? "#0d1a0a" : "#2f4d1c"} />
     </group>
   );
+}
+
+/**
+ * With frameloop="demand" the scene only redraws when asked. If the browser wipes the canvas
+ * (tab hidden, GPU context lost/restored, a refresh landing between frames) nothing asks again
+ * and the office shows blank until the mouse moves. This keeps it drawn:
+ *   - redraw on visibility/focus/resize and after a WebGL context is restored
+ *   - redraw whenever office data changes (Realtime refreshes)
+ *   - a cheap safety redraw every 2s while the page is visible
+ */
+function FrameKeeper() {
+  const invalidate = useThree((s) => s.invalidate);
+  const gl = useThree((s) => s.gl);
+  const { snapshot, floors, elevator } = useOffice();
+
+  useEffect(() => {
+    const kick = () => {
+      invalidate();
+      window.requestAnimationFrame(() => invalidate()); // and once more after layout settles
+    };
+    const canvas = gl.domElement;
+    const onLost = (e: Event) => e.preventDefault(); // allows the browser to restore the context
+    canvas.addEventListener("webglcontextlost", onLost);
+    canvas.addEventListener("webglcontextrestored", kick);
+    document.addEventListener("visibilitychange", kick);
+    window.addEventListener("focus", kick);
+    window.addEventListener("resize", kick);
+    const heartbeat = window.setInterval(() => {
+      if (document.visibilityState === "visible") invalidate();
+    }, 2000);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", kick);
+      document.removeEventListener("visibilitychange", kick);
+      window.removeEventListener("focus", kick);
+      window.removeEventListener("resize", kick);
+      window.clearInterval(heartbeat);
+    };
+  }, [gl, invalidate]);
+
+  // New data from the server (Realtime → router.refresh) → draw it.
+  useEffect(() => invalidate(), [snapshot, floors, elevator, invalidate]);
+
+  return null;
 }
 
 /** Left-drag rotates around the building, right-drag pans, wheel/pinch zooms. */
@@ -174,24 +219,27 @@ function CameraRig() {
 function OverlayProjector() {
   const { anchorsRef, requestFrameRef } = useOffice();
   const invalidate = useThree((s) => s.invalidate);
-  const v = useMemo(() => new Vector3(), []);
-  const last = useMemo(() => ({ view: new Matrix4(), w: 0, h: 0, count: -1, zoom: 0 }), []);
+  // Scratch state lives in refs (mutated per frame, never during render).
+  const vRef = useRef(new Vector3());
+  const lastRef = useRef({ view: new Matrix4(), w: 0, h: 0, count: -1, zoom: 0 });
 
   useEffect(() => {
     requestFrameRef.current = () => {
-      last.count = -1; // force a reposition on the next frame
+      lastRef.current.count = -1; // force a reposition on the next frame
       invalidate();
     };
     invalidate();
     return () => {
       requestFrameRef.current = null;
     };
-  }, [invalidate, requestFrameRef, last]);
+  }, [invalidate, requestFrameRef]);
 
   useFrame(({ camera, size }) => {
     const cam = camera as OrthoCam;
     cam.updateMatrixWorld(); // controls moved the camera this frame; keep projection in sync
     const anchors = anchorsRef.current;
+    const last = lastRef.current;
+    const v = vRef.current;
     if (
       last.count === anchors.size &&
       last.w === size.width &&

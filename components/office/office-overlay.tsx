@@ -80,7 +80,8 @@ const BotPin = memo(function BotPin({
   slot: number;
   dimmed: boolean;
 }) {
-  const { selectBot, selectedBotId, cleanView } = useOffice();
+  const { selectBot, selectedBotId, cleanView, bubbles } = useOffice();
+  const bubble = bubbles[bot.id];
   const points = useMemo(() => {
     const [x, y, z] = botSeat(index, floorCount, slot);
     return [new Vector3(x, y + AVATAR_LIFT, z)];
@@ -97,7 +98,7 @@ const BotPin = memo(function BotPin({
     <div ref={ref} className="absolute top-0 left-0 will-change-transform" style={OFFSCREEN}>
       <button
         type="button"
-        onClick={() => selectBot(bot.id, "activity")}
+        onClick={() => selectBot(bot.id)}
         className={cn(
           "pointer-events-auto relative grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full outline-none animate-in fade-in duration-700",
           "transition-[opacity,translate] duration-300 hover:-translate-y-[calc(50%+2px)] focus-visible:ring-2 focus-visible:ring-ring",
@@ -107,6 +108,7 @@ const BotPin = memo(function BotPin({
         aria-label={`${bot.name}, ${meta.label}. Open details`}
         title={`${bot.name} · ${bot.statusDetail}`}
       >
+        {bubble && <SpeechBubble key={bubble.key} text={bubble.text} kind={bubble.kind} />}
         <BotAvatar bot={bot} size={44} animated={animated} />
         {!cleanView && bot.status !== "resting" && (
           <span
@@ -123,6 +125,30 @@ const BotPin = memo(function BotPin({
     </div>
   );
 });
+
+const BUBBLE_STYLE: Record<"start" | "done" | "fail" | "info", string> = {
+  start: "bg-panel text-ink",
+  info: "bg-panel text-ink",
+  done: "bg-ok-bg text-ink",
+  fail: "bg-danger-bg text-ink",
+};
+
+/** Speech bubble over a bot: "On it — …", "Done ✓ …", "Handed … to …". */
+function SpeechBubble({ text, kind }: { text: string; kind: keyof typeof BUBBLE_STYLE }) {
+  return (
+    <span
+      role="status"
+      className={cn(
+        "pointer-events-none absolute bottom-full left-1/2 mb-3 max-w-[220px] -translate-x-1/2 truncate rounded-[12px] border-2 border-ink px-2.5 py-1 text-[12.5px] font-bold whitespace-nowrap shadow-[0_2px_0_0_var(--lip)]",
+        "animate-in fade-in zoom-in-90 slide-in-from-bottom-1 duration-300",
+        "after:absolute after:top-full after:left-1/2 after:-mt-px after:size-2.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rotate-45 after:border-r-2 after:border-b-2 after:border-ink after:bg-inherit",
+        BUBBLE_STYLE[kind],
+      )}
+    >
+      {text}
+    </span>
+  );
+}
 
 const FloorLabel = memo(function FloorLabel({
   department,

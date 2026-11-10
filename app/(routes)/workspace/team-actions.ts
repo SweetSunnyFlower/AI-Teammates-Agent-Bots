@@ -11,6 +11,9 @@ import {
 } from "@/lib/office/schemas";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { hasTrigger, startTaskRun } from "@/lib/runs/start";
+import { releaseStaleRuns } from "@/lib/runs/recover";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string; fieldErrors?: Record<string, string> };
 
@@ -128,6 +131,24 @@ export async function saveBot(workspaceId: string, botId: string | null, input: 
     });
     if (error) return { ok: false, error: friendly(error.message) };
     return { ok: true, id: data as string };
+  });
+}
+
+/** Retry a failed task: back to the backlog and a fresh background run. */
+export async function retryTask(taskId: string): Promise<ActionResult> {
+  return run(async () => {
+    if (!uuid.safeParse(taskId).success) return { ok: false, error: "Unknown task." };
+    const supabase = await client();
+    const { data: task } = await supabase.from("tasks").select("id, workspace_id, status").eq("id", taskId).maybeSingle();
+    if (!task) return { ok: false, error: "That task doesn't exist or isn't yours." };
+    if (!["failed", "backlog", "doing"].includes(task.status)) return { ok: false, error: "Only failed, waiting or stuck tasks can be restarted." };
+    if (!hasTrigger()) return { ok: false, error: "Background runs aren't set up yet — add the Trigger.dev keys to .env.local." };
+    // A "doing" task may just be busy — only restart it if its run has really stopped.
+    if (await releaseStaleRuns(createAdminClient(), task.id)) return { ok: false, error: "It's still working on this — give it a moment." };
+    const { error } = await supabase.from("tasks").update({ status: "backlog", result: null }).eq("id", taskId);
+    if (error) return { ok: false, error: friendly(error.message) };
+    await startTaskRun({ id: task.id, workspaceId: task.workspace_id }, `retry-${Date.now()}`);
+    return { ok: true };
   });
 }
 

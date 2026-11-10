@@ -70,9 +70,9 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       .order("created_at", { ascending: false }),
     supabase
       .from("tasks")
-      .select("id, title, status, assignee_bot_id, created_by_bot_id, source, updated_at")
+      .select("id, title, status, assignee_bot_id, created_by_bot_id, source, updated_at, result")
       .eq("workspace_id", workspaceId)
-      .in("status", ["backlog", "doing", "waiting_on_me", "done"])
+      .in("status", ["backlog", "doing", "waiting_on_me", "done", "failed"])
       .order("position", { ascending: true })
       .order("updated_at", { ascending: false })
       .limit(200),
@@ -83,7 +83,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       .order("created_at", { ascending: true }),
     supabase
       .from("activity")
-      .select("id, bot_id, summary, created_at")
+      .select("id, bot_id, task_id, type, summary, created_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
       .limit(40),
@@ -111,6 +111,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
             source: t.source as Task["source"],
             delegatedByBotId: t.created_by_bot_id ?? undefined,
             updated: ago(t.updated_at, now),
+            result: resultText(t.result),
           },
         ]
       : [],
@@ -173,10 +174,18 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       }),
     ),
     activity: (activity.data ?? []).flatMap((a): ActivityEntry[] =>
-      a.bot_id ? [{ id: a.id, botId: a.bot_id, time: clock.format(new Date(a.created_at)), text: a.summary }] : [],
+      a.bot_id
+        ? [{ id: a.id, botId: a.bot_id, time: clock.format(new Date(a.created_at)), text: a.summary, type: a.type, taskId: a.task_id ?? undefined }]
+        : [],
     ),
     tasks: mappedTasks,
   };
+}
+
+function resultText(raw: unknown) {
+  const r = (raw ?? {}) as { summary?: unknown; error?: unknown };
+  const text = typeof r.error === "string" ? r.error : typeof r.summary === "string" ? r.summary : undefined;
+  return text?.replace(/\*\*/g, "").slice(0, 280);
 }
 
 function toAvatar(raw: unknown): Bot["avatar"] {

@@ -76,9 +76,12 @@ export interface ActivityEntry {
   time: string;
   botId: string;
   text: string;
+  /** e.g. run_started, run_finished, run_failed, tool */
+  type?: string;
+  taskId?: string;
 }
 
-export type TaskStatus = "backlog" | "doing" | "waiting_on_me" | "done";
+export type TaskStatus = "backlog" | "doing" | "waiting_on_me" | "done" | "failed";
 
 export interface Task {
   id: string;
@@ -90,6 +93,8 @@ export interface Task {
   delegatedByBotId?: string;
   subtasks?: number;
   updated: string;
+  /** Finished report summary, or why it failed. */
+  result?: string;
 }
 
 export interface OfficeSnapshot {

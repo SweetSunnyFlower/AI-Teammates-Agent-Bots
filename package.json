@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "trigger:dev": "trigger dev"
   },
   "dependencies": {
     "@ai-sdk/react": "4.0.173",
@@ -23,6 +24,7 @@
     "@shadcn/react": "^0.3.1",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.119.0",
+    "@trigger.dev/sdk": "4.8.4",
     "ai": "7.0.169",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@trigger.dev/build": "4.8.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -47,6 +50,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
     "tailwindcss": "^4",
+    "trigger.dev": "4.8.4",
     "typescript": "^5"
   }
 }

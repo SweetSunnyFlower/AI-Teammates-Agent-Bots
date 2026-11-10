@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { GripVertical } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { GripVertical, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { retryTask } from "@/app/(routes)/workspace/team-actions";
 import { cn } from "@/lib/utils";
 import { STATUS_META } from "@/lib/office/status";
 import type { Bot, OfficeSnapshot, Task, TaskStatus } from "@/lib/office/types";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { TopBar } from "@/components/office/top-bar";
+import { RealtimeSync } from "@/components/office/realtime-sync";
 import { Badge } from "@/components/ui/badge";
 import { Kanban, KanbanBoard, KanbanColumn, KanbanItem, KanbanItemHandle, KanbanOverlay } from "@/components/ui/kanban";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,12 +23,23 @@ const COLUMNS: Array<{ id: TaskStatus; title: string; dot: string }> = [
   { id: "done", title: "Done", dot: "#5c8fd6" },
 ];
 
+/** Failed tasks wait in the backlog with a Retry button. */
+function toColumns(tasks: Task[]): Record<string, Task[]> {
+  return Object.fromEntries(
+    COLUMNS.map((c) => [c.id, tasks.filter((t) => t.status === c.id || (c.id === "backlog" && t.status === "failed"))]),
+  );
+}
+
 /** Boards: every task in the workspace as a kanban (plan journey 2 / Phase 4). Mock moves only. */
 export function BoardsScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
   const botById = useMemo(() => new Map(snapshot.bots.map((b) => [b.id, b])), [snapshot.bots]);
-  const [columns, setColumns] = useState<Record<string, Task[]>>(() =>
-    Object.fromEntries(COLUMNS.map((c) => [c.id, snapshot.tasks.filter((t) => t.status === c.id)])),
-  );
+  const [columns, setColumns] = useState<Record<string, Task[]>>(() => toColumns(snapshot.tasks));
+  // Live updates (Realtime → router.refresh) bring new tasks: rebuild the columns from them.
+  const [sourceTasks, setSourceTasks] = useState(snapshot.tasks);
+  if (sourceTasks !== snapshot.tasks) {
+    setSourceTasks(snapshot.tasks);
+    setColumns(toColumns(snapshot.tasks));
+  }
   const taskById = useMemo(() => new Map(Object.values(columns).flat().map((t) => [t.id, t])), [columns]);
 
   return (
@@ -43,6 +59,7 @@ export function BoardsScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
         </div>
       </div>
 
+      <RealtimeSync workspaceId={snapshot.workspace.id} enabled={snapshot.workspace.id !== "demo"} />
       <Kanban value={columns} onValueChange={setColumns} getItemValue={(t) => t.id}>
         <KanbanBoard className="min-h-0 flex-1 overflow-x-auto pb-2">
           {COLUMNS.map((col) => (
@@ -62,7 +79,12 @@ export function BoardsScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
                 <div className="flex min-h-24 flex-col gap-2 px-3 pb-3">
                   {(columns[col.id] ?? []).map((task) => (
                     <KanbanItem key={task.id} value={task.id} className="rounded-[12px]">
-                      <TaskCard task={task} bot={botById.get(task.assigneeBotId)} delegatedBy={task.delegatedByBotId ? botById.get(task.delegatedByBotId) : undefined} />
+                      <TaskCard
+                        task={task}
+                        workspaceId={snapshot.workspace.id}
+                        bot={botById.get(task.assigneeBotId)}
+                        delegatedBy={task.delegatedByBotId ? botById.get(task.delegatedByBotId) : undefined}
+                      />
                     </KanbanItem>
                   ))}
                 </div>
@@ -74,7 +96,7 @@ export function BoardsScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
           {({ value, variant }) => {
             if (variant !== "item") return null;
             const task = taskById.get(String(value));
-            return task ? <TaskCard task={task} bot={botById.get(task.assigneeBotId)} dragging /> : null;
+            return task ? <TaskCard task={task} workspaceId={snapshot.workspace.id} bot={botById.get(task.assigneeBotId)} dragging /> : null;
           }}
         </KanbanOverlay>
       </Kanban>
@@ -82,7 +104,44 @@ export function BoardsScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
   );
 }
 
-function TaskCard({ task, bot, delegatedBy, dragging = false }: { task: Task; bot?: Bot; delegatedBy?: Bot; dragging?: boolean }) {
+function RetryButton({ taskId, label = "Retry", quiet = false }: { taskId: string; label?: string; quiet?: boolean }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          const res = await retryTask(taskId);
+          if (!res.ok) (quiet ? toast.info : toast.error)(quiet ? "Not restarted" : "Couldn't retry", { description: res.error });
+          else toast.success("Retrying — the bot is back on it");
+          router.refresh();
+        })
+      }
+      className={cn(
+        "fn-pill mt-2 px-2.5 py-0.5 text-[11.5px]",
+        quiet ? "border-ink/25 text-ink-muted" : "border-[#b5473f]/60 text-[#b5473f]",
+      )}
+    >
+      <RotateCcw className="size-3" /> {pending ? "Restarting…" : label}
+    </button>
+  );
+}
+
+function TaskCard({
+  task,
+  bot,
+  delegatedBy,
+  dragging = false,
+  workspaceId,
+}: {
+  task: Task;
+  bot?: Bot;
+  delegatedBy?: Bot;
+  dragging?: boolean;
+  workspaceId: string;
+}) {
   return (
     <div
       className={cn(
@@ -112,6 +171,21 @@ function TaskCard({ task, bot, delegatedBy, dragging = false }: { task: Task; bo
         <span className="truncate text-[12.5px] font-semibold text-ink/85">{bot?.name}</span>
         <span className="ml-auto font-mono text-[11px] text-ink-muted">{task.updated}</span>
       </div>
+      {task.result && (
+        <p className={cn("mt-2 line-clamp-3 text-[12.5px] leading-snug", task.status === "failed" ? "text-[#b5473f]" : "text-ink/75")}>
+          {task.result}
+        </p>
+      )}
+      {task.status === "failed" && !dragging && <RetryButton taskId={task.id} />}
+      {(task.status === "done" || task.status === "failed") && !dragging && workspaceId !== "demo" && (
+        <Link
+          href={`/workspace/${workspaceId}#reply:${task.assigneeBotId}:${task.id}`}
+          className="mt-2 inline-block text-[12px] font-semibold text-ink underline underline-offset-2 hover:text-[#1d6ff4]"
+        >
+          Read report →
+        </Link>
+      )}
+      {task.status === "doing" && !dragging && <RetryButton taskId={task.id} label="Stuck? Restart" quiet />}
       <div className="mt-2 flex flex-wrap gap-1">
         <Badge variant="outline" className="border-ink/30 font-mono text-[10.5px] text-ink">
           via {task.source}

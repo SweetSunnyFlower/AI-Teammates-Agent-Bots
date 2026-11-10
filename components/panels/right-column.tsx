@@ -54,7 +54,7 @@ function WholeOfficePanel() {
                   <li key={bot.id}>
                     <button
                       type="button"
-                      onClick={() => selectBot(bot.id, "activity")}
+                      onClick={() => selectBot(bot.id)}
                       className="flex w-full items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-panel-sunken"
                     >
                       <BotAvatar bot={bot} size={34} className="shrink-0" />
@@ -83,7 +83,7 @@ function WholeOfficePanel() {
 }
 
 function ActivityPanel() {
-  const { snapshot, botById, selectBot } = useOffice();
+  const { snapshot, botById, selectBot, openReply } = useOffice();
   return (
     <section
       className="flex h-[260px] shrink-0 flex-col rounded-[14px] border-2 border-ink bg-night text-white shadow-[0_3px_0_0_var(--lip)]"
@@ -111,7 +111,11 @@ function ActivityPanel() {
                 <span className="min-w-0 text-white/85">
                   <button
                     type="button"
-                    onClick={() => bot && selectBot(bot.id, "activity")}
+                    onClick={() => {
+                      if (!bot) return;
+                      if (a.taskId && (a.type === "run_finished" || a.type === "run_failed")) openReply(bot.id, a.taskId);
+                      else selectBot(bot.id);
+                    }}
                     className="font-bold text-white hover:underline"
                   >
                     {bot?.name ?? "Someone"}

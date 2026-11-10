@@ -73,7 +73,7 @@ export function TopBar({
       <div className="fn-sticker h-12 gap-4 px-4 font-semibold" role="status" aria-label="Bot status counts">
         {SUMMARY.map(([s, label]) => (
           <span key={s} className={cn("flex items-center gap-1.5", counts[s] === 0 && "opacity-55")}>
-            <BotStatusIndicator status={s} className="size-2.5" />
+            <BotStatusIndicator status={s} active={counts[s] > 0} className="size-2.5" />
             <span>
               {counts[s]} {label}
             </span>

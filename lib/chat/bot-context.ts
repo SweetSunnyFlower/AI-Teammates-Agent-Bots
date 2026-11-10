@@ -1,8 +1,9 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-type Supabase = Awaited<ReturnType<typeof createClient>>;
+/** The user's client (chat, RLS applies) or the service-role client (background runs). */
+type Supabase = SupabaseClient;
 
 export interface ChatBot {
   id: string;
@@ -114,7 +115,10 @@ export function buildInstructions(ctx: ChatContext, userTimezone: string) {
     canDelegate(bot)
       ? "- You may assign tasks to any bot; pick the bot whose floor and job fit best. Split big requests into a few clear tasks."
       : "- You can only create tasks for yourself; suggest the user ask the Head bot for work that belongs on another floor.",
-    "- Background work is being set up: tasks you create go on the board and will run soon. Say so honestly; never claim work is finished when it isn't.",
+    bot.role === "head"
+      ? "- When the user asks for work, ALWAYS call create_task — one call per piece of work, each with the right assignee. A task only exists (and shows on the board) once create_task succeeds. Never say you assigned, delegated or created something unless the create_task call in this reply returned ok; if it failed, say so."
+      : "- Only say a task was created if your create_task call returned ok.",
+    "- Tasks you create start running in the background right away; results show up on the board and in this chat. Never claim work is finished before it is.",
     "- Nothing that sends, pays, publishes, deletes or merges ever happens without the user's approval.",
     "- Keep your notes short and useful (preferences, facts about the user, ongoing context).",
   ]
@@ -122,8 +126,20 @@ export function buildInstructions(ctx: ChatContext, userTimezone: string) {
     .join("\n");
 }
 
-/** Chat tools. They run as the signed-in user, so row-level security applies to every write. */
-export function buildChatTools(supabase: Supabase, ctx: ChatContext) {
+export interface ToolOptions {
+  /** Set when tools run inside a background task: new tasks become its children. */
+  parentTask?: { id: string; depth: number };
+  /** Called after a task is created (starts its background run). */
+  onTaskCreated?: (task: { id: string; workspaceId: string }) => Promise<void>;
+}
+
+const MAX_DEPTH = 3; // matches the tasks.depth check in the database
+
+/**
+ * Bot tools, shared by chat and background runs. In chat they run as the signed-in user (RLS
+ * applies); in runs they use the service role and every query is scoped to the bot's workspace.
+ */
+export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: ToolOptions = {}) {
   const { bot, roster } = ctx;
   const has = (key: string) => bot.role === "head" || bot.tool_keys.includes(key);
 
@@ -156,6 +172,8 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext) {
           .eq("workspace_id", bot.workspace_id)
           .gte("created_at", since.toISOString());
         if ((count ?? 0) >= ctx.dailyTaskCap) return { ok: false, error: `The daily task cap (${ctx.dailyTaskCap}) is reached.` };
+        const depth = options.parentTask ? options.parentTask.depth + 1 : 0;
+        if (depth > MAX_DEPTH) return { ok: false, error: "Tasks can only be delegated 3 levels deep — do this part yourself." };
 
         const { data, error } = await supabase
           .from("tasks")
@@ -166,12 +184,23 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext) {
             status: "backlog",
             assignee_bot_id: target.id,
             created_by_bot_id: bot.id,
-            source: "web",
+            source: options.parentTask ? "bot" : "web",
+            parent_task_id: options.parentTask?.id ?? null,
+            depth,
           })
           .select("id")
           .single();
         if (error) return { ok: false, error: error.message };
-        return { ok: true, taskId: data.id, title: title.trim(), assignee: target.name };
+        let started = false;
+        if (options.onTaskCreated) {
+          try {
+            await options.onTaskCreated({ id: data.id, workspaceId: bot.workspace_id });
+            started = true;
+          } catch {
+            // The task is on the board; the safety sweep (or Retry) will start it.
+          }
+        }
+        return { ok: true, taskId: data.id, title: title.trim(), assignee: target.name, started };
       },
     }),
   };
@@ -205,4 +234,28 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext) {
         }
       : {}),
   };
+}
+
+/** Extra instructions when the bot is working a task in the background (not chatting). */
+export function buildRunInstructions(
+  ctx: ChatContext,
+  userTimezone: string,
+  task: { title: string; body: string; depth: number; createdBy: string | null },
+) {
+  return [
+    buildInstructions(ctx, userTimezone),
+    "",
+    "You are now working in the background on this task (the user is not watching live):",
+    `Task: ${task.title}`,
+    task.body ? `Details: ${task.body}` : "",
+    task.createdBy ? `Assigned by: ${task.createdBy}` : "Assigned by: the user",
+    "",
+    "Do the work with your tools, then end with a short report for the user: what you did, the result, and any next steps.",
+    canDelegate(ctx.bot) && task.depth < MAX_DEPTH
+      ? "If parts belong to other bots, delegate them with create_task (they start immediately) and say who is doing what."
+      : "Do the work yourself; don't create tasks for other bots.",
+    "You can't send email, browse or code yet unless you have a tool for it — if the task needs one, say exactly what's missing instead of pretending.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

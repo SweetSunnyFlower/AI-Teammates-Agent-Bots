@@ -8,6 +8,7 @@ import { OfficeProvider, useOffice, type RevealSection } from "./office-provider
 import { OfficeStage } from "./office-stage";
 import { TopBar } from "./top-bar";
 import { TeamDialogs } from "@/components/team/team-dialogs";
+import { RealtimeSync } from "./realtime-sync";
 
 /**
  * Office home screen: the 3D garden fills the whole page and the header + panels float over
@@ -22,14 +23,16 @@ export function OfficeScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
 }
 
 function OfficeLayout() {
-  const { snapshot, revealSection, canEdit, openEditor } = useOffice();
+  const { snapshot, revealSection, canEdit, openEditor, openReply } = useOffice();
 
   // Deep links from the Boards page: #waiting, #routines, #add-bot.
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (hash === "waiting" || hash === "routines") revealSection(hash as RevealSection);
     if (hash === "add-bot" && canEdit) openEditor({ type: "bot" });
-  }, [revealSection, canEdit, openEditor]);
+    const reply = /^reply:([0-9a-f-]{36}):([0-9a-f-]{36})$/i.exec(hash);
+    if (reply && canEdit) openReply(reply[1], reply[2]);
+  }, [revealSection, canEdit, openEditor, openReply]);
 
   return (
     <main className="lawn-bg relative flex min-h-dvh flex-col gap-3 p-3 lg:block lg:h-dvh lg:overflow-hidden lg:p-0">
@@ -61,6 +64,7 @@ function OfficeLayout() {
         </div>
       </div>
       <TeamDialogs />
+      <RealtimeSync workspaceId={snapshot.workspace.id} enabled={canEdit} />
     </main>
   );
 }
