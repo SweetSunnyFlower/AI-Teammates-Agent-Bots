@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../../trigger.config.ts"],
-  "sourcesContent": ["import { defineConfig } from \"@trigger.dev/sdk\";\n\n// Background runs for Dotty bots. Tasks live in ./trigger.\n// The project ref comes from .env.local (TRIGGER_PROJECT_REF) — see .env.example.\nexport default defineConfig({\n  project: process.env.TRIGGER_PROJECT_REF ?? \"proj_set_TRIGGER_PROJECT_REF_in_env_local\",\n  dirs: [\"./trigger\"],\n  runtime: \"node-22\",\n\n  // A bot run may browse, code or wait; give it up to an hour of compute (waits don't count).\n  maxDuration: 3600,\n\n  logLevel: \"info\",\n\n  retries: {\n    enabledInDev: false,\n    default: { maxAttempts: 2, minTimeoutInMs: 2000, maxTimeoutInMs: 20000, factor: 2, randomize: true },\n  },\n\n  build: {},\n});\nexport const resolveEnvVars = undefined;"],
-  "mappings": ";;;;;;;;;;;;AAAA;AAIA,IAAO,yBAAQ,aAAa;AAAA,EAC1B,SAAS,QAAQ,IAAI,uBAAuB;AAAA,EAC5C,MAAM,CAAC,WAAW;AAAA,EAClB,SAAS;AAAA;AAAA,EAGT,aAAa;AAAA,EAEb,UAAU;AAAA,EAEV,SAAS;AAAA,IACP,cAAc;AAAA,IACd,SAAS,EAAE,aAAa,GAAG,gBAAgB,KAAM,gBAAgB,KAAO,QAAQ,GAAG,WAAW,KAAK;AAAA,EACrG;AAAA,EAEA,OAAO,CAAC;AACV,CAAC;AACM,IAAM,iBAAiB;",
-  "names": []
-}
