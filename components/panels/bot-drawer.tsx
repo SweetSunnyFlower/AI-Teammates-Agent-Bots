@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, Pencil, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, X } from "lucide-react";
 import { floorColors, floorTag } from "@/lib/office/floors";
 import { STATUS_META } from "@/lib/office/status";
 import { GATED_TOOLS } from "@/lib/office/tools";
@@ -9,7 +9,6 @@ import { useOffice, type DrawerTab } from "@/components/office/office-provider";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Timeline,
@@ -24,6 +23,8 @@ import {
 } from "@/components/ui/timeline";
 import { BotStatus } from "@/components/office/bot-status";
 import { BotChat } from "@/components/chat/bot-chat";
+import { InboxCard } from "@/components/inbox/inbox-card";
+import { RoutineItem } from "@/components/routines/routine-item";
 
 const TABS: DrawerTab[] = ["chat", "activity", "routines", "setup"];
 
@@ -93,21 +94,22 @@ export function BotDrawer({ botId }: { botId: string }) {
           <ScrollArea className="h-full">
             <ul className="flex flex-col gap-3 p-4">
               {snapshot.routines.filter((r) => r.botId === bot.id).length === 0 && (
-                <li className="font-mono text-[12.5px] text-ink-muted">no routines yet.</li>
+                <li className="font-mono text-[12.5px] text-ink-muted">no routines yet — {bot.name} only works when asked.</li>
               )}
               {snapshot.routines
                 .filter((r) => r.botId === bot.id)
                 .map((r) => (
-                  <li key={r.id} className="flex items-center gap-3 rounded-[12px] border-[1.5px] border-ink/30 p-3">
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-bold text-ink">{r.name}</span>
-                      <span className="block font-mono text-[12px] text-ink-muted">
-                        {r.schedule} · {r.nextRunIn}
-                      </span>
-                    </span>
-                    <Switch defaultChecked={r.enabled} size="sm" aria-label={`Toggle ${r.name}`} className="data-checked:bg-status-working" />
+                  <li key={r.id} className="rounded-[12px] border-[1.5px] border-ink/30 p-3">
+                    <RoutineItem routine={r} showBot={false} />
                   </li>
                 ))}
+              {canEdit && (
+                <li>
+                  <button type="button" className="fn-pill" onClick={() => openEditor({ type: "routine", botId: bot.id })}>
+                    <Plus className="size-3.5" /> Add a routine for {bot.name}
+                  </button>
+                </li>
+              )}
             </ul>
           </ScrollArea>
         </TabsContent>
@@ -149,38 +151,15 @@ export function BotDrawer({ botId }: { botId: string }) {
 }
 
 function PendingApproval({ botId }: { botId: string }) {
-  const { snapshot, decideInbox, setDrawerTab } = useOffice();
-  const item = snapshot.inbox.find((i) => i.botId === botId);
-  if (!item) return null;
+  const { snapshot, botById } = useOffice();
+  const bot = botById.get(botId);
+  const items = snapshot.inbox.filter((i) => i.botId === botId);
+  if (!bot || items.length === 0) return null;
   return (
-    <div className="mb-4 rounded-[12px] border-[1.5px] border-ink/70 bg-honey p-3">
-      <p className="fn-label text-ink/70">{item.kind === "approval" ? `wants to ${item.action}` : "has a question"}</p>
-      <p className="mt-0.5 text-[14px] font-bold text-ink">{item.title}</p>
-      <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-ink/80">{item.preview}</p>
-      <div className="mt-2.5 flex gap-1.5">
-        {item.kind === "approval" ? (
-          <>
-            <button type="button" onClick={() => decideInbox(item, "approve")} className="fn-pill border-ink bg-ink text-panel hover:bg-ink/85">
-              <Check className="size-3.5" /> Approve
-            </button>
-            <button type="button" className="fn-pill" disabled title="Editing arrives with the approval gate (phase 3)">
-              <Pencil className="size-3.5" /> Edit
-            </button>
-            <button type="button" onClick={() => decideInbox(item, "skip")} className="fn-pill text-[#b5473f]">
-              <X className="size-3.5" /> Reject
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" onClick={() => setDrawerTab("chat")} className="fn-pill border-ink bg-ink text-panel hover:bg-ink/85">
-              Answer
-            </button>
-            <button type="button" onClick={() => decideInbox(item, "skip")} className="fn-pill">
-              Skip
-            </button>
-          </>
-        )}
-      </div>
+    <div className="mb-4 flex flex-col gap-2">
+      {items.map((item) => (
+        <InboxCard key={item.id} item={item} bot={bot} inline />
+      ))}
     </div>
   );
 }

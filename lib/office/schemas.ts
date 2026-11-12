@@ -35,6 +35,8 @@ export const botSchema = z
     color: hex,
     instructions: z.string().trim().max(4000, "Keep instructions under 4,000 characters"),
     tools: z.array(z.string()).max(40),
+    /** Composio toolkit slugs, or ["*"] for every connected app (now and later). */
+    apps: z.array(z.string().regex(/^(\*|[a-z0-9_-]{1,64})$/, "Unknown app")).max(50),
     model: z.enum(BOT_MODELS.map((m) => m.value) as [string, ...string[]]),
   })
   .superRefine((v, ctx) => {

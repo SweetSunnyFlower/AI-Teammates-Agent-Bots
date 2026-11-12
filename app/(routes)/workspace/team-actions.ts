@@ -128,6 +128,7 @@ export async function saveBot(workspaceId: string, botId: string | null, input: 
       p_tool_keys: v.tools,
       p_avatar: { shape: v.shape, color: v.color.toLowerCase() },
       p_model: v.model,
+      p_app_keys: v.apps.includes("*") ? ["*"] : [...new Set(v.apps)],
     });
     if (error) return { ok: false, error: friendly(error.message) };
     return { ok: true, id: data as string };
@@ -139,7 +140,7 @@ export async function retryTask(taskId: string): Promise<ActionResult> {
   return run(async () => {
     if (!uuid.safeParse(taskId).success) return { ok: false, error: "Unknown task." };
     const supabase = await client();
-    const { data: task } = await supabase.from("tasks").select("id, workspace_id, status").eq("id", taskId).maybeSingle();
+    const { data: task } = await supabase.from("tasks").select("id, workspace_id, status, assignee_bot_id").eq("id", taskId).maybeSingle();
     if (!task) return { ok: false, error: "That task doesn't exist or isn't yours." };
     if (!["failed", "backlog", "doing"].includes(task.status)) return { ok: false, error: "Only failed, waiting or stuck tasks can be restarted." };
     if (!hasTrigger()) return { ok: false, error: "Background runs aren't set up yet — add the Trigger.dev keys to .env.local." };
@@ -147,7 +148,8 @@ export async function retryTask(taskId: string): Promise<ActionResult> {
     if (await releaseStaleRuns(createAdminClient(), task.id)) return { ok: false, error: "It's still working on this — give it a moment." };
     const { error } = await supabase.from("tasks").update({ status: "backlog", result: null }).eq("id", taskId);
     if (error) return { ok: false, error: friendly(error.message) };
-    await startTaskRun({ id: task.id, workspaceId: task.workspace_id }, `retry-${Date.now()}`);
+    if (!task.assignee_bot_id) return { ok: false, error: "Assign this task to a bot first." };
+    await startTaskRun({ id: task.id, workspaceId: task.workspace_id, assigneeBotId: task.assignee_bot_id }, `retry-${Date.now()}`);
     return { ok: true };
   });
 }

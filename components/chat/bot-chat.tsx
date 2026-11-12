@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { useChat } from "@ai-sdk/react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Chat, useChat } from "@ai-sdk/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
-import { ArrowUp, ClipboardList, Loader2, MessageCircleQuestion, NotebookPen, RotateCcw, Square, SquarePen } from "lucide-react";
+import { ArrowUp, ClipboardList, Loader2, NotebookPen, RotateCcw, Search, Square, SquarePen } from "lucide-react";
+import { describeAppTool, isAppTool } from "@/lib/integrations/tool-labels";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
-import { answerQuestion, loadThread, startNewChat, type ThreadMessage } from "@/app/(routes)/workspace/chat-actions";
-import { createClient } from "@/lib/supabase/client";
+import { loadThread, startNewChat, type ThreadMessage } from "@/app/(routes)/workspace/chat-actions";
+import { subscribeLive } from "@/lib/supabase/realtime";
 import { BotAvatar } from "@/components/office/bot-avatar";
+import { InboxCard } from "@/components/inbox/inbox-card";
 import { useOffice } from "@/components/office/office-provider";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
@@ -24,77 +26,90 @@ import {
 } from "@/components/ui/message-scroller";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { Bot, InboxItem } from "@/lib/office/types";
+import type { Bot } from "@/lib/office/types";
 
 /** Words the bot "says" while it works on a reply (shimmering, like Claude's). */
 const THINKING_WORDS = ["Whirring", "Thinking", "Ideating", "Unraveling", "Pondering", "Tinkering", "Noodling", "Percolating", "Scheming", "Brewing"];
+
+/** Chat instances by bot id — module-level so they survive tab switches and drawer close/open. */
+const chats = new Map<string, Chat<ThreadMessage>>();
+/** When each bot's Chat was last filled from the saved thread (query `dataUpdatedAt`). */
+const seededAt = new Map<string, number>();
+
+function chatFor(botId: string) {
+  let chat = chats.get(botId);
+  if (!chat) {
+    chat = new Chat<ThreadMessage>({
+      id: `bot-${botId}`,
+      transport: new DefaultChatTransport<ThreadMessage>({
+        api: `/api/chat/${botId}`,
+        // The server keeps the thread; send only the new message.
+        prepareSendMessagesRequest: ({ messages }) => ({ body: { message: messages[messages.length - 1] } }),
+      }),
+    });
+    chats.set(botId, chat);
+  }
+  return chat;
+}
 
 /** One continuous thread per bot. "New chat" adds a divider; the bot only remembers what's below it. */
 export function BotChat({ bot }: { bot: Bot }) {
   const { canEdit, snapshot, pendingAsk, clearPendingAsk, focusMessage, clearFocusMessage } = useOffice();
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  const router = useRouter();
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const queryClient = useQueryClient();
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport<ThreadMessage>({
-        api: `/api/chat/${bot.id}`,
-        // The server keeps the thread; send only the new message.
-        prepareSendMessagesRequest: ({ messages }) => ({ body: { message: messages[messages.length - 1] } }),
-      }),
-    [bot.id],
-  );
-
-  const { messages, setMessages, sendMessage, status, error, stop, regenerate, clearError } = useChat<ThreadMessage>({
-    id: `bot-${bot.id}`,
-    transport,
-    onFinish: ({ message }) => {
-      // A task was created → refresh the board counts / activity.
-      if (message.parts.some((p) => p.type === "tool-create_task")) router.refresh();
+  // The saved thread, cached: switching tabs or bots and coming back shows it instantly.
+  const thread = useQuery({
+    queryKey: ["thread", bot.id],
+    queryFn: async () => {
+      const res = await loadThread(bot.id);
+      if (!res.ok) throw new Error(res.error);
+      return res.messages;
     },
+    enabled: canEdit,
+    staleTime: 60_000,
+    gcTime: Infinity,
   });
 
-  // Load the saved thread when the chat opens.
+  // One Chat per bot, kept across mounts — a reply keeps streaming even while you're on another tab.
+  const { messages, setMessages, sendMessage, status, error, stop, regenerate, clearError } = useChat<ThreadMessage>({
+    chat: chatFor(bot.id),
+  });
+  const loaded = thread.data !== undefined || seededAt.has(bot.id);
+  const loadError = !loaded && thread.error ? thread.error.message : null;
+
+  // Show the saved thread when it (re)loads — but never swap messages out mid-reply.
   useEffect(() => {
-    if (!canEdit) return;
-    let cancelled = false;
-    loadThread(bot.id).then((res) => {
-      if (cancelled) return;
-      if (res.ok) setMessages(res.messages);
-      else setLoadError(res.error);
-      setLoaded(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [bot.id, canEdit, setMessages]);
+    if (!thread.data || status === "submitted" || status === "streaming") return;
+    if ((seededAt.get(bot.id) ?? -1) >= thread.dataUpdatedAt) return;
+    seededAt.set(bot.id, thread.dataUpdatedAt);
+    setMessages(thread.data);
+  }, [thread.data, thread.dataUpdatedAt, status, bot.id, setMessages]);
 
   // Live thread: run reports (and messages from other tabs) appear without a reload.
   useEffect(() => {
-    if (!canEdit || !loaded) return;
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`thread:${bot.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `bot_id=eq.${bot.id}` }, (payload) => {
-        const row = payload.new as { id: string; ui_id: string | null; role: ThreadMessage["role"]; kind: string; parts: ThreadMessage["parts"]; created_at: string };
-        const id = row.ui_id ?? row.id;
-        setMessages((current) =>
-          current.some((m) => m.id === id)
-            ? current
-            : [...current, { id, role: row.role, parts: row.kind === "divider" ? [] : row.parts, metadata: { createdAt: row.created_at, divider: row.kind === "divider" || undefined } }],
-        );
-      })
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [bot.id, canEdit, loaded, setMessages]);
+    if (!canEdit) return;
+    return subscribeLive(
+      `thread:${bot.id}`,
+      (channel) =>
+        channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `bot_id=eq.${bot.id}` }, (payload) => {
+          const row = payload.new as { id: string; ui_id: string | null; role: ThreadMessage["role"]; kind: string; parts: ThreadMessage["parts"]; created_at: string };
+          const id = row.ui_id ?? row.id;
+          setMessages((current) =>
+            current.some((m) => m.id === id)
+              ? current
+              : [...current, { id, role: row.role, parts: row.kind === "divider" ? [] : row.parts, metadata: { createdAt: row.created_at, divider: row.kind === "divider" || undefined } }],
+          );
+        }),
+      // Reconnected after a drop: fetch anything we missed.
+      (rejoined) => {
+        if (rejoined) void queryClient.invalidateQueries({ queryKey: ["thread", bot.id] });
+      },
+    );
+  }, [bot.id, canEdit, setMessages, queryClient]);
 
   // "Read reply": scroll to the task's report and highlight it for a moment.
   useEffect(() => {
@@ -114,9 +129,14 @@ export function BotChat({ bot }: { bot: Bot }) {
     };
   }, [loaded, focusMessage, bot.id, messages, clearFocusMessage]);
 
-  // "Ask the Head" hands its message over once the thread is loaded.
+  // "Ask the Head" hands its message over once the thread is loaded. The nonce is remembered
+  // because clearPendingAsk() only takes effect on the next render: without it React would run
+  // this effect again with the same pendingAsk (it always does in development) and send twice.
+  const sentAskRef = useRef<number | null>(null);
   useEffect(() => {
     if (!loaded || !pendingAsk || pendingAsk.botId !== bot.id) return;
+    if (sentAskRef.current === pendingAsk.nonce) return;
+    sentAskRef.current = pendingAsk.nonce;
     clearPendingAsk();
     void sendMessage({ text: pendingAsk.text });
   }, [loaded, pendingAsk, bot.id, clearPendingAsk, sendMessage]);
@@ -125,7 +145,7 @@ export function BotChat({ bot }: { bot: Bot }) {
   const last = messages[messages.length - 1];
   // Show the thinking shimmer until the reply's first words arrive.
   const thinking = status === "submitted" || (status === "streaming" && !(last?.role === "assistant" && hasText(last)));
-  const questions = snapshot.inbox.filter((i) => i.botId === bot.id && i.kind === "question");
+  const waiting = snapshot.inbox.filter((i) => i.botId === bot.id);
 
   const send = () => {
     const text = input.trim();
@@ -213,9 +233,9 @@ export function BotChat({ bot }: { bot: Bot }) {
                 </MessageScrollerItem>
               )}
 
-              {questions.map((q) => (
-                <MessageScrollerItem key={q.id} messageId={`q-${q.id}`}>
-                  <QuestionCard item={q} bot={bot} />
+              {waiting.map((item) => (
+                <MessageScrollerItem key={item.id} messageId={`inbox-${item.id}`}>
+                  <InboxCard item={item} bot={bot} inline />
                 </MessageScrollerItem>
               ))}
 
@@ -386,6 +406,7 @@ type ToolPart = { type: string; state: string; input?: Record<string, unknown>; 
 /** Compact line for each tool the bot used. */
 function ToolChip({ part }: { part: ToolPart }) {
   const name = part.type.slice("tool-".length);
+  if (isAppTool(name)) return <AppToolChip name={name} part={part} />;
   const done = part.state === "output-available";
   const failed = part.state === "output-error" || (done && part.output?.ok === false);
   let label: string;
@@ -403,6 +424,13 @@ function ToolChip({ part }: { part: ToolPart }) {
     label = done ? "Read notes" : "Reading notes…";
   } else if (name === "list_tasks") {
     label = done ? "Checked the board" : "Checking the board…";
+  } else if (name === "propose_routine") {
+    const routine = String(part.output?.proposed ?? part.input?.name ?? "a routine");
+    label = failed
+      ? `Couldn't propose “${routine}”: ${String(part.output?.error ?? "error")}`
+      : done
+        ? `Proposed routine “${routine}” · ${String(part.output?.schedule ?? "")} · waiting for your OK`
+        : `Proposing “${routine}”…`;
   } else {
     label = name;
   }
@@ -414,47 +442,42 @@ function ToolChip({ part }: { part: ToolPart }) {
   );
 }
 
-/** A bot's question with its own reply box — the answer is tied to this question. */
-function QuestionCard({ item, bot }: { item: InboxItem; bot: Bot }) {
-  const router = useRouter();
-  const [answer, setAnswer] = useState("");
-  const [pending, startTransition] = useTransition();
-  const submit = () =>
-    startTransition(async () => {
-      const res = await answerQuestion(item.id, answer);
-      if (!res.ok) return void toast.error("Couldn't send your answer", { description: res.error });
-      toast.success(`Answer sent to ${bot.name}`);
-      setAnswer("");
-      router.refresh();
-    });
+/** An app action (any connected app): its logo(s) and "Notion · create page" instead of COMPOSIO_*. */
+function AppToolChip({ name, part }: { name: string; part: ToolPart }) {
+  const info = describeAppTool(name, part.input);
+  const done = part.state === "output-available";
+  const error = part.state === "output-error" || (done && part.output?.successful === false);
+  const reason = String(part.output?.error ?? "");
+  const label = error
+    ? /approval/i.test(reason)
+      ? `${info.done} — needs your approval`
+      : /rejected|NOT done/i.test(reason)
+        ? `${info.done} — you said no`
+        : `${info.done} — didn't work`
+    : done
+      ? info.done
+      : info.running;
   return (
-    <div className="rounded-[12px] border-2 border-ink/70 bg-honey p-3">
-      <p className="flex items-center gap-1.5 font-mono text-[11.5px] text-ink/70">
-        <MessageCircleQuestion className="size-3.5" /> {bot.name} asks
-      </p>
-      <p className="mt-1 text-[14px] font-bold">{item.title}</p>
-      {item.preview && <p className="mt-0.5 text-[13px] text-ink/80">{item.preview}</p>}
-      <form
-        className="mt-2 flex items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (answer.trim()) submit();
-        }}
-      >
-        <Textarea
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          rows={2}
-          maxLength={4000}
-          placeholder="Your answer…"
-          aria-label={`Answer ${bot.name}'s question`}
-          className="min-h-12 resize-none rounded-[10px] border-2 border-ink/50 bg-field text-[13.5px]"
-        />
-        <button type="submit" disabled={pending || !answer.trim()} className="fn-pill shrink-0 border-ink bg-ink text-panel">
-          {pending ? <Loader2 className="size-3.5 animate-spin" /> : "Answer"}
-        </button>
-      </form>
-    </div>
+    <Marker
+      role={done || error ? undefined : "status"}
+      className={cn("font-mono text-[12px]", error ? "text-[#b5473f]" : info.lookup ? "text-ink-muted/80" : "text-ink-muted")}
+    >
+      <MarkerIcon>
+        {!done && !error ? (
+          <Spinner className="size-3.5" />
+        ) : info.apps.length ? (
+          <span className="flex -space-x-1">
+            {info.apps.slice(0, 3).map((app) => (
+              // eslint-disable-next-line @next/next/no-img-element -- third-party app logos from Composio's CDN
+              <img key={app.slug} src={app.logo} alt={app.name} title={app.name} className="size-3.5 rounded-[3px] bg-white object-contain" loading="lazy" />
+            ))}
+          </span>
+        ) : (
+          <Search className="size-3.5" />
+        )}
+      </MarkerIcon>
+      <MarkerContent className={cn(!done && !error && "shimmer")}>{label}</MarkerContent>
+    </Marker>
   );
 }
 

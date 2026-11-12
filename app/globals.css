@@ -241,8 +241,17 @@
   50% { opacity: 0.55; transform: scale(1.25); }
 }
 .fn-pulse { animation: fn-pulse 1.6s ease-in-out infinite; }
+
+/* A walking bot waddles side to side (set by the canvas projector via data-walking). */
+@keyframes bot-waddle {
+  0% { rotate: -7deg; }
+  100% { rotate: 7deg; }
+}
+.bot-pin[data-walking="1"] > button { animation: bot-waddle 0.22s ease-in-out infinite alternate; }
+
 @media (prefers-reduced-motion: reduce) {
   .fn-pulse { animation: none; }
+  .bot-pin[data-walking="1"] > button { animation: none; }
 }
 
 @keyframes fn-reveal {

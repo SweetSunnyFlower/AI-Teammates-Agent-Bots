@@ -1,3 +1,6 @@
+import type { PreviewCall } from "@/lib/approvals/describe";
+import type { AccessPreview } from "@/lib/integrations/app-access";
+
 // Office view-model types. These mirror the v1 data model in
 // docs/plans/2026-11-09-dotty-v1.md §5 and are filled from mock data until Phase 1 lands.
 
@@ -42,6 +45,8 @@ export interface Bot {
   lastActive: string;
   avatar: BotAvatarConfig;
   tools: string[];
+  /** Connected apps this bot may use: Composio toolkit slugs, or "*" for every connected app. */
+  apps: string[];
   instructions: string;
   model?: string;
 }
@@ -49,10 +54,16 @@ export interface Bot {
 export interface InboxItem {
   id: string;
   botId: string;
-  kind: "approval" | "question";
-  action?: "send" | "pay" | "publish" | "delete" | "merge" | "create_bot" | "create_department";
+  kind: "approval" | "question" | "access";
+  action?: "send" | "pay" | "publish" | "delete" | "merge" | "create_bot" | "create_department" | "create_routine";
   title: string;
   preview: string;
+  taskId?: string;
+  /** Approvals: the exact app actions the bot wants to take. */
+  calls?: PreviewCall[];
+  /** Access requests: the app the bot is missing and who already has it. */
+  access?: AccessPreview;
+  ago?: string;
 }
 
 export interface FinishedItem {
@@ -66,9 +77,16 @@ export interface Routine {
   id: string;
   botId: string;
   name: string;
+  /** Human-readable schedule, e.g. "Weekdays · 08:00". */
   schedule: string;
   nextRunIn: string;
   enabled: boolean;
+  /** For editing (absent in the demo office). */
+  cron?: string;
+  timezone?: string;
+  prompt?: string;
+  /** The most recent run's task. */
+  lastRun?: { taskId: string; status: TaskStatus; ago: string };
 }
 
 export interface ActivityEntry {
@@ -95,6 +113,8 @@ export interface Task {
   updated: string;
   /** Finished report summary, or why it failed. */
   result?: string;
+  /** Set when a routine created this task. */
+  routineId?: string;
 }
 
 export interface OfficeSnapshot {
@@ -108,4 +128,6 @@ export interface OfficeSnapshot {
   routines: Routine[];
   activity: ActivityEntry[];
   tasks: Task[];
+  /** The user's timezone (default for new routines). */
+  timeZone?: string;
 }

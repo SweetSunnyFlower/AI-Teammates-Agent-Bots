@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { CameraControlsImpl } from "@react-three/drei";
 import type { Vector3 } from "three";
-import { toast } from "sonner";
+import { useOfficeLife, type BotBubble } from "./use-office-life";
 import { floorsTopDown } from "@/lib/office/floors";
 import type { Bot, Department, InboxItem, OfficeSnapshot } from "@/lib/office/types";
 
@@ -29,20 +29,21 @@ export interface OverlayAnchor {
   /** "point" uses points[0]; the others pick the on-screen left- or right-most point. */
   mode: "point" | "leftmost" | "rightmost";
   scaleWithZoom: boolean;
+  /** Bot id: the anchor follows the bot when it walks (see motion.ts). */
+  motionKey?: string;
 }
 
 /** What the team dialogs are editing (undefined id = create). */
 export type Editor =
   | { type: "bot"; botId?: string; departmentId?: string }
   | { type: "department"; departmentId?: string }
+  | { type: "routine"; routineId?: string; botId?: string }
   | null;
 
 /** A short speech bubble over a bot in the office (start / finish / handoff). */
-export interface BotBubble {
-  text: string;
-  kind: "start" | "done" | "fail" | "info";
-  key: number;
-}
+export type { BotBubble } from "./use-office-life";
+
+export type SettingsTab = "connectors" | "workspace";
 
 /** The elevator shows this many floors at a time. */
 export const VISIBLE_FLOORS = 5;
@@ -83,6 +84,11 @@ interface OfficeState {
   /** A message waiting to be sent by a bot's chat once it opens (from "Ask the Head"). */
   pendingAsk: { botId: string; text: string; nonce: number } | null;
 
+  /** Settings dialog (header gear). */
+  settingsTab: SettingsTab | null;
+  openSettings: (tab?: SettingsTab) => void;
+  closeSettings: () => void;
+
   /** Live speech bubbles over bots, keyed by bot id. */
   bubbles: Record<string, BotBubble>;
   /** Open a bot's chat scrolled to (and highlighting) a task's report. */
@@ -110,6 +116,8 @@ interface OfficeState {
 
   reveal: { section: RevealSection; nonce: number } | null;
   revealSection: (section: RevealSection) => void;
+  /** Fetch fresh office data and swap it in (no page re-render). Use after any change. */
+  refreshOffice: () => Promise<void>;
 }
 
 const OfficeContext = createContext<OfficeState | null>(null);
@@ -130,13 +138,47 @@ export function OfficeProvider({
   children: ReactNode;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
-  // After a save, router.refresh() hands us a new server snapshot — adopt it (keep UI state).
+  // A new server snapshot (first render, or a page refresh) — adopt it (keep UI state).
   const [source, setSource] = useState(initialSnapshot);
   if (source !== initialSnapshot) {
     setSource(initialSnapshot);
     setSnapshot(initialSnapshot);
   }
+
+  /**
+   * Live data without re-rendering the page: fetch the snapshot as JSON and swap it in. Calls
+   * that arrive while one is in flight are merged into one follow-up fetch.
+   */
+  const workspaceId = initialSnapshot.workspace.id;
+  const liveData = workspaceId !== "demo"; // the demo office has nothing to fetch
+  const inflight = useRef<Promise<void> | null>(null);
+  const fetchAgain = useRef(false);
+  const refreshOffice = useCallback(() => {
+    if (!liveData) return Promise.resolve();
+    if (inflight.current) {
+      fetchAgain.current = true;
+      return inflight.current;
+    }
+    const run = async () => {
+      do {
+        fetchAgain.current = false;
+        try {
+          const res = await fetch(`/api/office/${workspaceId}`, { cache: "no-store" });
+          if (res.ok) setSnapshot((await res.json()) as OfficeSnapshot);
+        } catch {
+          // Offline for a moment — the next event or poll catches up.
+        }
+      } while (fetchAgain.current);
+    };
+    inflight.current = run().finally(() => {
+      inflight.current = null;
+    });
+    return inflight.current;
+  }, [workspaceId, liveData]);
   const [editor, openEditor] = useState<Editor>(null);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const openSettings = useCallback((tab: SettingsTab = "connectors") => setSettingsTab(tab), []);
+  const closeSettings = useCallback(() => setSettingsTab(null), []);
   const [pendingAsk, setPendingAsk] = useState<OfficeState["pendingAsk"]>(null);
   const [elevator, setElevator] = useState(0);
   const [lobbyNonce, setLobbyNonce] = useState(0);
@@ -227,6 +269,18 @@ export function OfficeProvider({
   // Floors were added/removed: keep the elevator inside the building.
   if (elevator > maxElevator) setElevator(maxElevator);
 
+  // Escape leaves a focused floor (and stops a tour): the camera pushes in on focus, so there
+  // has to be a way back out that is not the lobby button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setFocusedFloorId(null);
+      setTouring(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const toggleTour = useCallback(() => setTouring((t) => !t), []);
   const toggleCleanView = useCallback(() => setCleanView((c) => !c), []);
 
@@ -303,52 +357,22 @@ export function OfficeProvider({
   }, []);
   const clearFocusMessage = useCallback(() => setFocusMessage(null), []);
 
-  // Bubbles + toasts for new background-run activity (not for what was there on page load).
-  const [bubbles, setBubbles] = useState<Record<string, BotBubble>>({});
-  const seenActivity = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    const ids = snapshot.activity.map((a) => a.id);
-    if (!seenActivity.current) {
-      seenActivity.current = new Set(ids);
-      return;
-    }
-    const seen = seenActivity.current;
-    const fresh = snapshot.activity.filter((a) => !seen.has(a.id)).reverse(); // oldest first
-    ids.forEach((id) => seen.add(id));
-    const timers: number[] = [];
-    for (const a of fresh) {
-      const bot = snapshot.bots.find((b) => b.id === a.botId);
-      if (!bot) continue;
-      const title = /“(.+?)”/.exec(a.text)?.[1] ?? a.text;
-      let bubble: Omit<BotBubble, "key"> | null = null;
-      if (a.type === "run_started") bubble = { kind: "start", text: `On it — ${title}` };
-      else if (a.type === "run_finished") {
-        bubble = { kind: "done", text: `Done ✓ ${title}` };
-        toast.success(`${bot.name} finished`, {
-          description: title,
-          action: a.taskId ? { label: "Read reply", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
-        });
-      } else if (a.type === "run_failed") {
-        bubble = { kind: "fail", text: `Stuck — ${title}` };
-        toast.error(`${bot.name} couldn't finish`, {
-          description: title,
-          action: a.taskId ? { label: "See why", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
-        });
-      } else if (a.type === "tool" && a.text.startsWith("handed")) bubble = { kind: "info", text: a.text.replace(/^handed/, "Handed") };
-      if (!bubble) continue;
-      const key = Date.now() + Math.random();
-      setBubbles((b) => ({ ...b, [bot.id]: { ...bubble!, key } }));
-      timers.push(
-        window.setTimeout(
-          () => setBubbles((b) => (b[bot.id]?.key === key ? Object.fromEntries(Object.entries(b).filter(([id]) => id !== bot.id)) : b)),
-          bubble.kind === "start" || bubble.kind === "info" ? 6000 : 9000,
-        ),
-      );
-    }
-    return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [snapshot.activity, snapshot.bots, openReply]);
+  // Bubbles, toasts, handoff walks and NPC life for resting bots (see use-office-life.ts).
+  const bubbles = useOfficeLife({
+    snapshot,
+    floors,
+    botsByFloor,
+    elevator,
+    visibleFloors: VISIBLE_FLOORS,
+    focusedFloorId,
+    openReply,
+    revealSection,
+  });
 
   const value: OfficeState = {
+    settingsTab,
+    openSettings,
+    closeSettings,
     bubbles,
     openReply,
     focusMessage,
@@ -369,6 +393,7 @@ export function OfficeProvider({
     requestFrameRef,
     reveal,
     revealSection,
+    refreshOffice,
     snapshot,
     floors,
     botsByFloor,

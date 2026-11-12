@@ -4,12 +4,15 @@ import { useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice } from "@/components/office/office-provider";
+import { cn } from "@/lib/utils";
 
 /** Always-visible "Ask the Head" box: opens the Head bot's chat and sends the message there. */
 export function AskHead() {
   const { snapshot, canEdit, askBot } = useOffice();
   const [text, setText] = useState("");
   const head = snapshot.bots.find((b) => b.role === "head");
+  // Long or multi-line prompts turn the pill into a rounded box.
+  const multiline = text.includes("\n") || text.length > 55;
   if (!head || !canEdit) return null;
 
   const submit = () => {
@@ -25,16 +28,27 @@ export function AskHead() {
         e.preventDefault();
         submit();
       }}
-      className="fn-sticker pointer-events-auto h-12 w-[min(480px,92vw)] gap-2 rounded-full pr-1.5 pl-1.5 font-normal"
+      className={cn(
+        "fn-sticker pointer-events-auto h-auto min-h-12 w-[min(520px,92vw)] items-end gap-2 py-1.5 pr-1.5 pl-1.5 font-normal transition-[border-radius]",
+        multiline ? "rounded-[24px]" : "rounded-full",
+      )}
     >
       <BotAvatar bot={head} size={34} className="shrink-0" />
-      <input
+      {/* Grows with the text (up to ~8 lines, then scrolls). Enter sends, Shift+Enter adds a line. */}
+      <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        rows={1}
         maxLength={4000}
         placeholder={`Ask ${head.name} to…`}
-        aria-label={`Ask ${head.name}`}
-        className="min-w-0 flex-1 bg-transparent text-[14.5px] text-ink outline-none placeholder:text-ink-muted"
+        aria-label={`Ask ${head.name} (Enter to send, Shift+Enter for a new line)`}
+        className="field-sizing-content scrollbar-thin max-h-48 whitespace-pre-wrap min-h-[34px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14.5px] leading-5 text-ink outline-none placeholder:text-ink-muted"
       />
       <button
         type="submit"

@@ -40,6 +40,8 @@ export function TopBar({
   active,
   onReveal,
   onAddBot,
+  boardButton,
+  onOpenSettings,
   className,
 }: {
   workspace: Workspace;
@@ -50,6 +52,10 @@ export function TopBar({
   onReveal?: (section: RevealSection) => void;
   /** Opens the bot dialog in place; without it, + Bot links to the office (#add-bot). */
   onAddBot?: () => void;
+  /** The Boards control (the office passes its dialog toggle). */
+  boardButton?: ReactNode;
+  /** Opens the settings dialog (connectors…). */
+  onOpenSettings?: () => void;
   className?: string;
 }) {
   const counts = countByStatus(statuses);
@@ -96,12 +102,14 @@ export function TopBar({
           "bg-[#facf73] text-[#2b2620]",
         )}
 
-        {active === "boards" ? (
+        {boardButton ? (
+          boardButton
+        ) : active === "boards" ? (
           <Link href={officeHref} className="fn-sticker">
             <Building2 className="size-4.5" /> Office
           </Link>
         ) : (
-          <Link href={`${officeHref}/boards`} className="fn-sticker">
+          <Link href={`${officeHref}?board=1`} className="fn-sticker">
             <LayoutGrid className="size-4.5" /> Boards
           </Link>
         )}
@@ -130,10 +138,15 @@ export function TopBar({
           </Tooltip>
         )}
         <Tooltip>
-          <TooltipTrigger className="fn-sticker w-11 justify-center bg-[#fede8c] px-0 text-[#2b2620]" aria-label="Settings">
+          <TooltipTrigger
+            className="fn-sticker w-11 justify-center bg-[#fede8c] px-0 text-[#2b2620]"
+            aria-label="Settings"
+            onClick={onOpenSettings}
+            disabled={!onOpenSettings}
+          >
             <Settings className="size-5" />
           </TooltipTrigger>
-          <TooltipContent>Settings arrive in a later phase</TooltipContent>
+          <TooltipContent>{onOpenSettings ? "Settings & connectors" : "Sign in to change settings"}</TooltipContent>
         </Tooltip>
         <ThemeToggle />
         <form action={signOut}>

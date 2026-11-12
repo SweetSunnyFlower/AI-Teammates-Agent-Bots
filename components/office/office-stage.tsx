@@ -15,13 +15,24 @@ const OfficeCanvas = dynamic(() => import("./scene/office-canvas"), {
 });
 
 const noopSubscribe = () => () => {};
+/**
+ * Does this browser do WebGL? Asked once and remembered: React calls getSnapshot on every render,
+ * and a browser only allows about 16 live WebGL contexts — probing on each render would use them
+ * all up, and the browser then kills the office’s own context, leaving the building blank. The
+ * probe context is released straight away for the same reason.
+ */
+let webglSupport: boolean | null = null;
 function detectWebGL() {
+  if (webglSupport !== null) return webglSupport;
   try {
     const canvas = document.createElement("canvas");
-    return Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+    const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    context?.getExtension("WEBGL_lose_context")?.loseContext();
+    webglSupport = Boolean(context);
   } catch {
-    return false;
+    webglSupport = false;
   }
+  return webglSupport;
 }
 
 export function OfficeStage() {

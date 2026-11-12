@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Pencil, Plus, UserPlus } from "lucide-react";
 import { reorderDepartments } from "@/app/(routes)/workspace/team-actions";
@@ -10,8 +9,8 @@ import { floorColors } from "@/lib/office/floors";
 import { STATUS_META } from "@/lib/office/status";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice } from "@/components/office/office-provider";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { InboxCard } from "@/components/inbox/inbox-card";
+import { RoutineItem } from "@/components/routines/routine-item";
 import { Panel, StatusDot } from "./panel";
 
 type Section = "floors" | "waiting" | "finished" | "routines";
@@ -46,7 +45,7 @@ export function LeftColumn() {
 
 function FloorsPanel(accordion: AccordionProps) {
   const { snapshot, floors, botsByFloor, departmentById, focusedFloorId, focusFloor, canEdit, openEditor } = useOffice();
-  const router = useRouter();
+  const { refreshOffice } = useOffice();
   const departments = [...departmentById.values()];
   const [order, setOrder] = useState<string[] | null>(null); // optimistic order while saving
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +69,7 @@ function FloorsPanel(accordion: AccordionProps) {
         setError(res.error);
         toast.error("Couldn't reorder floors", { description: res.error });
       }
-      router.refresh();
+      void refreshOffice();
       setOrder(null);
     });
   };
@@ -169,7 +168,7 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
 }
 
 function WaitingPanel(accordion: AccordionProps) {
-  const { snapshot, botById, decideInbox, selectBot } = useOffice();
+  const { snapshot, botById } = useOffice();
   const items = snapshot.inbox;
   return (
     <Panel {...accordion} title="waiting on me" dotColor={STATUS_META.waiting.color} count={items.length} revealKey="waiting">
@@ -181,33 +180,8 @@ function WaitingPanel(accordion: AccordionProps) {
             const bot = botById.get(item.botId);
             if (!bot) return null;
             return (
-              <li key={item.id} className="rounded-[12px] border-[1.5px] border-ink/70 bg-honey p-3">
-                <div className="flex gap-2.5">
-                  <BotAvatar bot={bot} size={30} className="shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[14px] leading-tight font-bold text-ink">{bot.name}</p>
-                    <p className="mt-0.5 text-[13px] leading-snug text-ink/85">
-                      {item.kind === "approval" ? `Wants to ${item.action}: ${item.title}` : item.title}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-2.5 flex gap-1.5">
-                  {item.kind === "approval" ? (
-                    <button type="button" onClick={() => decideInbox(item, "approve")} className="fn-pill border-ink bg-ink text-panel hover:bg-ink/85">
-                      Approve
-                    </button>
-                  ) : (
-                    <button type="button" onClick={() => selectBot(bot.id, "chat")} className="fn-pill border-ink bg-ink text-panel hover:bg-ink/85">
-                      Answer
-                    </button>
-                  )}
-                  <button type="button" onClick={() => decideInbox(item, "skip")} className="fn-pill">
-                    Skip
-                  </button>
-                  <button type="button" onClick={() => selectBot(bot.id, "activity")} className="fn-pill">
-                    Open
-                  </button>
-                </div>
+              <li key={item.id}>
+                <InboxCard item={item} bot={bot} />
               </li>
             );
           })}
@@ -254,41 +228,31 @@ function FinishedPanel(accordion: AccordionProps) {
 }
 
 function RoutinesPanel(accordion: AccordionProps) {
-  const { snapshot, botById } = useOffice();
-  // Mock toggle state until routines are persisted (Phase 7).
-  const [enabled, setEnabled] = useState(() => Object.fromEntries(snapshot.routines.map((r) => [r.id, r.enabled])));
+  const { snapshot, canEdit, openEditor } = useOffice();
   return (
-    <Panel {...accordion} title="routines" dotColor="#5c8fd6" count={snapshot.routines.length} revealKey="routines">
+    <Panel
+      {...accordion}
+      title="routines"
+      dotColor="#5c8fd6"
+      count={snapshot.routines.length}
+      revealKey="routines"
+      action={
+        canEdit && snapshot.bots.length > 0 ? (
+          <button type="button" className="fn-pill" onClick={() => openEditor({ type: "routine" })} disabled={snapshot.routines.length >= 50}>
+            <Plus className="size-3.5" /> routine
+          </button>
+        ) : undefined
+      }
+    >
       {snapshot.routines.length === 0 && (
         <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">no routines yet — bots only run when asked.</p>
       )}
       <ul className="flex flex-col gap-2">
-        {snapshot.routines.map((r) => {
-          const bot = botById.get(r.botId);
-          const on = enabled[r.id];
-          return (
-            <li key={r.id} className="flex items-start gap-2 px-1.5">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-bold text-ink">{r.name}</span>
-                <span className="block truncate text-[12.5px] text-ink-muted">
-                  {bot?.name} · {r.schedule}
-                </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-1.5">
-                <Badge variant="outline" className="border-ink/40 bg-chip-sky font-mono text-[11px] text-ink">
-                  {on ? r.nextRunIn : "paused"}
-                </Badge>
-                <Switch
-                  size="sm"
-                  checked={on}
-                  onCheckedChange={(checked) => setEnabled((e) => ({ ...e, [r.id]: checked }))}
-                  aria-label={`${on ? "Turn off" : "Turn on"} ${r.name}`}
-                  className="data-checked:bg-status-working"
-                />
-              </span>
-            </li>
-          );
-        })}
+        {snapshot.routines.map((r) => (
+          <li key={r.id} className="px-1.5">
+            <RoutineItem routine={r} />
+          </li>
+        ))}
       </ul>
     </Panel>
   );

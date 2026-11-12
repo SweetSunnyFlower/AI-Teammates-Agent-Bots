@@ -8,6 +8,11 @@ import { OfficeProvider, useOffice, type RevealSection } from "./office-provider
 import { OfficeStage } from "./office-stage";
 import { TopBar } from "./top-bar";
 import { TeamDialogs } from "@/components/team/team-dialogs";
+import { BoardDialog } from "@/components/boards/board-dialog";
+import { BoardToggleButton } from "@/components/boards/board-toggle-button";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { RealtimeSync } from "./realtime-sync";
 
 /**
@@ -23,7 +28,28 @@ export function OfficeScreen({ snapshot }: { snapshot: OfficeSnapshot }) {
 }
 
 function OfficeLayout() {
-  const { snapshot, revealSection, canEdit, openEditor, openReply } = useOffice();
+  const { snapshot, revealSection, canEdit, openEditor, openReply, openSettings } = useOffice();
+  const queryClient = useQueryClient();
+
+  // Back from Composio's Connect Link: reopen Connectors, confirm, and tidy the URL.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("settings") !== "connectors") return;
+    const connected = q.get("connected");
+    const status = q.get("status");
+    q.delete("settings");
+    q.delete("connected");
+    q.delete("status");
+    q.delete("connectedAccountId");
+    const search = q.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`);
+    if (!canEdit) return;
+    // A connection just changed on Composio's side: drop the cached connectors list.
+    void queryClient.invalidateQueries({ queryKey: ["connectors"] });
+    openSettings("connectors");
+    if (connected && status !== "failed") toast.success(`${connected} connected`, { description: "Your bots can now read from it." });
+    else if (connected) toast.error(`Couldn't connect ${connected}`, { description: "Try again from Settings → Connectors." });
+  }, [canEdit, openSettings, queryClient]);
 
   // Deep links from the Boards page: #waiting, #routines, #add-bot.
   useEffect(() => {
@@ -52,6 +78,8 @@ function OfficeLayout() {
           active="office"
           onReveal={revealSection}
           onAddBot={canEdit ? () => openEditor({ type: "bot" }) : undefined}
+          boardButton={<BoardToggleButton />}
+          onOpenSettings={canEdit ? () => openSettings("connectors") : undefined}
         />
         <div className="contents lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[290px_minmax(0,1fr)_340px] lg:gap-4">
           <div className="pointer-events-auto order-3 lg:order-none lg:min-h-0 lg:overflow-hidden">
@@ -63,6 +91,8 @@ function OfficeLayout() {
           </aside>
         </div>
       </div>
+      <BoardDialog />
+      <SettingsDialog />
       <TeamDialogs />
       <RealtimeSync workspaceId={snapshot.workspace.id} enabled={canEdit} />
     </main>

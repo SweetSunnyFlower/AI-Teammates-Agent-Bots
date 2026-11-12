@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { hasApp } from "@/lib/integrations/app-access";
 
 /** The user's client (chat, RLS applies) or the service-role client (background runs). */
 type Supabase = SupabaseClient;
@@ -13,19 +14,27 @@ export interface ChatBot {
   name: string;
   instructions: string;
   tool_keys: string[];
+  /** Composio toolkit slugs this bot may use, or ["*"] for every connected app. */
+  app_keys: string[];
   model: string;
 }
 
 interface Roster {
   floors: Array<{ id: string; name: string; floor_index: number; description: string; kind: string }>;
-  bots: Array<{ id: string; name: string; role: string; department_id: string; instructions: string }>;
+  bots: Array<{ id: string; name: string; role: string; department_id: string; instructions: string; app_keys: string[] }>;
+}
+
+/** What a bot knows about apps: the ones it can use, and everything connected to the workspace. */
+export interface AppAccess {
+  mine: string[];
+  connected: Array<{ slug: string; name: string }>;
 }
 
 /** Loads the bot (RLS: only the owner's bots are visible) plus what it needs to know. */
 export async function loadChatContext(supabase: Supabase, botId: string) {
   const { data: bot } = await supabase
     .from("bots")
-    .select("id, workspace_id, department_id, role, name, instructions, tool_keys, model")
+    .select("id, workspace_id, department_id, role, name, instructions, tool_keys, app_keys, model")
     .eq("id", botId)
     .maybeSingle<ChatBot>();
   if (!bot) return null;
@@ -33,7 +42,7 @@ export async function loadChatContext(supabase: Supabase, botId: string) {
   const [workspace, floors, bots, notes, tasks] = await Promise.all([
     supabase.from("workspaces").select("name, daily_task_cap").eq("id", bot.workspace_id).single(),
     supabase.from("departments").select("id, name, floor_index, description, kind").eq("workspace_id", bot.workspace_id).order("floor_index", { ascending: false }),
-    supabase.from("bots").select("id, name, role, department_id, instructions").eq("workspace_id", bot.workspace_id),
+    supabase.from("bots").select("id, name, role, department_id, instructions, app_keys").eq("workspace_id", bot.workspace_id),
     supabase.from("bot_notes").select("content").eq("bot_id", bot.id).maybeSingle(),
     openTasksFor(supabase, bot),
   ]);
@@ -67,9 +76,13 @@ async function openTasksFor(supabase: Supabase, bot: ChatBot) {
 
 const canDelegate = (bot: ChatBot) => bot.role === "head" || (bot.role === "lead" && bot.tool_keys.includes("assign_task"));
 
+/** A bot with no app access (the Head by default) plans and delegates instead of doing hands-on work. */
+const handsOn = (bot: ChatBot) => bot.app_keys.length > 0;
+
 /** System instructions: who the bot is, where it sits, who else works here, and the house rules. */
-export function buildInstructions(ctx: ChatContext, userTimezone: string) {
+export function buildInstructions(ctx: ChatContext, userTimezone: string, access: AppAccess = { mine: [], connected: [] }) {
   const { bot, roster } = ctx;
+  const appsInHand = handsOn(bot);
   const floorOf = (id: string) => roster.floors.find((f) => f.id === id);
   const myFloor = floorOf(bot.department_id);
   const nameOf = (id: string | null) => roster.bots.find((b) => b.id === id)?.name ?? "unassigned";
@@ -112,25 +125,63 @@ export function buildInstructions(ctx: ChatContext, userTimezone: string) {
     "How to work:",
     "- Be brief and friendly, like a capable coworker in a chat. Use short paragraphs or bullets.",
     "- Answer simple questions directly. For real work (research, emails, coding, anything that takes time), create a task with create_task instead of pretending to do it in chat.",
-    canDelegate(bot)
-      ? "- You may assign tasks to any bot; pick the bot whose floor and job fit best. Split big requests into a few clear tasks."
-      : "- You can only create tasks for yourself; suggest the user ask the Head bot for work that belongs on another floor.",
+    bot.role === "head"
+      ? "- Answer simple questions yourself, straight away — about the team, the board, what's going on, or anything you can answer from what you know. But you are the planner, not a doer: any request that needs hands-on work (researching the web, reading or summarising email, writing notes or docs, coding, checking prices…) becomes tasks with create_task — one per piece of work — assigned to the best-fitting bot, usually a worker. Never do that work yourself, so you stay free for the next request. Then tell the user who is doing what."
+      : bot.role === "lead" && !appsInHand
+        ? "- You coordinate your floor: delegate hands-on work to the workers on your floor with create_task instead of doing it yourself, so you stay free for new work. Only answer quick questions directly."
+        : canDelegate(bot)
+          ? "- You may assign tasks to any bot; pick the bot whose floor and job fit best. Split big requests into a few clear tasks."
+          : "- You can only create tasks for yourself; suggest the user ask the Head bot for work that belongs on another floor.",
     bot.role === "head"
       ? "- When the user asks for work, ALWAYS call create_task — one call per piece of work, each with the right assignee. A task only exists (and shows on the board) once create_task succeeds. Never say you assigned, delegated or created something unless the create_task call in this reply returned ok; if it failed, say so."
       : "- Only say a task was created if your create_task call returned ok.",
     "- Tasks you create start running in the background right away; results show up on the board and in this chat. Never claim work is finished before it is.",
     "- Nothing that sends, pays, publishes, deletes or merges ever happens without the user's approval.",
+    bot.role === "head"
+      ? "- For anything recurring (\"every morning…\", \"each Friday…\"), propose a routine with propose_routine for the bot that should do it. The user approves it on Waiting on me first, so say it's waiting for their OK — never that it's set up."
+      : "",
     "- Keep your notes short and useful (preferences, facts about the user, ongoing context).",
+    ...appLines(ctx, access),
   ]
     .filter((l) => l !== undefined)
     .join("\n");
 }
 
+/** The apps part of the instructions: what this bot can use, who has the rest, and how to ask. */
+function appLines(ctx: ChatContext, access: AppAccess) {
+  const { bot, roster } = ctx;
+  const others = access.connected
+    .filter((a) => !access.mine.includes(a.name))
+    .map((a) => {
+      const holders = roster.bots.filter((b) => b.id !== bot.id && hasApp(b.app_keys ?? [], a.slug)).map((b) => b.name);
+      return `${a.name} (${holders.length ? `${holders.join(", ")} can use it` : "no bot has it yet"})`;
+    });
+  const ask =
+    "- If work needs an app you can't use (or one that isn't connected), don't fail and don't pretend: " +
+    (canDelegate(bot) ? "hand that work to a bot that has the app with create_task, or " : "") +
+    "call request_app_access with the app and what you need it for. The user then gives you access, hands the work to a bot that has the app, or connects it. You can never give yourself access.";
+  return [
+    !access.connected.length
+      ? "- No apps are connected to this workspace yet."
+      : access.mine.length
+        ? `- Apps you can use: ${access.mine.join(", ")}. To use one, first call COMPOSIO_SEARCH_TOOLS describing what you need (e.g. "search the web for AI news", "fetch my latest emails", "create a Notion page"), then run the tool it returns with COMPOSIO_MULTI_EXECUTE_TOOL. Web search, reading email/docs and writing Notion pages just run. Sending email, posting messages, creating or changing things in other apps and deleting anything need the user’s approval: call the tool with the complete final content (recipient, subject, full text) — the user sees exactly that, may edit it, and approves or rejects it. If it is rejected, don’t retry or work around it; say so in your report.`
+        : "- You don't use apps yourself.",
+    others.length ? `- Other connected apps (you can't use them): ${others.join("; ")}.` : "",
+    ask,
+  ];
+}
+
 export interface ToolOptions {
   /** Set when tools run inside a background task: new tasks become its children. */
   parentTask?: { id: string; depth: number };
+  /** Where the conversation happens (tasks created in it get this source). */
+  source?: "web" | "telegram" | "slack";
   /** Called after a task is created (starts its background run). */
-  onTaskCreated?: (task: { id: string; workspaceId: string }) => Promise<void>;
+  onTaskCreated?: (task: { id: string; workspaceId: string; assigneeBotId: string }) => Promise<void>;
+  /** `request_app_access`: puts an access card on Waiting on me (never grants anything itself). */
+  onAppAccess?: (request: { app: string; why: string }) => Promise<unknown>;
+  /** The Head's `propose_routine`: puts the routine on Waiting on me for approval (creates nothing). */
+  onProposeRoutine?: (proposal: { name: string; bot: string; cron: string; timezone?: string; prompt: string }) => Promise<unknown>;
 }
 
 const MAX_DEPTH = 3; // matches the tasks.depth check in the database
@@ -184,7 +235,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
             status: "backlog",
             assignee_bot_id: target.id,
             created_by_bot_id: bot.id,
-            source: options.parentTask ? "bot" : "web",
+            source: options.parentTask ? "bot" : (options.source ?? "web"),
             parent_task_id: options.parentTask?.id ?? null,
             depth,
           })
@@ -194,7 +245,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
         let started = false;
         if (options.onTaskCreated) {
           try {
-            await options.onTaskCreated({ id: data.id, workspaceId: bot.workspace_id });
+            await options.onTaskCreated({ id: data.id, workspaceId: bot.workspace_id, assigneeBotId: target.id });
             started = true;
           } catch {
             // The task is on the board; the safety sweep (or Retry) will start it.
@@ -207,6 +258,39 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
 
   return {
     ...tools,
+    ...(options.onProposeRoutine && bot.role === "head" && has("propose_routine")
+      ? {
+          propose_routine: tool({
+            description:
+              "Propose a routine: a bot does something on a schedule (each run becomes a task). It goes to the user on Waiting on me; the routine is created only when they approve it (they may edit it first). Use when the user asks for something recurring (\"every morning…\", \"each Monday…\").",
+            inputSchema: z.object({
+              name: z.string().min(1).max(80).describe("Short name, e.g. “Morning brief”"),
+              bot: z.string().min(1).describe("Exact name of the bot that should do it — usually a worker, not you"),
+              cron: z
+                .string()
+                .min(9)
+                .max(100)
+                .describe("5-part cron in the user's local time: minute hour day month weekday. E.g. every day 08:00 = “0 8 * * *”, weekdays 08:00 = “0 8 * * 1-5”, Mondays 09:30 = “30 9 * * 1”, every 3 hours = “0 */3 * * *”"),
+              timezone: z.string().max(64).optional().describe("IANA timezone; leave out to use the user's"),
+              prompt: z.string().min(3).max(4000).describe("What the bot should do on each run, with every detail it needs"),
+            }),
+            execute: (proposal) => options.onProposeRoutine!(proposal),
+          }),
+        }
+      : {}),
+    ...(options.onAppAccess
+      ? {
+          request_app_access: tool({
+            description:
+              "Ask the user for an app you can't use (or one that isn't connected yet). It appears in Waiting on me, where the user gives you access, hands the work to a bot that has the app, or connects it. Only the user can grant access — never say you have it until this returns granted.",
+            inputSchema: z.object({
+              app: z.string().min(2).max(60).describe("The app, e.g. Gmail, Notion, Slack, Google Calendar"),
+              why: z.string().min(3).max(300).describe("One line: the work you need it for, e.g. “Send Sam the weekly report”"),
+            }),
+            execute: (request) => options.onAppAccess!(request),
+          }),
+        }
+      : {}),
     ...(has("notes.read")
       ? {
           read_notes: tool({
@@ -241,9 +325,11 @@ export function buildRunInstructions(
   ctx: ChatContext,
   userTimezone: string,
   task: { title: string; body: string; depth: number; createdBy: string | null },
+  access: AppAccess = { mine: [], connected: [] },
 ) {
+  const appsInHand = handsOn(ctx.bot);
   return [
-    buildInstructions(ctx, userTimezone),
+    buildInstructions(ctx, userTimezone, access),
     "",
     "You are now working in the background on this task (the user is not watching live):",
     `Task: ${task.title}`,
@@ -251,10 +337,12 @@ export function buildRunInstructions(
     task.createdBy ? `Assigned by: ${task.createdBy}` : "Assigned by: the user",
     "",
     "Do the work with your tools, then end with a short report for the user: what you did, the result, and any next steps.",
-    canDelegate(ctx.bot) && task.depth < MAX_DEPTH
-      ? "If parts belong to other bots, delegate them with create_task (they start immediately) and say who is doing what."
-      : "Do the work yourself; don't create tasks for other bots.",
-    "You can't send email, browse or code yet unless you have a tool for it — if the task needs one, say exactly what's missing instead of pretending.",
+    !appsInHand && canDelegate(ctx.bot) && task.depth < MAX_DEPTH
+      ? "Delegate the hands-on work with create_task (they start immediately), then report who is doing what."
+      : canDelegate(ctx.bot) && task.depth < MAX_DEPTH
+        ? "Do your part yourself; if parts clearly belong to other bots, delegate them with create_task and say who is doing what."
+        : "Do the work yourself; don't create tasks for other bots.",
+    "Only do what your tools allow. If the task needs an app you can't use, call request_app_access and wait for the answer; for anything else you can't do, say exactly what's missing instead of pretending.",
   ]
     .filter(Boolean)
     .join("\n");

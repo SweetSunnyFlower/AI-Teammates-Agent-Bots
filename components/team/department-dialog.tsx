@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import { deleteDepartment, saveDepartment } from "@/app/(routes)/workspace/team-actions";
 import { useOffice } from "@/components/office/office-provider";
@@ -16,7 +15,7 @@ import { toast } from "sonner";
 /** Create or edit a floor; editing also offers delete (move its bots, or delete them too). */
 export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
   const { snapshot, departmentById, botsByFloor, openEditor, floors } = useOffice();
-  const router = useRouter();
+  const { refreshOffice } = useOffice();
   const dept = departmentId ? departmentById.get(departmentId) : undefined;
   const isHead = dept?.kind === "head";
   const departments = snapshot.departments;
@@ -49,7 +48,7 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
       }
       toast.success(dept ? `${parsed.data.name} saved` : `${parsed.data.name} floor added`);
       close();
-      router.refresh();
+      void refreshOffice();
     });
   };
 
@@ -66,7 +65,7 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
         onBack={() => setMode("edit")}
         onDone={() => {
           close();
-          router.refresh();
+          void refreshOffice();
         }}
       />
     );

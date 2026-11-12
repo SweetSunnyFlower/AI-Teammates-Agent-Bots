@@ -25,6 +25,7 @@ const demo: OfficeSnapshot = {
       lastActive: "2m",
       avatar: { shape: "sphere", color: "#5c8fd6" },
       tools: ["assign_task", "propose_bot", "notes.read", "notes.write", "ask_user"],
+      apps: [],
       instructions: "Plan the user's requests, split them into tasks and delegate to the right floor.",
     },
     {
@@ -37,6 +38,7 @@ const demo: OfficeSnapshot = {
       lastActive: "1h",
       avatar: { shape: "capsule", color: "#b6c46a" },
       tools: ["notes.read", "notes.write"],
+      apps: ["*"],
       instructions: "Keep the weekly plan and board tidy.",
     },
     {
@@ -49,6 +51,7 @@ const demo: OfficeSnapshot = {
       lastActive: "4m",
       avatar: { shape: "sphere", color: "#e3a857" },
       tools: ["gmail.search", "gmail.read", "gmail.draft", "gmail.send", "assign_task"],
+      apps: ["*"],
       instructions: "Triage the inbox, draft replies, and ask before sending anything.",
     },
     {
@@ -61,6 +64,7 @@ const demo: OfficeSnapshot = {
       lastActive: "18m",
       avatar: { shape: "cube", color: "#7fb5a0" },
       tools: ["gmail.search", "calendar.list", "notes.read"],
+      apps: ["*"],
       instructions: "Write a short morning brief from email and calendar.",
     },
     {
@@ -73,6 +77,7 @@ const demo: OfficeSnapshot = {
       lastActive: "2h",
       avatar: { shape: "cylinder", color: "#e58fa6" },
       tools: ["calendar.list", "calendar.create_event"],
+      apps: ["*"],
       instructions: "Keep the calendar clean and propose meeting times.",
     },
     {
@@ -85,6 +90,7 @@ const demo: OfficeSnapshot = {
       lastActive: "1m",
       avatar: { shape: "diamond", color: "#8e7cc3" },
       tools: ["web.search", "browser.extract", "assign_task"],
+      apps: ["*"],
       instructions: "Lead research requests and split them across the floor.",
     },
     {
@@ -97,6 +103,7 @@ const demo: OfficeSnapshot = {
       lastActive: "6m",
       avatar: { shape: "capsule", color: "#d9775f" },
       tools: ["browser.extract", "watch.add", "watch.check"],
+      apps: ["*"],
       instructions: "Watch prices and report drops below the threshold.",
     },
     {
@@ -109,6 +116,7 @@ const demo: OfficeSnapshot = {
       lastActive: "9m",
       avatar: { shape: "cone", color: "#e3a857" },
       tools: ["web.search", "browser.extract", "ask_user"],
+      apps: ["*"],
       instructions: "Track competitor launches and flag anything important.",
     },
     {
@@ -121,6 +129,7 @@ const demo: OfficeSnapshot = {
       lastActive: "3h",
       avatar: { shape: "sphere", color: "#7fb5a0" },
       tools: ["web.search"],
+      apps: ["*"],
       instructions: "Spot rising topics worth a look.",
     },
     {
@@ -133,6 +142,7 @@ const demo: OfficeSnapshot = {
       lastActive: "3m",
       avatar: { shape: "cube", color: "#3b3a45" },
       tools: ["repo.list", "code.run_task", "pr.open_draft", "pr.merge", "assign_task"],
+      apps: ["*"],
       instructions: "Break engineering work down and review the builders' PRs.",
     },
     {
@@ -145,6 +155,7 @@ const demo: OfficeSnapshot = {
       lastActive: "1m",
       avatar: { shape: "capsule", color: "#5c8fd6" },
       tools: ["code.run_task", "pr.open_draft"],
+      apps: ["*"],
       instructions: "Implement scoped tasks in the sandbox and open draft PRs.",
     },
     {
@@ -157,6 +168,7 @@ const demo: OfficeSnapshot = {
       lastActive: "12m",
       avatar: { shape: "diamond", color: "#d9775f" },
       tools: ["code.run_task", "pr.open_draft"],
+      apps: ["*"],
       instructions: "Fix failing tests and small bugs.",
     },
     {
@@ -169,6 +181,7 @@ const demo: OfficeSnapshot = {
       lastActive: "5h",
       avatar: { shape: "cylinder", color: "#b6c46a" },
       tools: ["code.run_task", "pr.open_draft"],
+      apps: ["*"],
       instructions: "Keep READMEs and changelogs current.",
     },
     {
@@ -181,6 +194,7 @@ const demo: OfficeSnapshot = {
       lastActive: "5m",
       avatar: { shape: "capsule", color: "#e58fa6" },
       tools: ["web.search", "slack.post_message", "assign_task"],
+      apps: ["*"],
       instructions: "Write posts and newsletters; ask before publishing.",
     },
     {
@@ -193,6 +207,7 @@ const demo: OfficeSnapshot = {
       lastActive: "1h",
       avatar: { shape: "sphere", color: "#2bb3b8" },
       tools: ["notes.read"],
+      apps: ["*"],
       instructions: "Proofread drafts.",
     },
     {
@@ -205,6 +220,7 @@ const demo: OfficeSnapshot = {
       lastActive: "8m",
       avatar: { shape: "cube", color: "#b6c46a" },
       tools: ["gmail.search", "assign_task"],
+      apps: ["*"],
       instructions: "Keep the business running smoothly.",
     },
   ],

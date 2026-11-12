@@ -1,23 +1,16 @@
 import { Suspense } from "react";
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { BoardsScreen } from "@/components/boards/boards-screen";
-import { OfficeScreenSkeleton } from "@/components/office/office-screen";
-import { loadOffice } from "@/lib/office/load";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Boards · Dotty" };
-
-export default function BoardsPage({ params }: PageProps<"/workspace/[workspaceId]/boards">) {
+// Boards is now a dialog over the office (?board=1). Keep old links working.
+export default function BoardsRedirectPage({ params }: PageProps<"/workspace/[workspaceId]/boards">) {
   return (
-    <Suspense fallback={<OfficeScreenSkeleton />}>
-      <Boards params={params} />
+    <Suspense fallback={null}>
+      <RedirectToBoard params={params} />
     </Suspense>
   );
 }
 
-async function Boards({ params }: { params: PageProps<"/workspace/[workspaceId]/boards">["params"] }) {
+async function RedirectToBoard({ params }: { params: PageProps<"/workspace/[workspaceId]/boards">["params"] }): Promise<never> {
   const { workspaceId } = await params;
-  const snapshot = await loadOffice(workspaceId);
-  if (!snapshot) notFound();
-  return <BoardsScreen snapshot={snapshot} />;
+  redirect(`/workspace/${encodeURIComponent(workspaceId)}?board=1`);
 }

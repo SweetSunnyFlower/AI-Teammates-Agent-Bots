@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Crown, Loader2, Trash2 } from "lucide-react";
+import { Crown, Loader2, Plug, Trash2 } from "lucide-react";
 import { deleteBot, saveBot } from "@/app/(routes)/workspace/team-actions";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice } from "@/components/office/office-provider";
@@ -12,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { AVATAR_SHAPES, BOT_MODELS, botSchema, fieldErrors, type BotInput } from "@/lib/office/schemas";
-import { defaultToolsFor, TOOL_CATALOG, toolsForRole } from "@/lib/office/tools";
+import { defaultToolsFor, TOOL_CATALOG, TOOL_KEYS, toolsForRole } from "@/lib/office/tools";
+import { ALL_APPS, defaultAppKeys, hasAllApps } from "@/lib/integrations/app-access";
 import type { BotRole } from "@/lib/office/types";
 import { DialogBody, errorClass, FnSelect, formClass, FormFooter, inputClass, labelClass, Swatches, TeamDialog } from "./form-bits";
+import { useConnectedApps } from "./use-connected-apps";
 import { toast } from "sonner";
 
 const BOT_COLORS = ["#5c8fd6", "#e3a857", "#8e7cc3", "#7fb5a0", "#d9775f", "#e58fa6", "#b6c46a", "#3b3a45", "#2bb3b8", "#f07b6b"];
@@ -29,8 +30,8 @@ const SHAPE_LABEL: Record<(typeof AVATAR_SHAPES)[number], string> = {
 
 /** Create or edit a bot. The Head bot can be renamed/restyled but keeps its role and floor. */
 export function BotDialog({ botId, departmentId }: { botId?: string; departmentId?: string }) {
-  const { snapshot, botById, departmentById, botsByFloor, floors, openEditor, selectBot } = useOffice();
-  const router = useRouter();
+  const { snapshot, botById, departmentById, botsByFloor, floors, openEditor, selectBot, openSettings } = useOffice();
+  const { refreshOffice } = useOffice();
   const bot = botId ? botById.get(botId) : undefined;
   const isHead = bot?.role === "head";
 
@@ -47,7 +48,8 @@ export function BotDialog({ botId, departmentId }: { botId?: string; departmentI
       shape: bot?.avatar.shape ?? "sphere",
       color: bot?.avatar.color ?? BOT_COLORS[snapshot.bots.length % BOT_COLORS.length],
       instructions: bot?.instructions ?? "",
-      tools: bot?.tools ?? defaultToolsFor(departmentById.get(startFloor)?.kind ?? "custom", role),
+      tools: bot ? bot.tools.filter((t) => TOOL_KEYS.has(t)) : defaultToolsFor(role),
+      apps: bot?.apps ?? defaultAppKeys(role),
       model: bot?.model ?? "claude-sonnet-5-5",
     };
   });
@@ -80,6 +82,26 @@ export function BotDialog({ botId, departmentId }: { botId?: string; departmentI
   const toggleTool = (key: string, on: boolean) =>
     set("tools", on ? [...new Set([...values.tools, key])] : values.tools.filter((t) => t !== key));
 
+  // Connected apps load in the background (cached), so the dialog opens at once and saving never waits.
+  const live = snapshot.workspace.id !== "demo";
+  const connectedApps = useConnectedApps(snapshot.workspace.id, live);
+  const connected = connectedApps.data?.apps ?? [];
+  const allApps = hasAllApps(values.apps);
+  // Apps this bot has that aren't connected any more stay listed, so they can be unticked.
+  const appRows = [
+    ...connected.map((a) => ({ ...a, connected: true })),
+    ...values.apps
+      .filter((slug) => slug !== ALL_APPS && !connected.some((a) => a.slug === slug))
+      .map((slug) => ({ slug, name: slug, logo: null, connected: false })),
+  ];
+  const setAllApps = (on: boolean) => set("apps", on ? [ALL_APPS] : connected.map((a) => a.slug));
+  const toggleApp = (slug: string, on: boolean) =>
+    set("apps", on ? [...new Set([...values.apps.filter((k) => k !== ALL_APPS), slug])] : values.apps.filter((k) => k !== slug && k !== ALL_APPS));
+  const goConnect = () => {
+    close();
+    openSettings("connectors");
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = botSchema.safeParse(values);
@@ -92,7 +114,7 @@ export function BotDialog({ botId, departmentId }: { botId?: string; departmentI
       }
       toast.success(bot ? `${parsed.data.name} saved` : `${parsed.data.name} joined the team`);
       close();
-      router.refresh();
+      void refreshOffice();
     });
   };
 
@@ -107,7 +129,7 @@ export function BotDialog({ botId, departmentId }: { botId?: string; departmentI
       toast.success(`${bot?.name ?? "Bot"} was removed`);
       selectBot(null);
       close();
-      router.refresh();
+      void refreshOffice();
     });
 
   const groups = [...new Set(TOOL_CATALOG.map((t) => t.group))];
@@ -284,6 +306,70 @@ export function BotDialog({ botId, departmentId }: { botId?: string; departmentI
               );
             })}
             <FieldError className={errorClass}>{errors.tools}</FieldError>
+          </FieldSet>
+
+          <FieldSet className="gap-3" data-invalid={!!errors.apps}>
+            <FieldLegend className={cn(labelClass, "mb-0")}>apps</FieldLegend>
+            <FieldDescription className="-mt-2 text-[12.5px] text-ink-muted">
+              Apps connected in Settings → Connectors. Sending, posting and deleting always wait for your OK. If the bot needs an
+              app it doesn&apos;t have, it asks you on Waiting on me.
+            </FieldDescription>
+
+            <Field orientation="horizontal" className="items-center gap-2">
+              <Checkbox
+                id="app-all"
+                checked={allApps}
+                onCheckedChange={(c) => setAllApps(c === true)}
+                className="border-ink/60 data-checked:border-ink data-checked:bg-ink"
+              />
+              <FieldLabel htmlFor="app-all" className="text-[13.5px] font-bold">
+                All connected apps
+                <span className="font-mono text-[10.5px] font-normal text-ink-muted">includes apps you connect later</span>
+              </FieldLabel>
+            </Field>
+
+            {live && connectedApps.isPending ? (
+              <p className="flex items-center gap-2 text-[13px] text-ink-muted">
+                <Loader2 className="size-3.5 animate-spin" /> Loading your connected apps…
+              </p>
+            ) : appRows.length === 0 ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-[10px] bg-panel-sunken px-3 py-2 text-[13px]">
+                <span className="min-w-0 flex-1">
+                  {connectedApps.data?.error && !connectedApps.data.setup
+                    ? connectedApps.data.error
+                    : "No apps connected yet."}{" "}
+                  You can still add this bot — it gets apps once you connect them.
+                </span>
+                {live && (
+                  <button type="button" className="fn-pill" onClick={goConnect}>
+                    <Plug className="size-3.5" /> Connect apps
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {appRows.map((app) => (
+                  <Field key={app.slug} orientation="horizontal" className="items-center gap-2">
+                    <Checkbox
+                      id={`app-${app.slug}`}
+                      checked={allApps ? app.connected : values.apps.includes(app.slug)}
+                      disabled={allApps}
+                      onCheckedChange={(c) => toggleApp(app.slug, c === true)}
+                      className="border-ink/60 data-checked:border-ink data-checked:bg-ink"
+                    />
+                    <FieldLabel htmlFor={`app-${app.slug}`} className="min-w-0 text-[13.5px] font-normal">
+                      {app.logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- third-party app logos from Composio's CDN
+                        <img src={app.logo} alt="" className="size-4 shrink-0 object-contain" loading="lazy" />
+                      ) : null}
+                      <span className="truncate">{app.name}</span>
+                      {!app.connected && <span className="rounded-full bg-panel-sunken px-1.5 font-mono text-[10.5px]">not connected</span>}
+                    </FieldLabel>
+                  </Field>
+                ))}
+              </div>
+            )}
+            <FieldError className={errorClass}>{errors.apps}</FieldError>
           </FieldSet>
 
           {errors.form && (

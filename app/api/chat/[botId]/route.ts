@@ -14,6 +14,8 @@ import { buildChatTools, buildInstructions, loadChatContext } from "@/lib/chat/b
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { startTaskRun } from "@/lib/runs/start";
+import { appToolsFor } from "@/lib/integrations/composio";
+import { chatSideTools } from "@/lib/chat/side-tools";
 
 // Chat replies stream for a while; give tool calls room to finish.
 export const maxDuration = 60;
@@ -89,10 +91,14 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   }
 
   // Tasks created in chat start their background run immediately.
+  // Connected apps (Composio): only the apps chosen for this bot; it knows who has the others.
+  const appTools = await appToolsFor(bot.workspace_id, bot.app_keys);
   const tools = buildChatTools(supabase, chat, {
     onTaskCreated: async (task) => {
       if (!(await startTaskRun(task))) throw new Error("Background runs aren't configured yet");
     },
+    // App access requests and the Head's routine proposals leave a card on Waiting on me.
+    ...chatSideTools(chat, appTools, profile?.timezone ?? "UTC"),
   });
   const history = (rows ?? [])
     .reverse()
@@ -107,12 +113,34 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
     messages = [userMessage];
   }
 
+  // The bot is "working" while it replies (the Head plans and hands out tasks right here, not in a
+  // background run). Back to resting afterwards — unless a background run took over meanwhile.
+  const chatDetail = bot.role === "head" ? "Planning your request" : "Chatting with you";
+  const { data: claimed } = await supabase
+    .from("bots")
+    .update({ status: "working", status_detail: chatDetail, last_active_at: new Date().toISOString() })
+    .eq("id", bot.id)
+    .eq("status", "resting")
+    .select("id");
+  const wasResting = Boolean(claimed?.length);
+  const backToResting = async () => {
+    if (!wasResting) return;
+    await supabase
+      .from("bots")
+      .update({ status: "resting", status_detail: "Resting", last_active_at: new Date().toISOString() })
+      .eq("id", bot.id)
+      .eq("status", "working")
+      .eq("status_detail", chatDetail);
+  };
+  // "Stop" (or closing the tab) aborts the request; don't leave the bot stuck on "working".
+  req.signal.addEventListener("abort", () => void backToResting(), { once: true });
+
   const result = streamText({
     model: gatewayModelFor(bot.model),
-    instructions: buildInstructions(chat, profile?.timezone ?? "UTC"),
+    instructions: buildInstructions(chat, profile?.timezone ?? "UTC", { mine: appTools.apps, connected: appTools.connected }),
     messages: await convertToModelMessages(messages),
-    tools,
-    stopWhen: isStepCount(6),
+    tools: { ...appTools.tools, ...tools },
+    stopWhen: isStepCount(8),
   });
 
   return createUIMessageStreamResponse({
@@ -136,8 +164,10 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
           );
         }
         await supabase.from("bots").update({ last_active_at: new Date().toISOString() }).eq("id", bot.id);
+        await backToResting();
       },
       onError: (error) => {
+        void backToResting();
         const message = error instanceof Error ? error.message : String(error);
         if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the AI service — check your connection and try again.";
         if (/401|403|unauthorized|api key/i.test(message)) return "The AI Gateway key was rejected — check AI_GATEWAY_API_KEY.";

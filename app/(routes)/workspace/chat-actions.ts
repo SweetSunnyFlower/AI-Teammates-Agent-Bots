@@ -2,7 +2,6 @@
 
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,33 +47,6 @@ export async function startNewChat(botId: string): Promise<{ ok: true; divider: 
     .single();
   if (error) return { ok: false, error: friendly(error.message) };
   return { ok: true, divider: { id: data.id, role: "system", parts: [], metadata: { createdAt: data.created_at, divider: true } } };
-}
-
-/**
- * Answer a bot's question from its question card. The answer is tied to that inbox item (not
- * a normal chat message). Ownership is checked with the user's client (RLS) before the
- * service-role write, because users can't update inbox items directly.
- */
-export async function answerQuestion(inboxItemId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const text = answer.trim();
-  if (!hasSupabaseEnv || !uuid.safeParse(inboxItemId).success) return { ok: false, error: "Unknown question." };
-  if (!text || text.length > 4000) return { ok: false, error: "Write an answer (up to 4,000 characters)." };
-
-  const supabase = await createClient();
-  const { data: item } = await supabase.from("inbox_items").select("id, kind, status").eq("id", inboxItemId).maybeSingle();
-  if (!item) return { ok: false, error: "That question doesn't exist or isn't yours." };
-  if (item.kind !== "question") return { ok: false, error: "That item is an approval, not a question." };
-  if (item.status !== "pending") return { ok: false, error: "That question was already answered." };
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("inbox_items")
-    .update({ status: "answered", answer: text, decided_via: "web", decided_at: new Date().toISOString() })
-    .eq("id", inboxItemId)
-    .eq("status", "pending");
-  if (error) return { ok: false, error: friendly(error.message) };
-  // Step C: complete the run's Trigger.dev waitpoint here so the bot resumes with the answer.
-  return { ok: true };
 }
 
 function friendly(message: string) {

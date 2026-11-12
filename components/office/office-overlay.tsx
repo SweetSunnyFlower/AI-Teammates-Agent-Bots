@@ -20,15 +20,15 @@ const KIND_ICON: Record<DepartmentKind, typeof Mail> = {
 };
 
 /** Registers a DOM element as an overlay anchor; the canvas writes its transform each frame. */
-function useAnchor(id: string, points: Vector3[], mode: OverlayAnchor["mode"], scaleWithZoom: boolean) {
+function useAnchor(id: string, points: Vector3[], mode: OverlayAnchor["mode"], scaleWithZoom: boolean, motionKey?: string) {
   const { registerAnchor } = useOffice();
   return useCallback(
     (el: HTMLDivElement | null) => {
       if (!el) return;
-      registerAnchor(id, { el, points, mode, scaleWithZoom });
+      registerAnchor(id, { el, points, mode, scaleWithZoom, motionKey });
       return () => registerAnchor(id, null);
     },
-    [id, points, mode, scaleWithZoom, registerAnchor],
+    [id, points, mode, scaleWithZoom, motionKey, registerAnchor],
   );
 }
 
@@ -86,7 +86,7 @@ const BotPin = memo(function BotPin({
     const [x, y, z] = botSeat(index, floorCount, slot);
     return [new Vector3(x, y + AVATAR_LIFT, z)];
   }, [index, floorCount, slot]);
-  const ref = useAnchor(`bot:${bot.id}`, points, "point", true);
+  const ref = useAnchor(`bot:${bot.id}`, points, "point", true, bot.id);
 
   const meta = STATUS_META[bot.status];
   const selected = selectedBotId === bot.id;
@@ -95,20 +95,20 @@ const BotPin = memo(function BotPin({
   const animated = bot.status === "working" || bot.status === "waiting";
 
   return (
-    <div ref={ref} className="absolute top-0 left-0 will-change-transform" style={OFFSCREEN}>
+    <div ref={ref} className="bot-pin absolute top-0 left-0 will-change-transform" style={OFFSCREEN}>
       <button
         type="button"
         onClick={() => selectBot(bot.id)}
         className={cn(
-          "pointer-events-auto relative grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full outline-none animate-in fade-in duration-700",
-          "transition-[opacity,translate] duration-300 hover:-translate-y-[calc(50%+2px)] focus-visible:ring-2 focus-visible:ring-ring",
+          "pointer-events-auto relative grid -translate-x-1/2 -translate-y-full place-items-center rounded-full outline-none animate-in fade-in duration-700",
+          "transition-[opacity,translate] duration-300 hover:-translate-y-[calc(100%+2px)] focus-visible:ring-2 focus-visible:ring-ring",
           selected && "ring-[3px] ring-[#f0dab1] ring-offset-0",
         )}
         style={{ opacity: dimmed ? 0.22 : 1 }}
         aria-label={`${bot.name}, ${meta.label}. Open details`}
         title={`${bot.name} · ${bot.statusDetail}`}
       >
-        {bubble && <SpeechBubble key={bubble.key} text={bubble.text} kind={bubble.kind} />}
+        {bubble && <SpeechBubble key={bubble.key} text={bubble.text} color={bot.avatar.color} />}
         <BotAvatar bot={bot} size={44} animated={animated} />
         {!cleanView && bot.status !== "resting" && (
           <span
@@ -126,24 +126,31 @@ const BotPin = memo(function BotPin({
   );
 });
 
-const BUBBLE_STYLE: Record<"start" | "done" | "fail" | "info", string> = {
-  start: "bg-panel text-ink",
-  info: "bg-panel text-ink",
-  done: "bg-ok-bg text-ink",
-  fail: "bg-danger-bg text-ink",
-};
+/** Readable text on the bot's color: dark ink on light colors, white on dark ones. */
+function textOn(hex: string) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "#2b2620";
+  const n = parseInt(m[1], 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#2b2620" : "#ffffff";
+}
 
-/** Speech bubble over a bot: "On it — …", "Done ✓ …", "Handed … to …". */
-function SpeechBubble({ text, kind }: { text: string; kind: keyof typeof BUBBLE_STYLE }) {
+/**
+ * Speech bubble over a bot ("On it — …", "Done ✓ …", "Needs your OK — …"): a flat chat-message
+ * bubble in the bot's own color, its tail corner pointing down at the bot.
+ */
+function SpeechBubble({ text, color }: { text: string; color: string }) {
   return (
     <span
       role="status"
       className={cn(
-        "pointer-events-none absolute bottom-full left-1/2 mb-3 max-w-[220px] -translate-x-1/2 truncate rounded-[12px] border-2 border-ink px-2.5 py-1 text-[12.5px] font-bold whitespace-nowrap shadow-[0_2px_0_0_var(--lip)]",
-        "animate-in fade-in zoom-in-90 slide-in-from-bottom-1 duration-300",
-        "after:absolute after:top-full after:left-1/2 after:-mt-px after:size-2.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rotate-45 after:border-r-2 after:border-b-2 after:border-ink after:bg-inherit",
-        BUBBLE_STYLE[kind],
+        "pointer-events-none absolute bottom-full left-1/2 mb-2 max-w-[220px] -translate-x-3 truncate rounded-[16px] rounded-bl-[4px] px-3 py-1.5 text-[12.5px] font-bold whitespace-nowrap",
+        "animate-in fade-in zoom-in-90 slide-in-from-bottom-1 duration-300 origin-bottom-left",
       )}
+      style={{ backgroundColor: color, color: textOn(color) }}
     >
       {text}
     </span>

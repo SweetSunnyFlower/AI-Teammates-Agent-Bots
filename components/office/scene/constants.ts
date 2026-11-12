@@ -53,8 +53,12 @@ export function botSeat(topDownIndex: number, floorCount: number, slot: number):
   return [x, floorBaseY(topDownIndex, floorCount), z + 0.72];
 }
 
-/** Avatars float this far above the stool. */
-export const AVATAR_LIFT = 0.95;
+/** Avatars stand on the floor: their feet sit this far above the slab (the anchor is their bottom). */
+export const AVATAR_LIFT = 0.08;
+/** Avatar height in CSS px at scale 1 (incl. the status badge). */
+export const AVATAR_PX = 50;
+/** On screen, an avatar is never taller than this share of the room's wall height. */
+export const AVATAR_ROOM_FIT = 0.75;
 
 /** The four top corners of a floor slab; labels hang off the left- or right-most one on screen. */
 export function floorCorners(topDownIndex: number, floorCount: number): Vector3[] {

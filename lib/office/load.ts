@@ -1,6 +1,10 @@
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getOfficeSnapshot as getMockSnapshot } from "./mock-data";
+import type { PreviewCall } from "@/lib/approvals/describe";
+import type { AccessPreview } from "@/lib/integrations/app-access";
+import { TOOL_KEYS } from "./tools";
+import { describeCron } from "@/lib/routines/schedule";
 import type {
   ActivityEntry,
   AvatarShape,
@@ -59,18 +63,18 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
     supabase.from("departments").select("id, name, kind, floor_index, color, description").eq("workspace_id", workspaceId),
     supabase
       .from("bots")
-      .select("id, department_id, role, name, instructions, tool_keys, avatar, model, status, status_detail, last_active_at")
+      .select("id, department_id, role, name, instructions, tool_keys, app_keys, avatar, model, status, status_detail, last_active_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: true }),
     supabase
       .from("inbox_items")
-      .select("id, bot_id, kind, action, title, preview")
+      .select("id, bot_id, task_id, kind, action, title, preview, created_at")
       .eq("workspace_id", workspaceId)
       .eq("status", "pending")
       .order("created_at", { ascending: false }),
     supabase
       .from("tasks")
-      .select("id, title, status, assignee_bot_id, created_by_bot_id, source, updated_at, result")
+      .select("id, title, status, assignee_bot_id, created_by_bot_id, source, updated_at, result, routine_id")
       .eq("workspace_id", workspaceId)
       .in("status", ["backlog", "doing", "waiting_on_me", "done", "failed"])
       .order("position", { ascending: true })
@@ -78,7 +82,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       .limit(200),
     supabase
       .from("routines")
-      .select("id, bot_id, name, cron, timezone, enabled, next_run_at")
+      .select("id, bot_id, name, cron, timezone, prompt, enabled, next_run_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: true }),
     supabase
@@ -112,6 +116,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
             delegatedByBotId: t.created_by_bot_id ?? undefined,
             updated: ago(t.updated_at, now),
             result: resultText(t.result),
+            routineId: t.routine_id ?? undefined,
           },
         ]
       : [],
@@ -140,7 +145,9 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
         statusDetail: b.status_detail,
         lastActive: b.last_active_at ? ago(b.last_active_at, now) : "—",
         avatar: toAvatar(b.avatar),
-        tools: b.tool_keys ?? [],
+        // Older bots may still list retired built-in app tools (gmail.search…); apps are per bot now.
+        tools: ((b.tool_keys ?? []) as string[]).filter((k) => TOOL_KEYS.has(k)),
+        apps: b.app_keys ?? [],
         instructions: b.instructions,
         model: b.model,
       }),
@@ -155,6 +162,10 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
               action: (i.action ?? undefined) as InboxItem["action"],
               title: i.title,
               preview: typeof i.preview?.text === "string" ? i.preview.text : "",
+              taskId: i.task_id ?? undefined,
+              calls: Array.isArray(i.preview?.calls) ? (i.preview.calls as PreviewCall[]) : undefined,
+              access: i.kind === "access" ? (i.preview as AccessPreview) : undefined,
+              ago: ago(i.created_at, now),
             },
           ]
         : [],
@@ -168,9 +179,18 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
         id: r.id,
         botId: r.bot_id,
         name: r.name,
-        schedule: `${r.cron} · ${r.timezone}`,
+        schedule: describeCron(r.cron),
         nextRunIn: r.enabled && r.next_run_at ? `in ${until(r.next_run_at, now)}` : "paused",
         enabled: r.enabled,
+        cron: r.cron,
+        timezone: r.timezone,
+        prompt: r.prompt,
+        // The most recently updated task this routine created.
+        lastRun: (() => {
+          const runs = (tasks.data ?? []).filter((t) => t.routine_id === r.id);
+          const last = runs.sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+          return last ? { taskId: last.id, status: last.status as TaskStatus, ago: ago(last.updated_at, now) } : undefined;
+        })(),
       }),
     ),
     activity: (activity.data ?? []).flatMap((a): ActivityEntry[] =>
@@ -179,6 +199,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
         : [],
     ),
     tasks: mappedTasks,
+    timeZone,
   };
 }
 
