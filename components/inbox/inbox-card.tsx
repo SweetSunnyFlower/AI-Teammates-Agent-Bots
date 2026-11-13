@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowRight, Check, ChevronDown, ExternalLink, GitPullRequest, KeyRound, Loader2, MessageCircleQuestion, Pencil, Plug, ShieldCheck, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ExternalLink, GitPullRequest, KeyRound, Loader2, MessageCircleQuestion, Pencil, Plug, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   answerQuestion,
@@ -103,14 +103,6 @@ function ApprovalCard({ item, bot, onDone }: { item: InboxItem; bot: Bot; onDone
       title={item.title}
     >
       {item.preview && <p className="mt-1.5 text-[12.5px] leading-snug text-ink/75">{item.preview}</p>}
-      {item.sources?.length ? (
-        <p className="mt-1.5 flex items-start gap-1.5 rounded-[8px] bg-[#fcd384]/45 px-2 py-1 text-[12px] leading-snug text-ink/85">
-          <TriangleAlert className="mt-px size-3.5 shrink-0 text-[#b0700a]" aria-hidden />
-          <span>
-            Read {item.sources.join(", ")} first — check this is what you asked for. Text in emails, pages or issues can try to steer bots.
-          </span>
-        </p>
-      ) : null}
       {item.pr ? (
         <PullRequestPreview pr={item.pr} />
       ) : calls.length > 0 && (

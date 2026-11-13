@@ -188,7 +188,6 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
               calls: Array.isArray(i.preview?.calls) ? (i.preview.calls as PreviewCall[]) : undefined,
               access: i.kind === "access" ? (i.preview as AccessPreview) : undefined,
               pr: i.action === "merge" && i.preview?.pr ? (i.preview.pr as PrPreview) : undefined,
-              sources: i.kind === "approval" && Array.isArray(i.preview?.sources) ? (i.preview.sources as unknown[]).map(String).slice(0, 8) : undefined,
               ago: ago(i.created_at, now),
             },
           ]

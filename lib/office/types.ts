@@ -65,8 +65,6 @@ export interface InboxItem {
   access?: AccessPreview;
   /** Merge approvals: the pull request that will be merged. */
   pr?: PrPreview;
-  /** Approvals: apps whose content the bot read before asking (prompt-injection hint). */
-  sources?: string[];
   ago?: string;
 }
 

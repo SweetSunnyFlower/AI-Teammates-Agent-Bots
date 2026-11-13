@@ -20,8 +20,6 @@ export interface ApprovalPreview {
   calls: PreviewCall[];
   /** Merge approvals: the pull request as it was when the bot asked. */
   pr?: PrPreview;
-  /** Apps whose content the bot read in this run before asking (third-party text could have steered it). */
-  sources?: string[];
 }
 
 /** What a merge approval shows: the exact pull request head that will be merged. */
@@ -94,7 +92,6 @@ export function buildPreview(
   calls: Array<{ tool: string; args: Record<string, unknown> }>,
   reasons: string[],
   pr?: PrPreview,
-  sources?: string[],
 ): {
   title: string;
   action: InboxAction;
@@ -108,7 +105,7 @@ export function buildPreview(
   return {
     title: title.slice(0, 200),
     action: actionFor(calls.map((c) => c.tool)),
-    preview: { text: reasons[0]?.slice(0, 500) ?? "", calls: described, ...(pr ? { pr } : {}), ...(sources?.length ? { sources: sources.slice(0, 8) } : {}) },
+    preview: { text: reasons[0]?.slice(0, 500) ?? "", calls: described, ...(pr ? { pr } : {}) },
   };
 }
 
@@ -147,9 +144,4 @@ export function formatArg(value: unknown) {
   if (value === null || value === undefined) return "—";
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value, null, 1);
-}
-
-/** One line for approval cards: which apps' content the bot had read before asking. */
-export function sourcesLine(sources: string[] | undefined) {
-  return sources?.length ? `Before asking, it read content from ${sources.join(", ")}. Check this is what you asked for — text in emails, pages or issues can try to steer bots.` : null;
 }

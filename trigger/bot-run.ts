@@ -118,9 +118,7 @@ export const botRun = task({
     // The bot's own apps (chosen per bot). Gated app actions pause the run on Waiting on me until
     // you approve, edit or reject them.
     const pause: PauseContext = { db, workspaceId: t.workspace_id, botId: bot.id, taskId: t.id, taskTitle: t.title, runId };
-    // Apps whose content this run has read — kept across reloads so approval cards can name them.
-    const sourcesRead = new Set<string>();
-    const loadApps = () => appToolsFor(t.workspace_id, bot.app_keys, { onApproval: (request) => waitForApproval(pause, request), sources: sourcesRead });
+    const loadApps = () => appToolsFor(t.workspace_id, bot.app_keys, { onApproval: (request) => waitForApproval(pause, request) });
     let appTools = await loadApps();
     // Set by request_app_access once the user decides (the run stops its current loop to act on it).
     const access: { grants: number; handoff: { botId: string; botName: string } | null } = { grants: 0, handoff: null };
