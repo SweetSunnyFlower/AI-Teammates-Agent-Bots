@@ -16,12 +16,12 @@ export function BotAvatar({
   animated = false,
   className,
 }: {
-  bot: Pick<Bot, "name" | "status" | "avatar">;
+  bot: Pick<Bot, "name" | "status" | "avatar"> & { role?: Bot["role"] };
   size: number;
   animated?: boolean;
   className?: string;
 }) {
-  const definition = avatarDefinitionFor(bot.avatar);
+  const definition = avatarDefinitionFor(bot.avatar, bot.role === "head" ? "head" : "base");
   const meta = STATUS_META[bot.status];
   const label = `${bot.name}, ${meta.label}`;
 
