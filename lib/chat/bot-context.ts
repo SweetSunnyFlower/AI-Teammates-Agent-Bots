@@ -173,7 +173,7 @@ function appLines(ctx: ChatContext, access: AppAccess) {
 
 export interface ToolOptions {
   /** Set when tools run inside a background task: new tasks become its children. */
-  parentTask?: { id: string; depth: number };
+  parentTask?: { id: string; depth: number; source?: string };
   /** Where the conversation happens (tasks created in it get this source). */
   source?: "web" | "telegram" | "slack";
   /** Called after a task is created (starts its background run). */
@@ -185,6 +185,13 @@ export interface ToolOptions {
 }
 
 const MAX_DEPTH = 3; // matches the tasks.depth check in the database
+
+/**
+ * A delegated task keeps the channel its request came from, so the bot that actually does the
+ * work reports back where the user asked — not just the Head, which finishes as soon as it has
+ * handed the work over. Anything else is plain bot-made work.
+ */
+const childSource = (parentSource?: string) => (parentSource === "telegram" || parentSource === "slack" ? parentSource : "bot");
 
 /**
  * Bot tools, shared by chat and background runs. In chat they run as the signed-in user (RLS
@@ -235,7 +242,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
             status: "backlog",
             assignee_bot_id: target.id,
             created_by_bot_id: bot.id,
-            source: options.parentTask ? "bot" : (options.source ?? "web"),
+            source: options.parentTask ? childSource(options.parentTask.source) : (options.source ?? "web"),
             parent_task_id: options.parentTask?.id ?? null,
             depth,
           })

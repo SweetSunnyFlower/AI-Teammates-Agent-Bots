@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "trigger:dev": "trigger dev"
+    "trigger:dev": "trigger dev",
+    "tunnel": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs tunnel",
+    "telegram:webhook": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs telegram",
+    "slack:manifest": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs slack-manifest",
+    "chat:secrets": "node scripts/chat-setup.mjs secrets"
   },
   "dependencies": {
     "@ai-sdk/react": "4.0.173",

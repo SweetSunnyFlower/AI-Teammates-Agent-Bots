@@ -25,9 +25,9 @@ export class DottySlackAdapter extends SlackAdapter {
 export type DottyChat = Chat<Record<string, Adapter>, ThreadState>;
 
 /** Per-thread state: set after "Answer" so the next message answers that question. */
-export interface ThreadState {
+export type ThreadState = {
   answering?: string;
-}
+};
 
 let instance: DottyChat | null = null;
 let ready: Promise<void> | null = null;

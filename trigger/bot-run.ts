@@ -8,6 +8,7 @@ import { appToolsFor, planAccessRequest } from "@/lib/integrations/composio";
 import { describeAppTool, isAppTool } from "@/lib/integrations/tool-labels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { proposeRoutine } from "@/lib/routines/propose";
+import { notifyWorkspace } from "@/lib/chat/notify";
 import { askUser, requestAppAccess, waitForApproval, type PauseContext } from "./approvals";
 
 /**
@@ -137,7 +138,7 @@ export const botRun = task({
       }),
     };
     const tools = buildChatTools(db, chat, {
-      parentTask: { id: t.id, depth: t.depth },
+      parentTask: { id: t.id, depth: t.depth, source: t.source },
       // Delegated tasks start straight away, queued per workspace.
       onTaskCreated: async (child) => {
         await botRun.trigger(
@@ -225,6 +226,7 @@ export const botRun = task({
         logActivity(db, t.workspace_id, bot.id, t.id, "run_finished", `finished “${t.title}”`),
         postToThread(db, t.workspace_id, bot.id, t.id, ctx.run.id, `**Finished: ${t.title}**\n\n${report}`),
         relayToRequesters(db, t, bot.id, ctx.run.id, `**${bot.name} finished: ${t.title}**\n\n${report}`),
+        reportToChannel(t, `✅ **${bot.name} finished: ${t.title}**\n\n${report}`),
       ]);
       return { status: "done", steps, costCents: round4(runCents) };
     } catch (error) {
@@ -275,7 +277,12 @@ async function waitForFreeDesk(db: Db, workspaceId: string, botId: string, trigg
     await wait.for({ seconds: QUEUE_CHECK_SECONDS });
   }
 }
-type TaskRow = { id: string; workspace_id: string; title: string; created_by_bot_id: string | null; parent_task_id: string | null };
+type TaskRow = { id: string; workspace_id: string; title: string; created_by_bot_id: string | null; parent_task_id: string | null; source?: string };
+
+/** Tasks sent from Telegram / Slack report back there too. */
+function reportToChannel(t: TaskRow, markdown: string) {
+  return t.source === "telegram" || t.source === "slack" ? notifyWorkspace(t.workspace_id, markdown, t.source) : Promise.resolve();
+}
 
 /**
  * "Hand it to <bot>" on an access card: this run stops and the same task starts over with a bot
@@ -307,6 +314,7 @@ async function finishFailed(db: Db, t: TaskRow, botId: string | null, runId: str
     logActivity(db, t.workspace_id, botId, t.id, "run_failed", `couldn't finish “${t.title}”: ${reason}`.slice(0, 480)),
     botId ? postToThread(db, t.workspace_id, botId, t.id, runId ?? `${Date.now()}`, `**Couldn't finish: ${t.title}**\n\n${reason}\n\nYou can retry it from the board.`) : Promise.resolve(),
     botId ? relayToRequesters(db, t, botId, runId ?? `${Date.now()}`, `**Couldn't finish: ${t.title}**\n\n${reason}\n\nIt can be retried from the board.`) : Promise.resolve(),
+    reportToChannel(t, `⚠️ **Couldn't finish: ${t.title}**\n\n${reason}\n\nYou can retry it from the board.`),
   ]);
   return { status: "failed", error: reason };
 }

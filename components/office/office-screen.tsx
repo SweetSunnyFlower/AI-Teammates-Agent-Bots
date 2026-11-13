@@ -31,6 +31,23 @@ function OfficeLayout() {
   const { snapshot, revealSection, canEdit, openEditor, openReply, openSettings } = useOffice();
   const queryClient = useQueryClient();
 
+  // Back from "Add to Slack": reopen Channels, confirm, and tidy the URL.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("settings") !== "channels") return;
+    const slack = q.get("slack");
+    q.delete("settings");
+    q.delete("slack");
+    const search = q.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`);
+    if (!canEdit) return;
+    void queryClient.invalidateQueries({ queryKey: ["channels"] });
+    openSettings("channels");
+    if (slack === "connected") toast.success("Slack connected", { description: "Dotty sent you a DM in Slack — message it there." });
+    else if (slack === "cancelled") toast("Slack install cancelled");
+    else if (slack) toast.error("Couldn't connect Slack", { description: slack === "no-public-url" ? "Set CHAT_PUBLIC_URL (your ngrok URL locally) and restart." : "Try again from Settings → Channels." });
+  }, [canEdit, openSettings, queryClient]);
+
   // Back from Composio's Connect Link: reopen Connectors, confirm, and tidy the URL.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);

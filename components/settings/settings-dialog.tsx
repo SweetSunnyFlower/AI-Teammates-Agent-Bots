@@ -2,7 +2,7 @@
 
 import { Activity, useEffect, useRef, useState, useTransition } from "react";
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Check, Loader2, Plug, Search, ShieldCheck, Unplug, X } from "lucide-react";
+import { Building2, Check, Loader2, MessagesSquare, Plug, Search, ShieldCheck, Unplug, X } from "lucide-react";
 import { toast } from "sonner";
 import { connectToolkit, disconnectToolkit, listConnectors, type ConnectorItem } from "@/app/(routes)/workspace/connector-actions";
 import { useOffice, type SettingsTab } from "@/components/office/office-provider";
@@ -10,9 +10,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { ChannelsTab } from "./channels-tab";
 
 const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Plug }> = [
   { id: "connectors", label: "Connectors", icon: Plug },
+  { id: "channels", label: "Channels", icon: MessagesSquare },
   { id: "workspace", label: "Workspace", icon: Building2 },
 ];
 
@@ -93,6 +95,9 @@ export function SettingsDialog() {
             </TabsList>
             <TabsContent value="connectors" className="flex min-h-0 flex-col overflow-hidden">
               <Connectors />
+            </TabsContent>
+            <TabsContent value="channels" className="flex min-h-0 flex-col overflow-hidden">
+              <ChannelsTab />
             </TabsContent>
             <TabsContent value="workspace" className="min-h-0 overflow-y-auto px-1">
               <WorkspaceSoon />

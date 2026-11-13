@@ -43,7 +43,7 @@ export type Editor =
 /** A short speech bubble over a bot in the office (start / finish / handoff). */
 export type { BotBubble } from "./use-office-life";
 
-export type SettingsTab = "connectors" | "workspace";
+export type SettingsTab = "connectors" | "channels" | "workspace";
 
 /** The elevator shows this many floors at a time. */
 export const VISIBLE_FLOORS = 5;
