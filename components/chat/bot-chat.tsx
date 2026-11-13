@@ -34,6 +34,9 @@ import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 /** Words the bot "says" while it works on a reply (shimmering, like Claude's). */
 const THINKING_WORDS = ["Whirring", "Thinking", "Ideating", "Unraveling", "Pondering", "Tinkering", "Noodling", "Percolating", "Scheming", "Brewing"];
 
+/** At most this many messages of the current conversation are on screen; older ones sit behind a button. */
+const VISIBLE_LIMIT = 40;
+
 /** Chat instances by bot id — module-level so they survive tab switches and drawer close/open. */
 const chats = new Map<string, Chat<ThreadMessage>>();
 /** When each bot's Chat was last filled from the saved thread (query `dataUpdatedAt`). */
@@ -59,6 +62,8 @@ function chatFor(botId: string) {
 export function BotChat({ bot }: { bot: Bot }) {
   const { canEdit, snapshot, pendingAsk, clearPendingAsk, focusMessage, clearFocusMessage } = useOffice();
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  /** The bot whose earlier messages the user chose to see (switching bots or "New chat" hides them again). */
+  const [showAllFor, setShowAllFor] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const queryClient = useQueryClient();
 
@@ -112,11 +117,27 @@ export function BotChat({ bot }: { bot: Bot }) {
     );
   }, [bot.id, canEdit, setMessages, queryClient]);
 
+  // Like Claude: only the current conversation (below the last "New chat") is on screen, and at
+  // most its last VISIBLE_LIMIT messages. Everything older is one click away.
+  const showAll = showAllFor === bot.id;
+  let lastDivider = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].metadata?.divider) {
+      lastDivider = i;
+      break;
+    }
+  }
+  const visibleStart = showAll ? 0 : Math.max(lastDivider + 1, messages.length - VISIBLE_LIMIT);
+  const visible = messages.slice(visibleStart);
+  const hiddenCount = messages.slice(0, visibleStart).filter((m) => !m.metadata?.divider).length;
+
   // "Read reply": scroll to the task's report and highlight it for a moment.
   useEffect(() => {
     if (!loaded || !focusMessage || focusMessage.botId !== bot.id) return;
-    const target = [...messages].reverse().find((m) => m.id.startsWith(focusMessage.prefix));
-    if (!target) return; // not arrived yet — this runs again when messages update
+    const index = messages.findLastIndex((m) => m.id.startsWith(focusMessage.prefix));
+    if (index === -1) return; // not arrived yet — this runs again when messages update
+    if (index < visibleStart) return void setShowAllFor(bot.id); // in the hidden part: show it, then scroll
+    const target = messages[index];
     let clear: number | undefined;
     const frame = window.requestAnimationFrame(() => {
       clearFocusMessage();
@@ -128,7 +149,7 @@ export function BotChat({ bot }: { bot: Bot }) {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(clear);
     };
-  }, [loaded, focusMessage, bot.id, messages, clearFocusMessage]);
+  }, [loaded, focusMessage, bot.id, messages, visibleStart, clearFocusMessage]);
 
   // "Ask the Head" hands its message over once the thread is loaded. The nonce is remembered
   // because clearPendingAsk() only takes effect on the next render: without it React would run
@@ -161,6 +182,7 @@ export function BotChat({ bot }: { bot: Bot }) {
       const res = await startNewChat(bot.id);
       if (!res.ok) return void toast.error("Couldn't start a new chat", { description: res.error });
       setMessages((m) => [...m, res.divider]);
+      setShowAllFor(null);
       clearError();
     });
 
@@ -203,10 +225,21 @@ export function BotChat({ bot }: { bot: Bot }) {
                 <ChatSkeleton />
               ) : loadError ? (
                 <p className="rounded-[10px] bg-danger-bg px-3 py-2 text-[13px]">{loadError}</p>
-              ) : messages.length === 0 && !busy ? (
-                <Greeting bot={bot} />
               ) : (
-                messages.map((m, i) => (
+                <>
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllFor(bot.id)}
+                      className="mx-auto rounded-full border border-hairline bg-panel-sunken px-3 py-1 font-mono text-[12px] text-ink-muted transition-colors hover:text-ink"
+                    >
+                      Show {hiddenCount} earlier message{hiddenCount === 1 ? "" : "s"}
+                    </button>
+                  )}
+                  {visible.length === 0 && !busy ? (
+                    <Greeting bot={bot} />
+                  ) : (
+                    visible.map((m) => (
                   <MessageScrollerItem
                     key={m.id}
                     id={`msg-${m.id}`}
@@ -220,10 +253,12 @@ export function BotChat({ bot }: { bot: Bot }) {
                     {m.metadata?.divider ? (
                       <Divider at={m.metadata.createdAt} />
                     ) : (
-                      <ChatMessage message={m} bot={bot} streaming={status === "streaming" && i === messages.length - 1} />
+                      <ChatMessage message={m} bot={bot} streaming={status === "streaming" && m.id === last?.id} />
                     )}
                   </MessageScrollerItem>
-                ))
+                    ))
+                  )}
+                </>
               )}
 
               {thinking && (
