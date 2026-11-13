@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createPrivateKey, createSign, type KeyObject } from "node:crypto";
 
 /**
  * Dotty's GitHub App (D20). App JWT → short-lived installation tokens scoped to one repo and the
@@ -29,13 +29,34 @@ export class GitHubError extends Error {
   }
 }
 
-/** The PEM may arrive with real newlines, "\n" escapes, or base64-encoded. */
-function privateKey() {
-  const raw = (process.env.GITHUB_APP_PRIVATE_KEY ?? "")
-    .trim()
-    .replace(/^"|"$/g, "");
-  if (raw.includes("-----BEGIN")) return raw.replace(/\\n/g, "\n");
-  return Buffer.from(raw, "base64").toString("utf8");
+/** The server's GitHub App settings are wrong (not a GitHub outage) — retrying won't help. */
+export class GitHubSetupError extends Error {}
+
+let cachedKey: { source: string; key: KeyObject } | null = null;
+
+/**
+ * The app's private key, however a dashboard stored it: real newlines, "\n" / "\r\n" escapes,
+ * wrapped in quotes, newlines flattened to spaces (pasting a PEM into a one-line field), or the
+ * whole PEM base64-encoded. The PEM is rebuilt from its base64 body, so all of these work.
+ */
+function privateKey(): KeyObject {
+  const source = process.env.GITHUB_APP_PRIVATE_KEY ?? "";
+  if (cachedKey?.source === source) return cachedKey.key;
+  let raw = source.trim().replace(/^(["'])([\s\S]*)\1$/, "$2");
+  raw = raw.replace(/\\r/g, "").replace(/\\n/g, "\n");
+  if (!raw.includes("-----BEGIN")) raw = Buffer.from(raw.replace(/\s+/g, ""), "base64").toString("utf8");
+  const pem = /-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/.exec(raw);
+  const body = pem?.[2].replace(/\s+/g, "") ?? "";
+  try {
+    if (!pem || !body) throw new Error("no PEM block");
+    const key = createPrivateKey(`-----BEGIN ${pem[1]}-----\n${body.match(/.{1,64}/g)!.join("\n")}\n-----END ${pem[1]}-----\n`);
+    cachedKey = { source, key };
+    return key;
+  } catch {
+    throw new GitHubSetupError(
+      "GITHUB_APP_PRIVATE_KEY on this server isn't a readable private key (it was probably cut short or mangled when pasted). Re-paste the GitHub App's .pem, or set it base64-encoded, then redeploy.",
+    );
+  }
 }
 
 const b64url = (value: string | Buffer) =>

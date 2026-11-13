@@ -10,6 +10,7 @@
     "trigger:dev": "trigger dev",
     "tunnel": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs tunnel",
     "telegram:webhook": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs telegram",
+    "telegram:status": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs telegram-status",
     "slack:manifest": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs slack-manifest",
     "github:app": "node --env-file-if-exists=.env.local scripts/github-app.mjs",
     "chat:secrets": "node scripts/chat-setup.mjs secrets"

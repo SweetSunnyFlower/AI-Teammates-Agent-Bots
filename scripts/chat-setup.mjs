@@ -5,6 +5,7 @@
  *   npm run chat:secrets                 print fresh TELEGRAM_WEBHOOK_SECRET_TOKEN and SLACK_ENCRYPTION_KEY
  *   npm run tunnel                       start ngrok on port 3000 (uses NGROK_DOMAIN if set)
  *   npm run telegram:webhook [-- URL]    point the Telegram bot at URL/api/webhooks/telegram (with the secret)
+ *   npm run telegram:status              where the bot sends updates and the last delivery error Telegram saw
  *   npm run slack:manifest [-- URL]      print the Slack app manifest for URL
  *
  * URL defaults to CHAT_PUBLIC_URL, then to the running ngrok tunnel. Locally that's your ngrok
@@ -92,6 +93,43 @@ async function setTelegramWebhook() {
   console.log("  Keep `npm run dev` (and the tunnel) running, then link from Dotty → Settings → Channels.\n");
 }
 
+/** What Telegram knows about the webhook: the fastest way to see why messages don't arrive. */
+async function telegramStatus() {
+  const me = await telegram("getMe");
+  const info = await telegram("getWebhookInfo");
+  console.log(`\nBot:      @${me.username}`);
+  console.log(`Webhook:  ${info.url || "(none set — run npm run telegram:webhook -- https://your-domain)"}`);
+  console.log(`Waiting:  ${info.pending_update_count} update(s) Telegram hasn't delivered yet`);
+  if (!info.url) {
+    console.log("Errors:   none — but with no webhook set, Telegram is holding every message. Set it first.\n");
+    return;
+  }
+  if (!info.last_error_message) {
+    console.log("Errors:   none reported — Telegram is delivering fine.\n");
+    return;
+  }
+  const when = info.last_error_date ? new Date(info.last_error_date * 1000).toLocaleString() : "unknown time";
+  console.log(`Last error (${when}): ${info.last_error_message}`);
+  const e = info.last_error_message;
+  const hint = /401/.test(e)
+    ? "401: the secret doesn't match. TELEGRAM_WEBHOOK_SECRET_TOKEN on the server must be the same value this webhook was set with\n  (re-run telegram:webhook with the server's value, then redeploy) — or Vercel Deployment Protection is on for production."
+    : /403/.test(e)
+      ? "403: something in front of the app (Vercel Firewall / protection) is blocking Telegram."
+      : /404/.test(e)
+        ? "404: wrong URL — it must be https://your-domain/api/webhooks/telegram on the live deployment."
+        : /503/.test(e)
+          ? "503: the server says Telegram isn't configured — TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET_TOKEN, TELEGRAM_BOT_USERNAME\n  or SUPABASE_DB_URL is missing in Vercel Production. Add them and redeploy (env changes need a new deployment)."
+          : /500|502|504/.test(e)
+            ? "5xx: the app crashed handling the update — check Vercel logs for /api/webhooks/telegram. Most often SUPABASE_DB_URL\n  is the direct connection (IPv6, unreachable from Vercel): use the Supabase pooler string instead."
+            : /429/.test(e)
+              ? "429: rate limited by the app — wait a minute."
+              : /SSL|certificate|resolve|connection/i.test(e)
+                ? "Telegram can't reach the domain — check the domain/DNS and that it serves HTTPS."
+                : "";
+  if (hint) console.log(`  → ${hint}`);
+  console.log("");
+}
+
 async function slackManifest() {
   const base = await publicUrl();
   const manifest = {
@@ -148,6 +186,9 @@ switch (command) {
   case "telegram":
     await setTelegramWebhook();
     break;
+  case "telegram-status":
+    await telegramStatus();
+    break;
   case "slack-manifest":
     await slackManifest();
     break;
@@ -158,5 +199,5 @@ switch (command) {
     tunnel();
     break;
   default:
-    fail("Usage: node scripts/chat-setup.mjs <telegram|slack-manifest|secrets|tunnel> [public URL]");
+    fail("Usage: node scripts/chat-setup.mjs <telegram|telegram-status|slack-manifest|secrets|tunnel> [public URL]");
 }

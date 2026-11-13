@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { PrPreview } from "@/lib/approvals/describe";
 import type { ApprovalHandler } from "@/lib/integrations/composio";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { gh, GitHubError, installationRepos, installationToken, parseRepo, READ } from "./app";
+import { gh, GitHubError, GitHubSetupError, installationRepos, installationToken, parseRepo, READ } from "./app";
 
 /**
  * GitHub tools for bots that have the "github" app (D20). Called directly (not through Composio
@@ -36,6 +36,10 @@ function failure(error: unknown, repo?: string): Fail {
     }
     if (error.status === 401 || error.status === 403) return { ok: false, error: `GitHub refused: ${error.message}. The GitHub connection may need to be reconnected.` };
     return { ok: false, error: `GitHub error (${error.status}): ${error.message}` };
+  }
+  if (error instanceof GitHubSetupError) {
+    console.error("[github] setup problem:", error.message);
+    return { ok: false, error: `${error.message} Don't retry — tell the user GitHub is misconfigured on the server.` };
   }
   console.error("[github] tool failed", error);
   return { ok: false, error: "Couldn't reach GitHub — try again." };
