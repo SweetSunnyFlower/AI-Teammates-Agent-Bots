@@ -18,6 +18,11 @@ export interface ChannelLink {
     username?: string;
     /** Slack: the user who installed Dotty (the only one it listens to). */
     user_id?: string;
+    /**
+     * Slack: the thread of the last conversation — a channel thread when Dotty was mentioned in a
+     * channel, otherwise the DM. Reports and cards go here, so an answer lands where it was asked.
+     */
+    thread_id?: string;
     team_name?: string;
   };
 }
@@ -40,6 +45,16 @@ export async function findLink(db: Db, provider: ChannelProvider, userId: string
   const link = toLink(data);
   if (provider === "slack" && link.meta.user_id !== userId) return null; // only the installer
   return link;
+}
+
+/** Remember the Slack thread the user is talking in, so pushes go back to the same place. */
+export async function rememberThread(db: Db, link: ChannelLink, threadId: string) {
+  if (link.meta.thread_id === threadId) return;
+  await db
+    .from("connections")
+    .update({ meta: { ...link.meta, thread_id: threadId } })
+    .eq("provider", link.provider)
+    .eq("external_id", link.externalId);
 }
 
 export async function linksForWorkspace(db: Db, workspaceId: string, only?: ChannelProvider): Promise<ChannelLink[]> {

@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { DottyChat, DottySlackAdapter, ThreadState } from "./bot";
 import { ACTION } from "./cards";
 import { runChannelTurn } from "./channel-turn";
-import { findLink, saveLink, type ChannelLink, type ChannelProvider } from "./links";
+import { findLink, rememberThread, saveLink, type ChannelLink, type ChannelProvider } from "./links";
 
 /**
  * What Dotty does on Telegram and Slack:
@@ -110,6 +110,8 @@ async function onMessage(thread: Thread<ThreadState>, message: Message) {
     await thread.post(provider === "telegram" ? PRIVATE_NOTE : "Only the person who added Dotty to this Slack workspace can use it.");
     return;
   }
+  if (provider === "slack") await rememberThread(createAdminClient(), link, thread.id).catch(() => {});
+
   const text = (message.text ?? "").trim();
   if (!text) return void (await thread.post("I can only read text for now."));
 

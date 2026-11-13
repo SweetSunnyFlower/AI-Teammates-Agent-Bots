@@ -62,7 +62,9 @@ async function postToLink(link: ChannelLink, message: CardElement | { markdown: 
     await slack.withBotToken(
       installation.botToken,
       async () => {
-        const threadId = await slack.openDM(userId);
+        // Where the user actually talks to Dotty (a channel thread when they mention it there);
+        // only fall back to a DM when nothing has been said yet.
+        const threadId = link.meta.thread_id ?? (await slack.openDM(userId));
         await bot.thread(threadId).post(message);
       },
       { installationId: link.externalId, botUserId: installation.botUserId },
