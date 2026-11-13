@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasGitHubApp } from "@/lib/github/app";
 import { connectedToolkits, hasComposio } from "@/lib/integrations/composio";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -16,11 +17,12 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/office/[workspa
   const supabase = await createClient();
   const { data: workspace } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   if (!workspace) return Response.json({ apps: [], error: "Unknown workspace." }, { status: 404, headers });
-  if (!hasComposio()) {
+  if (!hasComposio() && !hasGitHubApp()) {
     return Response.json({ apps: [], error: "Composio isn't set up yet — add COMPOSIO_API_KEY to .env.local.", setup: true }, { headers });
   }
   try {
-    const apps = (await connectedToolkits(workspaceId)).filter((a) => a.slug !== "composio");
+    // GitHub (Dotty's own app) plus Composio's toolkits; a Composio failure leaves just GitHub.
+    const apps = await connectedToolkits(workspaceId);
     return Response.json({ apps, error: null }, { headers });
   } catch (error) {
     console.error("[composio] couldn't list connected apps", error);

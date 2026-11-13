@@ -68,7 +68,7 @@ async function pauseFor(ctx: PauseContext, item: Record<string, unknown>, waitin
 
 /** Gate handler for background runs: ask the user, wait, then run only what they approved. */
 export async function waitForApproval(ctx: PauseContext, request: ApprovalRequest): Promise<ApprovalDecision> {
-  const { title, action, preview } = buildPreview(request.calls, request.reasons);
+  const { title, action, preview } = buildPreview(request.calls, request.reasons, request.pr, request.sources);
   const decided = await pauseFor(
     ctx,
     { kind: "approval", action, tool_key: request.tool.slice(0, 120), title, preview, input: request.args },

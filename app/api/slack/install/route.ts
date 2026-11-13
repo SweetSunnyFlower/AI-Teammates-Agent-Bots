@@ -2,9 +2,12 @@ import { z } from "zod";
 import { hasSlack } from "@/lib/chat/env";
 import { signInstallState, slackAuthorizeUrl } from "@/lib/chat/slack-oauth";
 import { createClient } from "@/lib/supabase/server";
+import { limitByIp } from "@/lib/ratelimit";
 
 /** "Add to Slack": only the workspace's owner (signed in) can start it. */
 export async function GET(request: Request) {
+  const limited = await limitByIp("connect", request);
+  if (limited) return limited;
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspace") ?? "";
   const back = (status: string) => Response.redirect(new URL(`/workspace/${workspaceId}?settings=channels&slack=${status}`, url.origin), 302);

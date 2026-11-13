@@ -12,9 +12,18 @@ const uuid = z.string().uuid();
 const THREAD_LIMIT = 200; // most recent messages loaded into the drawer
 
 /** The bot's whole thread (dividers included), oldest first. RLS limits it to the owner. */
-export async function loadThread(botId: string): Promise<{ ok: true; messages: ThreadMessage[] } | { ok: false; error: string }> {
-  if (!hasSupabaseEnv) return { ok: false, error: "Chat needs Supabase — add your keys to .env.local." };
-  if (!uuid.safeParse(botId).success) return { ok: false, error: "Unknown bot." };
+export async function loadThread(
+  botId: string,
+): Promise<
+  { ok: true; messages: ThreadMessage[] } | { ok: false; error: string }
+> {
+  if (!hasSupabaseEnv)
+    return {
+      ok: false,
+      error: "Chat needs Supabase — add your keys to .env.local.",
+    };
+  if (!uuid.safeParse(botId).success)
+    return { ok: false, error: "Unknown bot." };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("messages")
@@ -29,27 +38,56 @@ export async function loadThread(botId: string): Promise<{ ok: true; messages: T
       id: m.ui_id ?? m.id,
       role: m.role,
       parts: m.kind === "divider" ? [] : m.parts,
-      metadata: { createdAt: m.created_at, divider: m.kind === "divider" || undefined },
+      metadata: {
+        createdAt: m.created_at,
+        divider: m.kind === "divider" || undefined,
+      },
     })),
   };
 }
 
 /** "New chat": a divider in the same thread. The bot forgets everything above it; nothing is deleted. */
-export async function startNewChat(botId: string): Promise<{ ok: true; divider: ThreadMessage } | { ok: false; error: string }> {
-  if (!hasSupabaseEnv || !uuid.safeParse(botId).success) return { ok: false, error: "Unknown bot." };
+export async function startNewChat(
+  botId: string,
+): Promise<
+  { ok: true; divider: ThreadMessage } | { ok: false; error: string }
+> {
+  if (!hasSupabaseEnv || !uuid.safeParse(botId).success)
+    return { ok: false, error: "Unknown bot." };
   const supabase = await createClient();
-  const { data: bot } = await supabase.from("bots").select("id, workspace_id").eq("id", botId).maybeSingle();
-  if (!bot) return { ok: false, error: "That bot doesn't exist or isn't yours." };
+  const { data: bot } = await supabase
+    .from("bots")
+    .select("id, workspace_id")
+    .eq("id", botId)
+    .maybeSingle();
+  if (!bot)
+    return { ok: false, error: "That bot doesn't exist or isn't yours." };
   const { data, error } = await supabase
     .from("messages")
-    .insert({ workspace_id: bot.workspace_id, bot_id: bot.id, role: "system", kind: "divider", parts: [], channel: "web" })
+    .insert({
+      workspace_id: bot.workspace_id,
+      bot_id: bot.id,
+      role: "system",
+      kind: "divider",
+      parts: [],
+      channel: "web",
+    })
     .select("id, created_at")
     .single();
   if (error) return { ok: false, error: friendly(error.message) };
-  return { ok: true, divider: { id: data.id, role: "system", parts: [], metadata: { createdAt: data.created_at, divider: true } } };
+  return {
+    ok: true,
+    divider: {
+      id: data.id,
+      role: "system",
+      parts: [],
+      metadata: { createdAt: data.created_at, divider: true },
+    },
+  };
 }
 
 function friendly(message: string) {
-  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach Supabase — check your connection and try again.";
+  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message))
+    return "Couldn't reach Supabase — check your connection and try again.";
   return message;
 }

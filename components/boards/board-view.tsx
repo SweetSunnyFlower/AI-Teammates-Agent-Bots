@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { RotateCcw } from "lucide-react";
+import { GitPullRequest, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { setTaskStatus } from "@/app/(routes)/workspace/task-actions";
 import { retryTask } from "@/app/(routes)/workspace/team-actions";
@@ -14,11 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Kanban, KanbanBoard, KanbanColumn, KanbanItem, KanbanOverlay } from "@/components/ui/kanban";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export const BOARD_COLUMNS: Array<{ id: Exclude<TaskStatus, "failed">; title: string; dot: string }> = [
-  { id: "backlog", title: "Backlog", dot: STATUS_META.resting.color },
-  { id: "doing", title: "Doing", dot: STATUS_META.working.color },
-  { id: "waiting_on_me", title: "Waiting on me", dot: STATUS_META.waiting.color },
-  { id: "done", title: "Done", dot: "#5c8fd6" },
+export const BOARD_COLUMNS: Array<{ id: Exclude<TaskStatus, "failed">; title: string; dot: string; empty: string }> = [
+  { id: "backlog", title: "Backlog", dot: STATUS_META.resting.color, empty: "New and queued tasks wait here." },
+  { id: "doing", title: "Doing", dot: STATUS_META.working.color, empty: "No bot is working on anything." },
+  { id: "waiting_on_me", title: "Waiting on me", dot: STATUS_META.waiting.color, empty: "Nothing is waiting on you." },
+  { id: "done", title: "Done", dot: "#5c8fd6", empty: "Finished tasks land here." },
 ];
 
 /** Failed tasks wait in the backlog with a Retry button. */
@@ -83,6 +83,11 @@ export function BoardView({ selectedTaskId, onSelectTask }: { selectedTaskId: st
             </header>
             <ScrollArea className="min-h-0 flex-1">
               <div className="flex min-h-24 flex-col gap-2 px-2.5 pb-3">
+                {!columns[col.id]?.length && (
+                  <p className="grid min-h-20 place-items-center rounded-[12px] border-2 border-dashed border-ink/15 px-3 text-center font-mono text-[12px] text-ink-muted">
+                    {col.empty}
+                  </p>
+                )}
                 {(columns[col.id] ?? []).map((task) => (
                   <KanbanItem key={task.id} value={task.id} asHandle className="cursor-grab rounded-[12px] active:cursor-grabbing">
                     <TaskCard
@@ -134,6 +139,42 @@ export function RetryButton({ taskId, label = "Retry", quiet = false }: { taskId
   );
 }
 
+/** A code run's pull request and test result (Engineering). */
+function CodeBadge({ code }: { code: NonNullable<Task["code"]> }) {
+  const tests = code.prState === "merged" ? null : code.tests === "passed" ? "tests ✓" : code.tests === "failed" ? "tests ✗" : null;
+  const text =
+    code.status === "running"
+      ? `coding in ${code.repo}…`
+      : code.status === "failed"
+        ? `code run failed · ${code.repo}`
+        : code.status === "no_changes"
+          ? `no changes · ${code.repo}`
+          : `PR #${code.prNumber}${code.prState === "merged" ? " merged" : code.prState === "closed" ? " closed" : ""} · ${code.repo}`;
+  const className = cn(
+    "mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[11px]",
+    code.prState === "merged"
+      ? "border-[#2e8b3e]/60 text-[#2e8b3e]"
+      : code.status === "failed" || code.tests === "failed"
+        ? "border-[#b5473f]/50 text-[#b5473f]"
+        : "border-ink/30 text-ink/80",
+    code.status === "running" && "shimmer",
+  );
+  const body = (
+    <>
+      <GitPullRequest className="size-3 shrink-0" />
+      <span className="truncate">{text}</span>
+      {tests && <span className="shrink-0">· {tests}</span>}
+    </>
+  );
+  return code.prUrl ? (
+    <a href={code.prUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={cn(className, "hover:bg-panel-sunken")}>
+      {body}
+    </a>
+  ) : (
+    <span className={className}>{body}</span>
+  );
+}
+
 function TaskCard({
   task,
   bot,
@@ -180,6 +221,7 @@ function TaskCard({
           {task.result}
         </p>
       )}
+      {task.code && <CodeBadge code={task.code} />}
       {task.status === "failed" && !dragging && <RetryButton taskId={task.id} />}
       {task.status === "doing" && !dragging && <RetryButton taskId={task.id} label="Stuck? Restart" quiet />}
       <div className="mt-2 flex flex-wrap gap-1">

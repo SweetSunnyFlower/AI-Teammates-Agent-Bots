@@ -180,7 +180,8 @@ export function OfficeProvider({
   const openSettings = useCallback((tab: SettingsTab = "connectors") => setSettingsTab(tab), []);
   const closeSettings = useCallback(() => setSettingsTab(null), []);
   const [pendingAsk, setPendingAsk] = useState<OfficeState["pendingAsk"]>(null);
-  const [elevator, setElevator] = useState(0);
+  // Open at the top of the building (the Head office), not the lobby.
+  const [elevator, setElevator] = useState(() => Math.max(0, snapshot.departments.length - VISIBLE_FLOORS));
   const [lobbyNonce, setLobbyNonce] = useState(0);
   const canEdit = snapshot.workspace.id !== "demo";
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);

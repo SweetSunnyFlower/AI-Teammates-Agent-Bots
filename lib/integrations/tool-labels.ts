@@ -23,7 +23,7 @@ export interface AppToolLabel {
   lookup: boolean;
 }
 
-export const isAppTool = (name: string) => name.startsWith("COMPOSIO_");
+export const isAppTool = (name: string) => name.startsWith("COMPOSIO_") || name.startsWith("GITHUB_");
 
 /** Composio's logo CDN, by toolkit slug. */
 export const appLogo = (slug: string) => `https://logos.composio.dev/api/${encodeURIComponent(slug)}`;
@@ -68,6 +68,13 @@ export function describeAppTool(name: string, input: unknown): AppToolLabel {
     const slugs = Array.isArray(args.tool_slugs) ? (args.tool_slugs as unknown[]).map(String) : [];
     const what = actions(slugs);
     return { done: `Read how to use ${what}`, running: `Reading how to use ${what}…`, apps: uniqueApps(slugs), lookup: true };
+  }
+
+  if (name.startsWith("GITHUB_")) {
+    // Dotty's own GitHub tools: "GitHub · get issue (acme/web#42)".
+    const where = typeof args.repo === "string" ? ` (${args.repo}${typeof args.number === "number" ? `#${args.number}` : ""})` : "";
+    const what = `${describeTool(name).app} · ${describeTool(name).label}${where}`;
+    return { done: what, running: `Using ${what}…`, apps: [appOf(name)], lookup: false };
   }
 
   return { done: "Used an app", running: "Using an app…", apps: [], lookup: true };

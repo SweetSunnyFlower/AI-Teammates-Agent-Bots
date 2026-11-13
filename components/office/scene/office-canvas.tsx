@@ -22,6 +22,7 @@ import {
   FLOOR_GAP,
   VIEW_DIR,
   PANEL_INSET,
+  VIEW_LIFT_PX,
   SLAB_H,
 } from "./constants";
 import { Floor } from "./floor";
@@ -337,7 +338,7 @@ function CameraRig() {
     // Zoom is fitted to a full window (not the current one) so riding never changes scale.
     const fitBox = windowBox(0, Math.min(VISIBLE_FLOORS, n), n);
     const box = windowBox(elevator, Math.min(VISIBLE_FLOORS, n), n);
-    const fitted = fitZoom(fitBox, w, h, 1.85, 1.22);
+    const fitted = fitZoom(fitBox, w, h, 2.25, 1.48);
     // A focused floor gets a gentle push-in and sits in the middle of the view, with the other
     // floors dimmed by <Floor dimmed>. Modest on purpose: clicking a bot slides the drawer open at
     // the same moment, and two big movements at once fight each other.
@@ -345,7 +346,7 @@ function CameraRig() {
     const center = (focusIndex >= 0 ? floorBox(focusIndex, n) : box).getCenter(new Vector3());
     const zoom = focusIndex >= 0 ? fitted * FOCUS_ZOOM : fitted;
     const shiftPx = wide ? (PANEL_INSET.right - PANEL_INSET.left) / 2 : 0;
-    const shiftDownPx = wide ? (PANEL_INSET.top - PANEL_INSET.bottom) / 2 : 0;
+    const shiftDownPx = (wide ? (PANEL_INSET.top - PANEL_INSET.bottom) / 2 : 0) + VIEW_LIFT_PX;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const animate = !first.current && !reduceMotion;

@@ -11,11 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { ChannelsTab } from "./channels-tab";
+import { GitHubCard } from "./github-card";
+import { WorkspaceTab } from "./workspace-tab";
+import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 
 const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Plug }> = [
+  { id: "workspace", label: "Workspace", icon: Building2 },
   { id: "connectors", label: "Connectors", icon: Plug },
   { id: "channels", label: "Channels", icon: MessagesSquare },
-  { id: "workspace", label: "Workspace", icon: Building2 },
 ];
 
 /**
@@ -26,7 +29,7 @@ export function SettingsDialog() {
   const { settingsTab, openSettings, closeSettings, canEdit } = useOffice();
   const open = settingsTab !== null && canEdit;
   const [everOpened, setEverOpened] = useState(false);
-  const [tab, setTab] = useState<SettingsTab>("connectors");
+  const [tab, setTab] = useState<SettingsTab>("workspace");
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Derived during render: remember the first open and follow tab requests (e.g. ?settings=connectors).
@@ -81,7 +84,7 @@ export function SettingsDialog() {
           >
             <TabsList
               variant="line"
-              className="h-auto w-48 shrink-0 flex-col items-stretch justify-start gap-1 rounded-none border-r border-hairline p-3"
+              className="w-48 shrink-0 flex-col items-stretch justify-start gap-1 self-stretch rounded-none border-r border-hairline p-3 group-data-vertical/tabs:h-auto"
             >
               {TABS.map(({ id, label, icon: Icon }) => (
                 <TabsTrigger
@@ -100,7 +103,7 @@ export function SettingsDialog() {
               <ChannelsTab />
             </TabsContent>
             <TabsContent value="workspace" className="min-h-0 overflow-y-auto px-1">
-              <WorkspaceSoon />
+              <WorkspaceTab />
             </TabsContent>
           </Tabs>
         </div>
@@ -188,14 +191,31 @@ function Connectors() {
 
       {/* Only the list scrolls; the header and search stay put. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-hairline py-4 pr-4 pl-6 [scrollbar-gutter:stable] [scrollbar-width:thin]">
+        {(!search || "github".includes(search.toLowerCase()) || search.toLowerCase().includes("git")) && (
+          <ul className="mb-2 grid gap-2 sm:grid-cols-2">
+            <GitHubCard workspaceId={workspaceId} />
+          </ul>
+        )}
         {error ? (
           <p role="alert" className={cn("rounded-[10px] px-3 py-2 text-[13px]", setup ? "bg-honey" : "bg-danger-bg")}>
             {error.message}
           </p>
         ) : isPending ? (
-          <p className="flex items-center gap-2 font-mono text-[12.5px] text-ink-muted">
-            <Spinner className="size-3.5" /> loading apps…
-          </p>
+          <div aria-busy="true">
+            <LoadingLabel>Loading apps…</LoadingLabel>
+            <ul className="grid gap-2 sm:grid-cols-2" aria-hidden>
+              {Array.from({ length: 8 }, (_, i) => (
+                <li key={i} className="flex items-center gap-3 rounded-[12px] border-2 border-ink/15 bg-field p-3">
+                  <Skeleton className="size-9 shrink-0 rounded-[9px]" />
+                  <span className="flex flex-1 flex-col gap-1.5">
+                    <Skeleton className="h-3.5 w-1/2" />
+                    <Skeleton className="h-2.5 w-3/4" />
+                  </span>
+                  <Skeleton className="h-8 w-[78px] rounded-full" />
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : items.length === 0 ? (
           <p className="font-mono text-[12.5px] text-ink-muted">no apps match “{search}”.</p>
         ) : (
@@ -283,14 +303,5 @@ function ConnectorRow({ item, workspaceId, onDisconnected }: { item: ConnectorIt
         </button>
       )}
     </li>
-  );
-}
-
-function WorkspaceSoon() {
-  return (
-    <div className="px-6 py-5">
-      <h3 className="text-[17px] font-extrabold">Workspace</h3>
-      <p className="mt-1 text-[13px] text-ink/75">Spend cap, task cap and recap time settings are coming next.</p>
-    </div>
   );
 }

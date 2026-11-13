@@ -25,7 +25,7 @@ export const DESK_SLOTS: Array<[number, number]> = [
  * slight turn so it still reads as 3D. Azimuth is measured from +z, polar from straight up.
  */
 const DEFAULT_AZIMUTH = 0.22; // ~13°
-const DEFAULT_POLAR = 1.08; // ~62° from vertical → ~28° above the horizon
+const DEFAULT_POLAR = 1.3; // ~74° from vertical → ~16° above the horizon: facing the building, not looking down on it
 export const VIEW_DIR = new Vector3(
   Math.sin(DEFAULT_AZIMUTH) * Math.sin(DEFAULT_POLAR),
   Math.cos(DEFAULT_POLAR),
@@ -70,6 +70,9 @@ export function floorCorners(topDownIndex: number, floorCount: number): Vector3[
     new Vector3(-FLOOR_W / 2, y, -FLOOR_D / 2),
   ];
 }
+
+/** The building sits this many CSS px higher than the centre of the view. */
+export const VIEW_LIFT_PX = 40;
 
 /** Horizontal room the floating panels take on wide screens (left column + right column + gaps). */
 export const PANEL_INSET = { left: 306, right: 360, top: 76, bottom: 64 };

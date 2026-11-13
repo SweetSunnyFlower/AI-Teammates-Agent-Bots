@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { subscribeLive } from "@/lib/supabase/realtime";
 import { useOffice } from "./office-provider";
 
-const TABLES = ["bots", "tasks", "activity", "inbox_items"] as const;
+const TABLES = ["bots", "tasks", "activity", "inbox_items", "code_runs"] as const;
 /** Safety-net refresh while bots are busy / when idle, in case a realtime event is missed. */
 const BUSY_POLL_MS = 5000;
 const IDLE_POLL_MS = 30000;

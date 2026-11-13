@@ -52,7 +52,9 @@ export function BoardDialog() {
         <div className="min-w-0">
           <h2 className="text-[22px] leading-none font-extrabold text-ink">Boards</h2>
           <p className="mt-1 font-mono text-[12.5px] text-ink-muted">
-            {total} task{total === 1 ? "" : "s"} across all floors · drag a card to move it · click to open
+            {total === 0
+              ? "no tasks yet — ask the Head (the box under the office) and its plan shows up here"
+              : `${total} task${total === 1 ? "" : "s"} across all floors · drag a card to move it · click to open`}
           </p>
         </div>
         <button type="button" onClick={closeBoard} className="fn-sticker ml-auto h-10 px-3 text-[14px]" aria-label="Close board">

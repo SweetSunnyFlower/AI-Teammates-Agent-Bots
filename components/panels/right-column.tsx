@@ -1,7 +1,8 @@
 "use client";
 
-import { Activity } from "lucide-react";
+import { Activity, Plus } from "lucide-react";
 import { floorTag } from "@/lib/office/floors";
+import type { Bot } from "@/lib/office/types";
 import { countByStatus } from "@/lib/office/status";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { BotStatusIndicator } from "@/components/office/bot-status";
@@ -23,7 +24,10 @@ export function RightColumn() {
 }
 
 function WholeOfficePanel() {
-  const { snapshot, floors, botsByFloor, selectBot } = useOffice();
+  const { snapshot, floors, botsByFloor, departmentById, selectBot, canEdit, openEditor } = useOffice();
+  // Whoever is busy is pinned to the top: an Engineering bot on the ground floor was
+  // working for minutes without the user noticing, because its floor was off the bottom.
+  const active = snapshot.bots.filter((b) => b.status === "working" || b.status === "waiting" || b.status === "error");
   const counts = countByStatus(snapshot.bots.map((b) => b.status));
   const summary = [
     counts.working && `${counts.working} working`,
@@ -37,41 +41,47 @@ function WholeOfficePanel() {
   return (
     <section className="fn-panel flex min-h-0 flex-1 flex-col" aria-label="Whole office">
       <header className="flex items-start justify-between gap-3 px-4 pt-4 pb-2">
-        <h2 className="text-[24px] leading-[1.05] font-extrabold text-ink">
-          Whole
-          <br />
-          office
-        </h2>
+        <h2 className="text-[22px] leading-[1.05] font-extrabold text-ink">Whole office</h2>
         <p className="max-w-[150px] pt-1 text-right font-mono text-[12.5px] leading-snug text-ink-muted">{summary}</p>
       </header>
       <ScrollArea className="min-h-0 flex-1">
         <div className="px-2 pb-3">
+          {snapshot.bots.length === 0 && (
+            <div className="mx-2 mt-2 flex flex-col items-start gap-2 rounded-[12px] border-2 border-dashed border-ink/20 p-3">
+              <p className="text-[13px] text-ink/80">No bots yet. Add one and give it a job — it shows up in the office.</p>
+              {canEdit && (
+                <button type="button" className="fn-pill" onClick={() => openEditor({ type: "bot" })}>
+                  <Plus className="size-3.5" /> bot
+                </button>
+              )}
+            </div>
+          )}
+          {active.length > 0 && (
+            <div className="mt-2">
+              <p className="px-2 pb-1 font-mono text-[12.5px] text-ink-muted">working now</p>
+              <ul>
+                {active.map((bot) => (
+                  <BotRow key={bot.id} bot={bot} onSelect={selectBot} floor={floorTag(departmentById.get(bot.departmentId)!)} />
+                ))}
+              </ul>
+            </div>
+          )}
           {floors.map((dept) => (
             <div key={dept.id} className="mt-2">
               <p className="px-2 pb-1 font-mono text-[12.5px] text-ink-muted">{floorTag(dept)}</p>
+              {snapshot.bots.length > 0 && !(botsByFloor.get(dept.id) ?? []).length && (
+                <p className="flex items-center gap-2 px-2 py-1 text-[12.5px] text-ink-muted">
+                  empty floor
+                  {canEdit && (
+                    <button type="button" className="font-semibold text-ink underline-offset-2 hover:underline" onClick={() => openEditor({ type: "bot", departmentId: dept.id })}>
+                      add a bot
+                    </button>
+                  )}
+                </p>
+              )}
               <ul>
                 {(botsByFloor.get(dept.id) ?? []).map((bot) => (
-                  <li key={bot.id}>
-                    <button
-                      type="button"
-                      onClick={() => selectBot(bot.id)}
-                      className="flex w-full items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-panel-sunken"
-                    >
-                      <BotAvatar bot={bot} size={34} className="shrink-0" />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="truncate text-[14.5px] font-bold text-ink">{bot.name}</span>
-                          {bot.role !== "worker" && (
-                            <Badge variant="outline" className="h-4 border-ink/30 px-1.5 font-mono text-[10px] text-ink-muted">
-                              {bot.role}
-                            </Badge>
-                          )}
-                        </span>
-                        <span className="block truncate text-[12.5px] text-ink/75">{bot.statusDetail}</span>
-                      </span>
-                      <BotStatusIndicator status={bot.status} className="size-2.5" />
-                    </button>
-                  </li>
+                  <BotRow key={bot.id} bot={bot} onSelect={selectBot} />
                 ))}
               </ul>
             </div>
@@ -82,11 +92,39 @@ function WholeOfficePanel() {
   );
 }
 
+/** One bot: avatar, name, what it's doing, and its status dot (which pings while busy). */
+function BotRow({ bot, onSelect, floor }: { bot: Bot; onSelect: (id: string) => void; floor?: string }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onSelect(bot.id)}
+        className="flex w-full items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-panel-sunken"
+      >
+        <BotAvatar bot={bot} size={34} className="shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-[14.5px] font-bold text-ink">{bot.name}</span>
+            {bot.role !== "worker" && (
+              <Badge variant="outline" className="h-4 border-ink/30 px-1.5 font-mono text-[10px] text-ink-muted">
+                {bot.role}
+              </Badge>
+            )}
+            {floor && <span className="shrink-0 font-mono text-[10.5px] text-ink-muted">{floor}</span>}
+          </span>
+          <span className="block truncate text-[12.5px] text-ink/75">{bot.statusDetail}</span>
+        </span>
+        <BotStatusIndicator status={bot.status} className="size-2.5" />
+      </button>
+    </li>
+  );
+}
+
 function ActivityPanel() {
   const { snapshot, botById, selectBot, openReply } = useOffice();
   return (
     <section
-      className="flex h-[260px] shrink-0 flex-col rounded-[14px] border-2 border-ink bg-night text-white shadow-[0_3px_0_0_var(--lip)]"
+      className="flex h-[200px] shrink-0 flex-col rounded-[14px] border-2 border-ink bg-night text-white shadow-[0_3px_0_0_var(--lip)]"
       aria-label="Live activity"
     >
       <header className="flex items-center gap-2 px-4 pt-3.5 pb-2">

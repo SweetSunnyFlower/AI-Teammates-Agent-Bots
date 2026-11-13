@@ -1,4 +1,4 @@
-import type { PreviewCall } from "@/lib/approvals/describe";
+import type { PreviewCall, PrPreview } from "@/lib/approvals/describe";
 import type { AccessPreview } from "@/lib/integrations/app-access";
 
 // Office view-model types. These mirror the v1 data model in
@@ -63,6 +63,10 @@ export interface InboxItem {
   calls?: PreviewCall[];
   /** Access requests: the app the bot is missing and who already has it. */
   access?: AccessPreview;
+  /** Merge approvals: the pull request that will be merged. */
+  pr?: PrPreview;
+  /** Approvals: apps whose content the bot read before asking (prompt-injection hint). */
+  sources?: string[];
   ago?: string;
 }
 
@@ -115,6 +119,18 @@ export interface Task {
   result?: string;
   /** Set when a routine created this task. */
   routineId?: string;
+  /** The latest code run for this task (Engineering): its pull request and test result. */
+  code?: TaskCode;
+}
+
+export interface TaskCode {
+  repo: string;
+  status: "running" | "succeeded" | "no_changes" | "failed";
+  prNumber?: number;
+  prUrl?: string;
+  tests?: "passed" | "failed" | "none";
+  /** Where the pull request stands on GitHub. */
+  prState?: "open" | "merged" | "closed";
 }
 
 export interface OfficeSnapshot {

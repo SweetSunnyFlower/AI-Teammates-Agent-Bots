@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Chat, useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
-import { ArrowUp, ClipboardList, Loader2, NotebookPen, RotateCcw, Search, Square, SquarePen } from "lucide-react";
+import { ArrowUp, ClipboardList, NotebookPen, RotateCcw, Search, Square, SquarePen } from "lucide-react";
 import { describeAppTool, isAppTool } from "@/lib/integrations/tool-labels";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -29,6 +29,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Bot } from "@/lib/office/types";
+import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 
 /** Words the bot "says" while it works on a reply (shimmering, like Claude's). */
 const THINKING_WORDS = ["Whirring", "Thinking", "Ideating", "Unraveling", "Pondering", "Tinkering", "Noodling", "Percolating", "Scheming", "Brewing"];
@@ -199,9 +200,7 @@ export function BotChat({ bot }: { bot: Bot }) {
           <MessageScrollerViewport>
             <MessageScrollerContent className="gap-4 px-3 py-3">
               {!loaded ? (
-                <p className="flex items-center gap-2 font-mono text-[12px] text-ink-muted">
-                  <Loader2 className="size-3.5 animate-spin" /> loading the conversation…
-                </p>
+                <ChatSkeleton />
               ) : loadError ? (
                 <p className="rounded-[10px] bg-danger-bg px-3 py-2 text-[13px]">{loadError}</p>
               ) : messages.length === 0 && !busy ? (
@@ -314,7 +313,7 @@ function Thinking({ bot }: { bot: Bot }) {
   }, []);
   return (
     <Message align="start">
-      <MessageAvatar>
+      <MessageAvatar className="mt-0.5 self-start">
         <BotAvatar bot={{ ...bot, status: "working" }} size={26} animated />
       </MessageAvatar>
       <MessageContent>
@@ -329,6 +328,11 @@ function Thinking({ bot }: { bot: Bot }) {
       </MessageContent>
     </Message>
   );
+}
+
+/** The bot's name, on the first line so it lines up with the avatar beside it. */
+function SenderName({ bot }: { bot: Bot }) {
+  return <span className="font-mono text-[12px] leading-none text-ink-muted">{bot.name}</span>;
 }
 
 function ChatMessage({ message, bot, streaming }: { message: ThreadMessage; bot: Bot; streaming: boolean }) {
@@ -348,10 +352,11 @@ function ChatMessage({ message, bot, streaming }: { message: ThreadMessage; bot:
   }
   return (
     <Message align="start">
-      <MessageAvatar>
+      <MessageAvatar className="mt-0.5 self-start">
         <BotAvatar bot={bot} size={26} />
       </MessageAvatar>
       <MessageContent className="gap-2">
+        {!streaming && <SenderName bot={bot} />}
         {message.parts.map((part, i) => {
           if (part.type === "text") {
             if (!part.text.trim()) return null;
@@ -490,4 +495,29 @@ function readError(error: Error) {
     /* not JSON */
   }
   return /fetch|network/i.test(error.message) ? "Couldn't reach the server — check your connection and try again." : error.message;
+}
+
+/** Placeholder bubbles while the conversation loads. */
+function ChatSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <LoadingLabel>Loading the conversation…</LoadingLabel>
+      <div className="flex items-start gap-2">
+        <Skeleton className="size-7 shrink-0 rounded-full" />
+        <div className="flex w-[70%] flex-col gap-1.5">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-4/5" />
+        </div>
+      </div>
+      <Skeleton className="h-9 w-[55%] self-end rounded-[14px]" />
+      <div className="flex items-start gap-2">
+        <Skeleton className="size-7 shrink-0 rounded-full" />
+        <div className="flex w-[60%] flex-col gap-1.5">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-3 w-5/6" />
+        </div>
+      </div>
+    </div>
+  );
 }

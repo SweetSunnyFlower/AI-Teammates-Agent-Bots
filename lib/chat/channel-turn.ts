@@ -5,6 +5,7 @@ import { startTaskRun } from "@/lib/runs/start";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildChatTools, buildInstructions, loadChatContext } from "./bot-context";
 import { chatSideTools } from "./side-tools";
+import { rateLimit } from "@/lib/ratelimit";
 
 /**
  * One message from Telegram or Slack, answered by a bot — the same bot, memory, tools and rules as
@@ -23,6 +24,8 @@ export interface TurnResult {
 
 export async function runChannelTurn(input: { workspaceId: string; text: string; via: "telegram" | "slack" }): Promise<TurnResult> {
   if (!hasAiGateway()) return { botName: "Dotty", isHead: true, reply: "Chat needs an AI Gateway key — add AI_GATEWAY_API_KEY to the server's environment." };
+  const limit = await rateLimit("chat", `ws:${input.workspaceId}`);
+  if (!limit.ok) return { botName: "Dotty", isHead: true, reply: `You're sending messages quickly — try again in ${limit.retryAfter}s.` };
   const db = createAdminClient();
 
   const { data: roster } = await db.from("bots").select("id, name, role").eq("workspace_id", input.workspaceId);

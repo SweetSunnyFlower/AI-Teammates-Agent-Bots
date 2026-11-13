@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowRight, Check, ChevronDown, KeyRound, Loader2, MessageCircleQuestion, Pencil, Plug, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ExternalLink, GitPullRequest, KeyRound, Loader2, MessageCircleQuestion, Pencil, Plug, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   answerQuestion,
@@ -12,7 +12,7 @@ import {
   skipQuestion,
 } from "@/app/(routes)/workspace/inbox-actions";
 import { connectToolkit } from "@/app/(routes)/workspace/connector-actions";
-import { editableKeys, formatArg, type PreviewCall } from "@/lib/approvals/describe";
+import { editableKeys, formatArg, isEditableAction, type PreviewCall, type PrPreview } from "@/lib/approvals/describe";
 import { cn } from "@/lib/utils";
 import type { Bot, InboxItem } from "@/lib/office/types";
 import { BotAvatar } from "@/components/office/bot-avatar";
@@ -80,7 +80,7 @@ function ApprovalCard({ item, bot, onDone }: { item: InboxItem; bot: Bot; onDone
   const calls = item.calls ?? [];
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<Array<Record<string, string>>>(() => calls.map(() => ({})));
-  const canEditArgs = calls.some((c) => editableKeys(c.args).length > 0);
+  const canEditArgs = isEditableAction(item.action) && calls.some((c) => editableKeys(c.args).length > 0);
   const verb = item.action ? ACTION_VERB[item.action] : "act";
 
   const approve = () => {
@@ -88,7 +88,7 @@ function ApprovalCard({ item, bot, onDone }: { item: InboxItem; bot: Bot; onDone
     const changed = edits.some((e) => Object.keys(e).length > 0);
     run(
       () => decideApproval(item.id, "approve", changed ? { edits } : {}),
-      item.action === "create_routine" ? "Routine created — it's in Routines" : `${bot.name} will go ahead`,
+      item.action === "create_routine" ? "Routine created — it's in Routines" : item.action === "merge" ? `${bot.name} will merge it` : `${bot.name} will go ahead`,
     );
   };
   const reject = () => {
@@ -103,7 +103,17 @@ function ApprovalCard({ item, bot, onDone }: { item: InboxItem; bot: Bot; onDone
       title={item.title}
     >
       {item.preview && <p className="mt-1.5 text-[12.5px] leading-snug text-ink/75">{item.preview}</p>}
-      {calls.length > 0 && (
+      {item.sources?.length ? (
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-[8px] bg-[#fcd384]/45 px-2 py-1 text-[12px] leading-snug text-ink/85">
+          <TriangleAlert className="mt-px size-3.5 shrink-0 text-[#b0700a]" aria-hidden />
+          <span>
+            Read {item.sources.join(", ")} first — check this is what you asked for. Text in emails, pages or issues can try to steer bots.
+          </span>
+        </p>
+      ) : null}
+      {item.pr ? (
+        <PullRequestPreview pr={item.pr} />
+      ) : calls.length > 0 && (
         <ul className="mt-2 flex flex-col gap-2">
           {calls.map((call, i) => (
             <CallPreview
@@ -139,6 +149,39 @@ function ApprovalCard({ item, bot, onDone }: { item: InboxItem; bot: Bot; onDone
         </button>
       </div>
     </Shell>
+  );
+}
+
+/** A merge approval: the pull request, its size, CI checks and whether GitHub can merge it. */
+function PullRequestPreview({ pr }: { pr: PrPreview }) {
+  const { passed, failed, pending } = pr.checks;
+  const total = passed + failed + pending;
+  return (
+    <div className="mt-2 rounded-[10px] border border-ink/25 bg-panel/80 p-2 text-[12px]">
+      <a href={pr.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 font-bold text-ink hover:underline">
+        <GitPullRequest className="size-3.5 shrink-0 text-ink/60" />
+        <span className="truncate">
+          {pr.repo}#{pr.number} · {pr.title}
+        </span>
+        <ExternalLink className="size-3 shrink-0 text-ink/50" />
+      </a>
+      <p className="mt-1 font-mono text-[11.5px] text-ink/75">
+        {pr.branch} → {pr.base} · {pr.method}
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-1 font-mono text-[11px]">
+        <span className="rounded-full border border-ink/25 px-2 py-0.5">
+          {pr.files} file{pr.files === 1 ? "" : "s"} · <span className="text-[#2e8b3e]">+{pr.additions}</span> <span className="text-[#b5473f]">−{pr.deletions}</span>
+        </span>
+        <span className={cn("rounded-full border px-2 py-0.5", failed ? "border-[#b5473f]/50 text-[#b5473f]" : pending ? "border-ink/25 text-ink/75" : "border-[#2e8b3e]/50 text-[#2e8b3e]")}>
+          {total === 0 ? "no CI checks" : failed ? `${failed} check${failed === 1 ? "" : "s"} failing` : pending ? `${pending} check${pending === 1 ? "" : "s"} running` : `${passed} check${passed === 1 ? "" : "s"} passed`}
+        </span>
+        <span className={cn("rounded-full border px-2 py-0.5", pr.mergeable === false ? "border-[#b5473f]/50 text-[#b5473f]" : "border-ink/25 text-ink/75")}>
+          {pr.mergeable === false ? `can't merge (${pr.mergeState})` : pr.mergeable === null ? "mergeability unknown" : "can merge"}
+        </span>
+        {pr.draft && <span className="rounded-full border border-ink/25 px-2 py-0.5 text-ink/75">draft · marked ready on merge</span>}
+      </div>
+      <p className="mt-1.5 text-[11.5px] leading-snug text-ink/65">Merges exactly commit {pr.headSha.slice(0, 7)} — if the branch changes before then, nothing is merged.</p>
+    </div>
   );
 }
 

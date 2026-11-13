@@ -21,8 +21,11 @@ type Result<T> = ({ ok: true } & T) | { ok: false; error: string; setup?: boolea
 
 const uuid = z.string().uuid();
 
-/** Composio's own internal toolkit (its meta tools) — not an app a user connects. */
-const HIDDEN_TOOLKITS = new Set(["composio"]);
+/**
+ * Not shown from Composio's catalog: its own internal toolkit (meta tools), and GitHub — Dotty has
+ * its own GitHub App, shown as its own card (see github-actions.ts).
+ */
+const HIDDEN_TOOLKITS = new Set(["composio", "github"]);
 const NOT_CONFIGURED = "Composio isn't set up yet — add COMPOSIO_API_KEY to .env.local and restart the dev server.";
 
 /** Only the workspace owner can see or change its connections (checked through RLS). */
@@ -72,6 +75,8 @@ export async function listConnectors(
 
 /** Start connecting an app: returns Composio's Connect Link (we never build OAuth ourselves). */
 export async function connectToolkit(workspaceId: string, slug: string): Promise<Result<{ redirectUrl: string }>> {
+  // GitHub is Dotty's own app: its install page, not Composio's.
+  if (slug.toLowerCase() === "github" && uuid.safeParse(workspaceId).success) return { ok: true, redirectUrl: `/api/github/install?workspace=${workspaceId}` };
   if (!hasComposio()) return { ok: false, error: NOT_CONFIGURED, setup: true };
   if (!(await ownWorkspace(workspaceId))) return { ok: false, error: "Unknown workspace." };
   if (!/^[a-z0-9_-]{1,64}$/i.test(slug)) return { ok: false, error: "Unknown app." };

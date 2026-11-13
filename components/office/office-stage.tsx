@@ -7,11 +7,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { OfficeOverlay } from "./office-overlay";
 import { AskHead } from "@/components/chat/ask-head";
 import { useOffice, VISIBLE_FLOORS } from "./office-provider";
+import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 
 // three.js needs the browser: load the canvas on the client only.
 const OfficeCanvas = dynamic(() => import("./scene/office-canvas"), {
   ssr: false,
-  loading: () => <StageMessage text="setting up the office…" />,
+  loading: () => <StageLoading />,
 });
 
 const noopSubscribe = () => () => {};
@@ -51,7 +52,7 @@ export function OfficeStage() {
           <OfficeOverlay />
         </>
       ) : (
-        <StageMessage text="setting up the office…" />
+        <StageLoading />
       )}
       <ViewControls />
       {riding && <ElevatorEdges />}
@@ -103,6 +104,23 @@ function ElevatorButtons() {
         <ChevronUp className="size-4" strokeWidth={2.5} />
       </button>
     </span>
+  );
+}
+
+/** While three.js loads: a stack of floors as placeholders. */
+function StageLoading() {
+  return (
+    <div className="absolute inset-0 grid place-items-center" aria-busy="true">
+      <LoadingLabel>Setting up the office…</LoadingLabel>
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-1.5" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-12 w-[220px] rounded-[10px] bg-panel/45" style={{ animationDelay: `${i * 150}ms` }} />
+          ))}
+        </div>
+        <p className="rounded-full bg-panel/80 px-3 py-1 font-mono text-[12.5px] text-ink">setting up the office…</p>
+      </div>
+    </div>
   );
 }
 

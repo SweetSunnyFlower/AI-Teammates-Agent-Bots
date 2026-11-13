@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createTelegramLink, getChannels, unlinkChannel, type ChannelStatus } from "@/app/(routes)/workspace/channel-actions";
 import { useOffice } from "@/components/office/office-provider";
 import { cn } from "@/lib/utils";
+import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Settings → Channels: talk to your bots from Telegram and Slack. Messages go to the Head (or
@@ -33,9 +34,24 @@ export function ChannelsTab() {
 
   if (isPending) {
     return (
-      <p className="flex items-center gap-2 p-6 text-[13px] text-ink-muted">
-        <Loader2 className="size-4 animate-spin" /> Loading channels…
-      </p>
+      <div className="flex flex-col gap-4 px-6 py-5" aria-busy="true">
+        <LoadingLabel>Loading channels…</LoadingLabel>
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+        {[0, 1].map((i) => (
+          <div key={i} className="flex items-center gap-3 rounded-[12px] border-2 border-ink/15 p-4">
+            <Skeleton className="size-10 shrink-0 rounded-[10px]" />
+            <span className="flex flex-1 flex-col gap-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-2/3" />
+            </span>
+            <Skeleton className="h-8 w-36 rounded-full" />
+          </div>
+        ))}
+      </div>
     );
   }
   if (error || !data) return <p className="p-6 text-[13px] text-[#b5473f]">{error?.message ?? "Couldn't load channels."}</p>;

@@ -1,15 +1,19 @@
 import { logger, task, wait } from "@trigger.dev/sdk";
 import { generateText, isStepCount, tool, type ModelMessage, type StepResult, type ToolSet } from "ai";
 import { z } from "zod";
+import { round4, stepCostCents } from "@/lib/ai/cost";
 import { gatewayModelFor } from "@/lib/ai/models";
-import { buildChatTools, buildRunInstructions, loadChatContext } from "@/lib/chat/bot-context";
+import { buildChatTools, buildRunInstructions, canCode, loadChatContext } from "@/lib/chat/bot-context";
+import { hasBox } from "@/lib/code/sandbox";
 import { releaseStaleRuns } from "@/lib/runs/recover";
 import { appToolsFor, planAccessRequest } from "@/lib/integrations/composio";
 import { describeAppTool, isAppTool } from "@/lib/integrations/tool-labels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { proposeRoutine } from "@/lib/routines/propose";
 import { notifyWorkspace } from "@/lib/chat/notify";
+import { createHash } from "node:crypto";
 import { askUser, requestAppAccess, waitForApproval, type PauseContext } from "./approvals";
+import { engineeringRun } from "./engineering-run";
 
 /**
  * A bot works one task in the background.
@@ -26,14 +30,6 @@ type Payload = { taskId: string };
 const MAX_STEPS = 15;
 /** How many times one run may get new app access and carry on. */
 const MAX_ACCESS_ROUNDS = 2;
-
-// Fallback price estimates (USD per 1M tokens) used only when AI Gateway doesn't report a cost.
-// Verify against your AI Gateway dashboard and adjust.
-const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
-  "anthropic/claude-sonnet-5.5": { input: 3, output: 15 },
-  "anthropic/claude-haiku-5.5": { input: 1, output: 5 },
-  "anthropic/claude-opus-5.5": { input: 5, output: 25 },
-};
 
 export const botRun = task({
   id: "bot-run",
@@ -122,7 +118,9 @@ export const botRun = task({
     // The bot's own apps (chosen per bot). Gated app actions pause the run on Waiting on me until
     // you approve, edit or reject them.
     const pause: PauseContext = { db, workspaceId: t.workspace_id, botId: bot.id, taskId: t.id, taskTitle: t.title, runId };
-    const loadApps = () => appToolsFor(t.workspace_id, bot.app_keys, { onApproval: (request) => waitForApproval(pause, request) });
+    // Apps whose content this run has read — kept across reloads so approval cards can name them.
+    const sourcesRead = new Set<string>();
+    const loadApps = () => appToolsFor(t.workspace_id, bot.app_keys, { onApproval: (request) => waitForApproval(pause, request), sources: sourcesRead });
     let appTools = await loadApps();
     // Set by request_app_access once the user decides (the run stops its current loop to act on it).
     const access: { grants: number; handoff: { botId: string; botName: string } | null } = { grants: 0, handoff: null };
@@ -137,6 +135,8 @@ export const botRun = task({
         execute: ({ question, context }) => askUser(pause, question, context),
       }),
     };
+    // Trigger.dev can't wait on two child runs at once, so code runs from one step go one by one.
+    let codeQueue: Promise<unknown> = Promise.resolve();
     const tools = buildChatTools(db, chat, {
       parentTask: { id: t.id, depth: t.depth, source: t.source },
       // Delegated tasks start straight away, queued per workspace.
@@ -153,6 +153,15 @@ export const botRun = task({
           { workspaceId: t.workspace_id, proposerId: bot.id, roster: chat.roster.bots, defaultTimezone: profile?.timezone ?? "UTC", taskId: t.id, runId },
           proposal,
         ),
+      // Engineering bots with GitHub: a code run in a sandbox (waits for it; one at a time).
+      onCodeTask:
+        canCode(chat) && hasBox() && appTools.apps.includes("GitHub")
+          ? (request) => {
+              const next = codeQueue.then(() => startCodeRun(t, bot.id, request));
+              codeQueue = next.catch(() => undefined);
+              return next;
+            }
+          : undefined,
       // A missing app: ask on Waiting on me and wait. Only the user's answer changes anything.
       onAppAccess: async ({ app, why }) => {
         const plan = await planAccessRequest({ workspaceId: t.workspace_id, bot, roster: chat.roster.bots, connected: appTools.connected, app, why });
@@ -246,6 +255,41 @@ export const botRun = task({
 });
 
 type Db = ReturnType<typeof createAdminClient>;
+
+/** Start a code run for this task and wait for its result (the bot run is paused meanwhile). */
+async function startCodeRun(
+  t: { id: string; workspace_id: string },
+  botId: string,
+  request: { repo: string; instructions: string; issue?: number; pr?: number; baseBranch?: string },
+) {
+  const key = createHash("sha256")
+    .update(JSON.stringify([t.id, request.repo, request.instructions, request.issue ?? null, request.pr ?? null, request.baseBranch ?? null]))
+    .digest("hex")
+    .slice(0, 40);
+  const result = await engineeringRun.triggerAndWait(
+    {
+      workspaceId: t.workspace_id,
+      botId,
+      taskId: t.id,
+      repo: request.repo,
+      instructions: request.instructions,
+      issueNumber: request.issue,
+      prNumber: request.pr,
+      baseBranch: request.baseBranch,
+    },
+    { idempotencyKey: `code-${key}`, tags: [`workspace:${t.workspace_id}`, `task:${t.id}`] },
+  );
+  if (!result.ok) return { ok: false, error: "The code run crashed — it can be retried." };
+  const out = result.output;
+  if (!out.ok) return out;
+  return {
+    ...out,
+    note:
+      out.status === "no_changes"
+        ? "No files changed, so no pull request was opened. Say why in your report."
+        : `Report the pull request link${out.tests === "failed" ? ", that the tests are failing (with the key error)" : ""} and what changed. Merging needs the user's approval.`,
+  };
+}
 
 /** How many bots in one workspace can work at the same time (each bot still does one task at a time). */
 const MAX_PARALLEL_PER_WORKSPACE = 3;
@@ -377,15 +421,6 @@ async function spentTodayCents(db: Db, workspaceId: string) {
   return (data ?? []).reduce((sum, r) => sum + Number(r.cost_cents ?? 0), 0);
 }
 
-/** Cost of one step in cents: AI Gateway's reported cost when present, else a token estimate. */
-function stepCostCents(step: StepResult<ToolSet>, model: string) {
-  const gateway = step.providerMetadata?.gateway as { cost?: string | number } | undefined;
-  const reported = gateway?.cost !== undefined ? Number(gateway.cost) : NaN;
-  if (Number.isFinite(reported)) return reported * 100;
-  const price = PRICE_PER_MTOK[model] ?? PRICE_PER_MTOK["anthropic/claude-sonnet-5.5"];
-  return (((step.usage.inputTokens ?? 0) * price.input + (step.usage.outputTokens ?? 0) * price.output) / 1_000_000) * 100;
-}
-
 /** One activity line per tool the bot used in this step. */
 function describeTools(step: StepResult<ToolSet>) {
   return step.toolResults.map((r) => {
@@ -403,6 +438,11 @@ function describeTools(step: StepResult<ToolSet>) {
         return "asked you a question";
       case "request_app_access":
         return null; // the Waiting on me card is logged already
+      case "run_code_task": {
+        const code = r.output as { ok?: boolean; prUrl?: string; prNumber?: number; status?: string; error?: string };
+        if (!code.ok) return `couldn't finish a code run: ${code.error ?? "error"}`;
+        return code.prNumber ? `code run done — pull request #${code.prNumber}` : "code run done — no changes";
+      }
       case "propose_routine":
         return out.ok ? `proposed a routine “${(r.output as { proposed?: string }).proposed ?? ""}” for your OK` : `couldn't propose a routine: ${out.error ?? "error"}`;
       default:
@@ -422,4 +462,3 @@ function friendly(message: string) {
   return message.slice(0, 400);
 }
 
-const round4 = (n: number) => Math.round(n * 10000) / 10000;

@@ -9,11 +9,11 @@ import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice } from "@/components/office/office-provider";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { Bot } from "@/lib/office/types";
 import { RetryButton } from "./board-view";
 import { useBoardUrl } from "./use-board-url";
+import { LoadingLabel, Skeleton, SkeletonLines } from "@/components/ui/skeleton";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   backlog: { label: "Backlog", className: "bg-panel-sunken" },
@@ -62,9 +62,21 @@ export function TaskPanel({ taskId, onClose, onSelectTask }: { taskId: string; o
       </div>
 
       {loading ? (
-        <p className="flex items-center gap-2 p-4 font-mono text-[12.5px] text-ink-muted">
-          <Spinner className="size-3.5" /> loading the task…
-        </p>
+        <div className="flex flex-col gap-5 p-4" aria-busy="true">
+          <LoadingLabel>Loading the task…</LoadingLabel>
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-3/4" />
+            <div className="flex gap-2">
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+          </div>
+          <SkeletonLines lines={4} />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-3 w-20" />
+            <SkeletonLines lines={3} />
+          </div>
+        </div>
       ) : !data.ok ? (
         <p className="m-4 rounded-[10px] bg-danger-bg px-3 py-2 text-[13px]">{data.error}</p>
       ) : (

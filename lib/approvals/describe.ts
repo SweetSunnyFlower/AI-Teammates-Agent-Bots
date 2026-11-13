@@ -18,6 +18,42 @@ export interface PreviewCall {
 export interface ApprovalPreview {
   text: string;
   calls: PreviewCall[];
+  /** Merge approvals: the pull request as it was when the bot asked. */
+  pr?: PrPreview;
+  /** Apps whose content the bot read in this run before asking (third-party text could have steered it). */
+  sources?: string[];
+}
+
+/** What a merge approval shows: the exact pull request head that will be merged. */
+export interface PrPreview {
+  repo: string;
+  number: number;
+  title: string;
+  url: string;
+  branch: string;
+  base: string;
+  draft: boolean;
+  files: number;
+  additions: number;
+  deletions: number;
+  checks: { passed: number; failed: number; pending: number };
+  /** GitHub's mergeability (null while it's still computing). */
+  mergeable: boolean | null;
+  mergeState: string;
+  /** The head commit the user approves — the merge is refused if the branch moved since. */
+  headSha: string;
+  method: "merge" | "squash" | "rebase";
+}
+
+/** "acme/web#12 · 3 files (+40 −5) · checks: 4 passed, 1 failed · can merge" */
+export function prSummary(pr: PrPreview) {
+  const { passed, failed, pending } = pr.checks;
+  const checks =
+    passed + failed + pending === 0
+      ? "no CI checks"
+      : `checks: ${[passed && `${passed} passed`, failed && `${failed} failed`, pending && `${pending} running`].filter(Boolean).join(", ")}`;
+  const state = pr.mergeable === false ? `can't merge (${pr.mergeState})` : pr.mergeable === null ? "mergeability unknown" : "can merge";
+  return `${pr.repo}#${pr.number} · ${pr.branch} → ${pr.base} · ${pr.files} file${pr.files === 1 ? "" : "s"} (+${pr.additions} −${pr.deletions}) · ${checks} · ${state}${pr.draft ? " · draft (marked ready on merge)" : ""}`;
 }
 
 const APP_NAMES: Record<string, string> = {
@@ -54,7 +90,12 @@ export function actionFor(slugs: string[]): InboxAction {
   return "publish";
 }
 
-export function buildPreview(calls: Array<{ tool: string; args: Record<string, unknown> }>, reasons: string[]): {
+export function buildPreview(
+  calls: Array<{ tool: string; args: Record<string, unknown> }>,
+  reasons: string[],
+  pr?: PrPreview,
+  sources?: string[],
+): {
   title: string;
   action: InboxAction;
   preview: ApprovalPreview;
@@ -67,9 +108,12 @@ export function buildPreview(calls: Array<{ tool: string; args: Record<string, u
   return {
     title: title.slice(0, 200),
     action: actionFor(calls.map((c) => c.tool)),
-    preview: { text: reasons[0]?.slice(0, 500) ?? "", calls: described },
+    preview: { text: reasons[0]?.slice(0, 500) ?? "", calls: described, ...(pr ? { pr } : {}), ...(sources?.length ? { sources: sources.slice(0, 8) } : {}) },
   };
 }
+
+/** Approvals whose arguments can't be edited: a merge is exactly the pull request shown. */
+export const isEditableAction = (action: string | null | undefined) => action !== "merge";
 
 /** Argument keys that are safe and useful to edit as text (recipient, subject, body…). */
 export function editableKeys(args: Record<string, unknown>) {
@@ -103,4 +147,9 @@ export function formatArg(value: unknown) {
   if (value === null || value === undefined) return "—";
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value, null, 1);
+}
+
+/** One line for approval cards: which apps' content the bot had read before asking. */
+export function sourcesLine(sources: string[] | undefined) {
+  return sources?.length ? `Before asking, it read content from ${sources.join(", ")}. Check this is what you asked for — text in emails, pages or issues can try to steer bots.` : null;
 }

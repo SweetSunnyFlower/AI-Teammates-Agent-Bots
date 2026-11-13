@@ -87,6 +87,7 @@ function FloorsPanel(accordion: AccordionProps) {
         ) : undefined
       }
     >
+      {shown.length === 0 && <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">no floors yet — add one to give bots a place to work.</p>}
       <ul className={cn("flex flex-col gap-0.5", pending && "opacity-70")}>
         {shown.map((dept) => {
           const bots = botsByFloor.get(dept.id) ?? [];
@@ -114,9 +115,11 @@ function FloorsPanel(accordion: AccordionProps) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-bold text-ink">{dept.name}</span>
                   <span className="mt-1 flex gap-1">
-                    {bots.map((b) => (
-                      <StatusDot key={b.id} color={STATUS_META[b.status].color} className="size-2" />
-                    ))}
+                    {bots.length ? (
+                      bots.map((b) => <StatusDot key={b.id} color={STATUS_META[b.status].color} className="size-2" />)
+                    ) : (
+                      <span className="font-mono text-[11px] leading-none text-ink-muted">no bots yet</span>
+                    )}
                   </span>
                 </span>
                 <span className={cn("font-mono text-[13px] text-ink-muted", canEdit && "group-hover/floor:opacity-0 group-focus-within/floor:opacity-0")}>

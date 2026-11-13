@@ -1,5 +1,5 @@
 import { Actions, Button, Card, CardText, LinkButton, type CardElement } from "chat";
-import { formatArg, type PreviewCall } from "@/lib/approvals/describe";
+import { formatArg, isEditableAction, prSummary, sourcesLine, type PreviewCall, type PrPreview } from "@/lib/approvals/describe";
 import type { AccessPreview } from "@/lib/integrations/app-access";
 import { appUrl } from "./env";
 
@@ -104,16 +104,19 @@ export function inboxCard(item: CardItem, botName: string): CardElement {
   const verb = item.action ? (VERB[item.action] ?? "act") : "act";
   const calls = Array.isArray(preview.calls) ? (preview.calls as PreviewCall[]) : [];
   const note = typeof preview.text === "string" ? preview.text : "";
+  const pr = item.action === "merge" ? (preview.pr as PrPreview | undefined) : undefined;
+  const warn = sourcesLine(Array.isArray(preview.sources) ? (preview.sources as unknown[]).map(String) : undefined);
   return Card({
     title: `✋ ${botName} wants to ${verb}`,
     children: [
       CardText(item.title, { style: "bold" }),
       ...(note ? [CardText(note.slice(0, 500))] : []),
-      ...(calls.length ? [CardText(callsText(calls))] : []),
+      ...(warn ? [CardText(`⚠ ${warn}`)] : []),
+      ...(pr ? [CardText(prSummary(pr))] : calls.length ? [CardText(callsText(calls))] : []),
       Actions([
-        Button({ id: ACTION.approve, label: "Approve", style: "primary", value: item.id }),
+        Button({ id: ACTION.approve, label: pr ? "Merge" : "Approve", style: "primary", value: item.id }),
         Button({ id: ACTION.reject, label: "Reject", style: "danger", value: item.id }),
-        ...webButton(item.workspace_id, "Edit on web"),
+        ...(pr ? [LinkButton({ label: "View on GitHub", url: pr.url })] : isEditableAction(item.action) ? webButton(item.workspace_id, "Edit on web") : []),
       ]),
     ],
   });

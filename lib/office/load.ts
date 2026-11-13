@@ -1,7 +1,7 @@
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getOfficeSnapshot as getMockSnapshot } from "./mock-data";
-import type { PreviewCall } from "@/lib/approvals/describe";
+import type { PreviewCall, PrPreview } from "@/lib/approvals/describe";
 import type { AccessPreview } from "@/lib/integrations/app-access";
 import { TOOL_KEYS } from "./tools";
 import { describeCron } from "@/lib/routines/schedule";
@@ -18,6 +18,7 @@ import type {
   OfficeSnapshot,
   Routine,
   Task,
+  TaskCode,
   TaskStatus,
   Workspace,
 } from "./types";
@@ -58,7 +59,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
   if (!user) return null;
 
   const supabase = await createClient();
-  const [workspaces, departments, bots, inbox, tasks, routines, activity, profile] = await Promise.all([
+  const [workspaces, departments, bots, inbox, tasks, routines, activity, profile, codeRuns] = await Promise.all([
     listMyWorkspaces(user.handle),
     supabase.from("departments").select("id, name, kind, floor_index, color, description").eq("workspace_id", workspaceId),
     supabase
@@ -92,7 +93,27 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       .order("created_at", { ascending: false })
       .limit(40),
     supabase.from("profiles").select("timezone").eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("code_runs")
+      .select("task_id, repo, status, pr_number, pr_url, tests, pr_state")
+      .eq("workspace_id", workspaceId)
+      .not("task_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
+  // Latest code run per task (missing table before the migration → just no badges).
+  const codeByTask = new Map<string, TaskCode>();
+  for (const c of codeRuns.data ?? []) {
+    if (!c.task_id || codeByTask.has(c.task_id)) continue;
+    codeByTask.set(c.task_id, {
+      repo: c.repo,
+      status: c.status as TaskCode["status"],
+      prNumber: c.pr_number ?? undefined,
+      prUrl: c.pr_url ?? undefined,
+      tests: (c.tests ?? undefined) as TaskCode["tests"],
+      prState: (c.pr_state ?? undefined) as TaskCode["prState"],
+    });
+  }
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
   if (!workspace) return null;
@@ -117,6 +138,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
             updated: ago(t.updated_at, now),
             result: resultText(t.result),
             routineId: t.routine_id ?? undefined,
+            code: codeByTask.get(t.id),
           },
         ]
       : [],
@@ -165,6 +187,8 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
               taskId: i.task_id ?? undefined,
               calls: Array.isArray(i.preview?.calls) ? (i.preview.calls as PreviewCall[]) : undefined,
               access: i.kind === "access" ? (i.preview as AccessPreview) : undefined,
+              pr: i.action === "merge" && i.preview?.pr ? (i.preview.pr as PrPreview) : undefined,
+              sources: i.kind === "approval" && Array.isArray(i.preview?.sources) ? (i.preview.sources as unknown[]).map(String).slice(0, 8) : undefined,
               ago: ago(i.created_at, now),
             },
           ]

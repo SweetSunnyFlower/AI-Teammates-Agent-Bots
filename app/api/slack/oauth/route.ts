@@ -3,6 +3,7 @@ import { hasSlack } from "@/lib/chat/env";
 import { saveLink } from "@/lib/chat/links";
 import { exchangeSlackCode, verifyInstallState } from "@/lib/chat/slack-oauth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { limitByIp } from "@/lib/ratelimit";
 
 /**
  * Slack sends the installer back here (on the public URL). We check the signed state, exchange the
@@ -10,6 +11,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * workspace + installing user to the Dotty workspace. Then back to the app.
  */
 export async function GET(request: Request) {
+  const limited = await limitByIp("connect", request);
+  if (limited) return limited;
   const url = new URL(request.url);
   const state = verifyInstallState(url.searchParams.get("state"));
   if (!state) return new Response("This install link expired — start again from Dotty → Settings → Channels.", { status: 400 });

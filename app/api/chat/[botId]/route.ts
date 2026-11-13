@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { startTaskRun } from "@/lib/runs/start";
 import { appToolsFor } from "@/lib/integrations/composio";
 import { chatSideTools } from "@/lib/chat/side-tools";
+import { rateLimit, tooMany } from "@/lib/ratelimit";
 
 // Chat replies stream for a while; give tool calls room to finish.
 export const maxDuration = 60;
@@ -50,6 +51,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims?.sub;
   if (!userId) return json(401, "Your session expired — sign in again.");
+  const limit = await rateLimit("chat", userId);
+  if (!limit.ok) return tooMany(limit, `You're sending messages quickly — try again in ${limit.retryAfter}s.`);
 
   const chat = await loadChatContext(supabase, botId);
   if (!chat) return json(404, "That bot doesn't exist or isn't yours.");

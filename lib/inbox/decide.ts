@@ -1,8 +1,8 @@
 import { wait } from "@trigger.dev/sdk";
 import { z } from "zod";
-import { applyEdits } from "@/lib/approvals/describe";
+import { applyEdits, isEditableAction } from "@/lib/approvals/describe";
 import { hasApp, type AccessPreview } from "@/lib/integrations/app-access";
-import { connectedToolkits, hasComposio } from "@/lib/integrations/composio";
+import { connectedToolkits, GITHUB, hasComposio } from "@/lib/integrations/composio";
 import { hasTrigger, startTaskRun } from "@/lib/runs/start";
 import type { RoutineProposalInput } from "@/lib/routines/propose";
 import { createRoutine } from "@/lib/routines/store";
@@ -91,7 +91,8 @@ export async function decideApprovalCore(
   }
 
   let edited: Record<string, unknown> | null = null;
-  if (options.edits?.length) {
+  // A merge is exactly the pull request shown — never edited.
+  if (options.edits?.length && isEditableAction(item.action)) {
     const edits = editsSchema.safeParse(options.edits);
     if (!edits.success) return { ok: false, error: "Those edits aren't valid." };
     const input = (item.input ?? {}) as Record<string, unknown>;
@@ -167,15 +168,10 @@ export async function grantAppAccessCore(ctx: DecideContext, itemId: string): Pr
   const preview = item.preview as AccessPreview;
   const slug = String(item.tool_key ?? preview.app ?? "");
   if (!item.bot_id) return { ok: false, error: "That bot no longer exists." };
-  if (!hasComposio()) return { ok: false, error: "Composio isn't set up yet — add COMPOSIO_API_KEY to .env.local." };
+  if (slug !== GITHUB.slug && !hasComposio()) return { ok: false, error: "Composio isn't set up yet — add COMPOSIO_API_KEY to .env.local." };
 
-  let connected = false;
-  try {
-    connected = (await connectedToolkits(ctx.workspaceId)).some((a) => a.slug === slug);
-  } catch {
-    return { ok: false, error: "Couldn't reach Composio — try again." };
-  }
-  if (!connected) return { ok: false, error: `Connect ${preview.appName} first, then give access.` };
+  const connected = (await connectedToolkits(ctx.workspaceId)).some((a) => a.slug === slug);
+  if (!connected) return { ok: false, error: `Connect ${preview.appName} first (or try again if it is connected), then give access.` };
 
   const { data: bot } = await ctx.db.from("bots").select("id, name, app_keys").eq("id", item.bot_id).eq("workspace_id", ctx.workspaceId).maybeSingle();
   if (!bot) return { ok: false, error: "That bot no longer exists." };

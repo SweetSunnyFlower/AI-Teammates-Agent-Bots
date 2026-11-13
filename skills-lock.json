@@ -37,11 +37,101 @@
       "skillPath": "skills/plan-project/SKILL.md",
       "computedHash": "37d13af1228603117bd35ba3a15ff80db29c55a0747893ee4eb588038972a56a"
     },
+    "redis-best-practices": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/redis-best-practices/SKILL.md",
+      "computedHash": "d53b2a2a5036e8a9fd1d2c78caba5e6ac9fb71db71892402444b0c430b5b07ba"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/supabase/SKILL.md",
       "computedHash": "2fbff32fd63b7d31585cacf0ed43e5bf8d05dd20d6c0c751d256cb967a00eec1"
+    },
+    "upstash": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash/SKILL.md",
+      "computedHash": "8af51bd0b25eca13a767df201757607fbbd24b8ee9de4dd0f850d6419d4485ed"
+    },
+    "upstash-blob-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-blob-js/SKILL.md",
+      "computedHash": "c5ba7918d590b1b1c21f46915a91e9f1189e58a7cfb2ad460745e7ac28903dfc"
+    },
+    "upstash-box-cli": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-box-cli/SKILL.md",
+      "computedHash": "534c1d8c54ea0acca089803ef0eed7f00e26500495d12b4cf0b652f6a174ec16"
+    },
+    "upstash-box-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-box-js/SKILL.md",
+      "computedHash": "2835f3cfc3019758f139f72f57e29fdb0311686a87a89876b2e6ba0d4e04c93b"
+    },
+    "upstash-box-py": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-box-py/SKILL.md",
+      "computedHash": "965d73eaa782fbdb9f7fd9b52c96e9c6570b5948e7241edd88c50c1aaaebcc2f"
+    },
+    "upstash-box-remote-work": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-box-remote-work/SKILL.md",
+      "computedHash": "b0a4c0524c9db722da9942cad1e6593a4d6c39f14774e97b29864c6452185e38"
+    },
+    "upstash-cli": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-cli/SKILL.md",
+      "computedHash": "24c751652b2c152acf599523f7b3a1aa1113d74d34cae7d9115e1cd7745672ce"
+    },
+    "upstash-qstash-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-qstash-js/SKILL.md",
+      "computedHash": "49495dc4f5bbcba3d49c90432ba8d3ae71ceb0c515bcb84168fbe781dad1eb3e"
+    },
+    "upstash-ratelimit-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-ratelimit-js/SKILL.md",
+      "computedHash": "a8d5d7f4433956518671537979c69dc8c3cc8c06ff3a523c0d7cec8f7a240551"
+    },
+    "upstash-redis-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-redis-js/SKILL.md",
+      "computedHash": "c85d7713babd8bd1eeb28c30b0cf500cb79faa5777f84eb19c9f8a0cee48d0cf"
+    },
+    "upstash-redis-start": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-redis-start/SKILL.md",
+      "computedHash": "3d97ad538866d628998f742df74cf22a61ed9d266cdedc17b13e8b13ed82250f"
+    },
+    "upstash-search-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-search-js/SKILL.md",
+      "computedHash": "a05159c1cfb3fde74975674ba32cd169d5215b5f4671409a7a160a1a98c97ca5"
+    },
+    "upstash-vector-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-vector-js/SKILL.md",
+      "computedHash": "3a634c2e8488e16ee4862fe86182c45579b6c02ff511c9858881cd28a6a5e3eb"
+    },
+    "upstash-workflow-js": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash-workflow-js/SKILL.md",
+      "computedHash": "93c02569113ae5ec7adeac3325a3e38c1e5ec98e31ba7485de95aa276482b63e"
     }
   }
 }
