@@ -3,7 +3,7 @@
 import { Activity, Plus } from "lucide-react";
 import { floorTag } from "@/lib/office/floors";
 import type { Bot } from "@/lib/office/types";
-import { countByStatus } from "@/lib/office/status";
+import { countByStatus, STATUS_META } from "@/lib/office/status";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { BotStatusIndicator } from "@/components/office/bot-status";
 import { useOffice } from "@/components/office/office-provider";
@@ -57,8 +57,14 @@ function WholeOfficePanel() {
             </div>
           )}
           {active.length > 0 && (
-            <div className="mt-2">
-              <p className="px-2 pb-1 font-mono text-[12.5px] text-ink-muted">working now</p>
+            <div
+              className="mx-1 mt-2 rounded-[12px] border-2 p-1"
+              style={{ borderColor: `${STATUS_META.working.color}99`, backgroundColor: `${STATUS_META.working.color}1f` }}
+            >
+              <p className="flex items-center gap-1.5 px-2 pb-1 font-mono text-[12.5px] text-ink-muted">
+                <StatusDot color={STATUS_META.working.color} pulse className="size-2" />
+                working now
+              </p>
               <ul>
                 {active.map((bot) => (
                   <BotRow key={bot.id} bot={bot} onSelect={selectBot} floor={floorTag(departmentById.get(bot.departmentId)!)} />
