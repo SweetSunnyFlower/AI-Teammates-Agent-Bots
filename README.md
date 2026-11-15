@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏢 Dotty — AI Teammates in a 3D Office
 
-## Getting Started
+> This code, whether in parts or whole, is licensed for commercial use **only with a license**. It is **free for personal use**.
+> 👉 [Click here to obtain license](https://trymockshot.com/r/ai-teammates/extended) and 👉 [here to learn more](./TECHWITHEMMA-LICENSE.md)
 
-First, run the development server:
+## ❤️ Support the Channel
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Love this project? Here's how you can support:
+* ☕ [Buy Me a Coffee](https://buymeacoffee.com/techwithemmaofficial)
+* 🌟 Star this repo
+* 🎥 [Subscribe on YouTube](https://tinyurl.com/subcribe-to-techwithEmma)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🗝️ Key Features: 👇
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+* 🔐 Authentication (Supabase Auth)
+* 🏢 Isometric 3D Office (React Three Fiber)
+* 🛗 Floors & Departments
+* 🤖 Head, Lead & Worker Bots
+* 🧠 Planning & Delegation
+* ✋ Approval Gate
+* 📥 Waiting on Me
+* 🗂️ Kanban Boards
+* 💬 Chat with Any Bot
+* 🔌 App Tools (Composio)
+* 🔑 Per-Bot App Access
+* 💻 Coding Sandbox (Upstash Box)
+* 🐙 GitHub Pull Requests
+* ⏰ Routines & Morning Recap
+* 📨 Telegram Bot
+* 💼 Slack App
+* ⚡ Background Runs (Trigger.dev)
+* 🔴 Realtime Updates
+* 💸 Spend & Task Caps
+* 🌗 Light & Dark Mode
+* 🌐 Built with Next.js, TypeScript, Supabase & AI SDK
 
-## Learn More
+## 🔧 How to Use This Project
 
-To learn more about Next.js, take a look at the following resources:
+### 📺 Step 1: Watch the Complete Full Course on YouTube
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> Learn how it all works, including the 3D office, the Head bot's planning and delegation, the approval gate, background runs with Trigger.dev, app tools with Composio, coding bots in Upstash Box, the GitHub App, Telegram and Slack.
+> 👉 Watch the Course (link coming soon)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 📚 Step 2: Get the Resources
 
-## Deploy on Vercel
+* 📝 [Prompts](https://docs.google.com/document/d/13MtI7zN3YkWhDMuH5MHesnpcmeVlbA9gpn0RI8BEm-A/edit?usp=sharing)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📜 License Information
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+A paid license is required for commercial use. To obtain a commercial license, please visit 👉 [Here](https://trymockshot.com/r/ai-teammates/extended)
+
+For more details about license, please refer to the [TECHWITHEMMA-LICENSE.md](./TECHWITHEMMA-LICENSE.md).
+
+---
