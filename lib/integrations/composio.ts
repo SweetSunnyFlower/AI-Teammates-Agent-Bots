@@ -2,7 +2,6 @@ import { Composio, ComposioToolInputRequiredError } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import type { ToolSet } from "ai";
 import type {
-  ApprovalDecision,
   ApprovalHandler,
   ApprovalRequest,
   GatedCall,
