@@ -29,6 +29,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  children,
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
@@ -37,6 +38,7 @@ function Badge({
     props: mergeProps<"span">(
       {
         className: cn(badgeVariants({ variant }), className),
+        children: <span className="inline-flex translate-y-[0.5px] items-center">{children}</span>,
       },
       props
     ),

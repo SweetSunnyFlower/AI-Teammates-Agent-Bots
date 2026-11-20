@@ -48,3 +48,25 @@ test("Chinese controls use centered line boxes that do not clip glyphs", () => {
   assert.match(tabs, /min-h-8/);
   assert.doesNotMatch(tabs, /h-\[calc\(100%-1px\)\]/);
 });
+
+test("Chinese glyphs use an explicit local font fallback", () => {
+  const layout = read("app/layout.tsx");
+
+  assert.match(layout, /fallback:\s*\[[\s\S]*"PingFang SC"[\s\S]*"Microsoft YaHei"[\s\S]*\]/);
+  assert.equal((layout.match(/adjustFontFallback:\s*false/g) ?? []).length, 2);
+});
+
+test("compact Chinese controls apply optical vertical correction", () => {
+  const css = read("app/globals.css");
+  const badge = read("components/ui/badge.tsx");
+  const status = read("components/ui/status.tsx");
+  const tabs = read("components/ui/tabs.tsx");
+  const panel = read("components/panels/panel.tsx");
+  const pill = css.match(/\.fn-pill \{([\s\S]*?)\n  \}/)?.[1] ?? "";
+
+  assert.match(pill, /padding-block:\s*4\.5px\s+3\.5px/);
+  assert.match(badge, /translate-y-\[0\.5px\]/);
+  assert.match(status, /translate-y-\[0\.5px\]/);
+  assert.match(tabs, /translate-y-\[0\.5px\]/);
+  assert.match(panel, /translate-y-\[0\.5px\]/);
+});

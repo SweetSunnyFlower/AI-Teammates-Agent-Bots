@@ -12,12 +12,16 @@ import { QueryProvider } from "@/components/query-provider";
 const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
+  fallback: ["PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "system-ui", "sans-serif"],
+  adjustFontFallback: false,
 });
 
 const courierPrime = Courier_Prime({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-courier",
+  fallback: ["PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "system-ui", "sans-serif"],
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

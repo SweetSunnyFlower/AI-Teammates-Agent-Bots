@@ -198,7 +198,8 @@
     box-shadow: 0 1.5px 0 rgb(43 38 32 / 0.18), 0 10px 24px -14px rgb(43 38 32 / 0.35);
   }
   .fn-pill {
-    @apply inline-flex min-h-7 items-center justify-center gap-1.5 rounded-full border-[1.5px] border-ink/80 bg-panel px-3 py-1 font-mono text-[13px] leading-[1.25] text-ink transition-colors hover:bg-panel-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 [&_svg]:shrink-0;
+    @apply inline-flex min-h-7 items-center justify-center gap-1.5 rounded-full border-[1.5px] border-ink/80 bg-panel px-3 font-mono text-[13px] leading-[1.25] text-ink transition-colors hover:bg-panel-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 [&_svg]:shrink-0;
+    padding-block: 4.5px 3.5px;
   }
   .fn-pill[data-active="true"] {
     @apply bg-honey;
@@ -206,6 +207,8 @@
   /* Chunky sticker button from the dotty-home header: ink outline + hard bottom lip */
   .fn-sticker {
     @apply inline-flex h-11 items-center justify-center gap-2 rounded-[12px] border-2 border-ink bg-panel px-3.5 text-[15px] leading-[1.25] font-bold whitespace-nowrap text-ink transition-[transform,box-shadow] duration-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:shrink-0;
+    padding-top: 1px;
+    padding-bottom: 0;
     box-shadow: 0 3px 0 0 var(--lip);
   }
   .fn-sticker:not(:disabled):hover {

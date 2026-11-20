@@ -52,7 +52,7 @@ function TabsList({
   )
 }
 
-function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+function TabsTrigger({ className, children, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
@@ -64,7 +64,9 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         className
       )}
       {...props}
-    />
+    >
+      <span className="inline-flex translate-y-[0.5px] items-center">{children}</span>
+    </TabsPrimitive.Tab>
   )
 }
 

@@ -64,7 +64,7 @@ function StatusLabel(props: React.ComponentProps<"div">) {
     <div
       data-slot="status-label"
       {...labelProps}
-      className={cn("leading-[1.25]", className)}
+      className={cn("translate-y-[0.5px] leading-[1.25]", className)}
     />
   );
 }

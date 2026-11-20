@@ -84,8 +84,8 @@ export function Panel({
 
 export function CountBadge({ value }: { value: number }) {
   return (
-    <span className="grid h-5 min-w-5 place-items-center rounded-[6px] border-[1.5px] border-ink/70 px-1 font-mono text-[11px] leading-none text-ink">
-      {value}
+    <span data-slot="count-badge" className="grid h-5 min-w-5 place-items-center rounded-[6px] border-[1.5px] border-ink/70 px-1 font-mono text-[11px] leading-none text-ink">
+      <span className="translate-y-[0.5px]">{value}</span>
     </span>
   );
 }
