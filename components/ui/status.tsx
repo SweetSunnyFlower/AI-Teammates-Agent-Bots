@@ -5,7 +5,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 
-const statusVariants = cva("inline-flex w-fit shrink-0 items-center gap-1.5 overflow-hidden rounded-4xl border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors", {
+const statusVariants = cva("inline-flex w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-4xl border px-2.5 py-1 text-xs leading-normal font-medium whitespace-nowrap transition-colors", {
   variants: {
     variant: {
       default: "border-transparent bg-muted text-muted-foreground **:data-[slot=status-indicator]:bg-muted-foreground",
@@ -64,7 +64,7 @@ function StatusLabel(props: React.ComponentProps<"div">) {
     <div
       data-slot="status-label"
       {...labelProps}
-      className={cn("leading-none", className)}
+      className={cn("leading-[1.25]", className)}
     />
   );
 }

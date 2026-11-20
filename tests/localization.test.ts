@@ -34,3 +34,17 @@ test("the bot status appends the current activity after the main label", () => {
   assert.equal(statusLine?.("Planning your request", "working"), "工作中 · 正在规划你的请求");
   assert.equal(statusLine?.("Resting", "resting"), "休息中");
 });
+
+test("Chinese controls use centered line boxes that do not clip glyphs", () => {
+  const css = read("app/globals.css");
+  const pill = css.match(/\.fn-pill \{([\s\S]*?)\n  \}/)?.[1] ?? "";
+  const status = read("components/ui/status.tsx");
+  const tabs = read("components/ui/tabs.tsx");
+
+  assert.match(pill, /justify-center/);
+  assert.match(pill, /leading-\[1\.25\]/);
+  assert.match(status, /justify-center/);
+  assert.match(status, /leading-normal/);
+  assert.match(tabs, /min-h-8/);
+  assert.doesNotMatch(tabs, /h-\[calc\(100%-1px\)\]/);
+});
