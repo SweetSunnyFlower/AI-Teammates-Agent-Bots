@@ -1,12 +1,24 @@
 import { Composio, ComposioToolInputRequiredError } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import type { ToolSet } from "ai";
-import type { PrPreview } from "@/lib/approvals/describe";
+import type {
+  ApprovalDecision,
+  ApprovalHandler,
+  ApprovalRequest,
+  GatedCall,
+} from "@/lib/approvals/types";
 import { hasGitHubApp } from "@/lib/github/app";
 import { githubLink } from "@/lib/github/install";
 import { githubTools } from "@/lib/github/tools";
 import { createAdminClient } from "@/lib/db/admin";
 import { hasApp, type AccessPreview } from "./app-access";
+
+export type {
+  ApprovalDecision,
+  ApprovalHandler,
+  ApprovalRequest,
+  GatedCall,
+} from "@/lib/approvals/types";
 
 /**
  * Composio Platform: each Dotty workspace is one Composio user (its "tenant"), so every bot in a
@@ -46,27 +58,6 @@ const APP_POLICY: Record<string, Hint[]> = {
   // Writing pages/notes in your own Notion is fine; deleting/archiving needs approval.
   notion: ["destructiveHint"],
 };
-
-/** One app action the bot wants to take, as shown to the user. */
-export interface GatedCall {
-  tool: string;
-  args: Record<string, unknown>;
-}
-
-/** What the gate asks the user to approve. `args` are the exact tool arguments. */
-export interface ApprovalRequest {
-  tool: string;
-  args: Record<string, unknown>;
-  calls: GatedCall[];
-  /** Composio's own description of why approval is needed. */
-  reasons: string[];
-  /** Merge approvals: the pull request being merged (shown on the card). */
-  pr?: PrPreview;
-}
-
-export type ApprovalDecision = { approved: true; args: Record<string, unknown> } | { approved: false; reason: string };
-/** Decides a gated call. Background runs wait for the user; chat can't wait, so it declines. */
-export type ApprovalHandler = (request: ApprovalRequest) => Promise<ApprovalDecision>;
 
 let warnedMissingKey = false;
 

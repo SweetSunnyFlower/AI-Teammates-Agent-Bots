@@ -2,7 +2,7 @@ import { wait } from "@/lib/jobs/wait";
 import { buildPreview } from "@/lib/approvals/describe";
 import { notifyInboxItem } from "@/lib/chat/notify";
 import type { AccessPreview } from "@/lib/integrations/app-access";
-import type { ApprovalDecision, ApprovalRequest } from "@/lib/integrations/composio";
+import type { ApprovalDecision, ApprovalRequest } from "@/lib/approvals/types";
 import type { createAdminClient } from "@/lib/db/admin";
 
 /**
