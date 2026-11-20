@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (limited) return limited;
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
   if (!secret)
-    return new Response("GitHub webhook isn't configured.", { status: 503 });
+    return new Response("服务端尚未配置 GitHub Webhook。", { status: 503 });
 
   const body = await request.text();
   const given = Buffer.from(request.headers.get("x-hub-signature-256") ?? "");
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`,
   );
   if (given.length !== expected.length || !timingSafeEqual(given, expected))
-    return new Response("Bad signature.", { status: 401 });
+    return new Response("Webhook 签名无效。", { status: 401 });
 
   const event = request.headers.get("x-github-event");
   let payload: {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     payload = JSON.parse(body);
   } catch {
-    return new Response("Bad payload.", { status: 400 });
+    return new Response("Webhook 数据格式无效。", { status: 400 });
   }
   const installationId = payload.installation?.id
     ? String(payload.installation.id)
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         .eq("external_id", installationId);
       if (error) {
         console.error("[github] webhook update failed", error.message);
-        return new Response("Try again.", { status: 500 });
+        return new Response("请重试。", { status: 500 });
       }
     }
   }

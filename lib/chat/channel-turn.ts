@@ -23,9 +23,9 @@ export interface TurnResult {
 }
 
 export async function runChannelTurn(input: { workspaceId: string; text: string; via: "telegram" | "slack" }): Promise<TurnResult> {
-  if (!hasDeepSeek()) return { botName: "Dotty", isHead: true, reply: "Chat needs a DeepSeek key — add DEEPSEEK_API_KEY to the server's environment." };
+  if (!hasDeepSeek()) return { botName: "Dotty", isHead: true, reply: "聊天需要 DeepSeek API Key，请在服务端环境变量中添加 DEEPSEEK_API_KEY。" };
   const limit = await rateLimit("chat", `ws:${input.workspaceId}`);
-  if (!limit.ok) return { botName: "Dotty", isHead: true, reply: `You're sending messages quickly — try again in ${limit.retryAfter}s.` };
+  if (!limit.ok) return { botName: "Dotty", isHead: true, reply: `消息发送过于频繁，请在 ${limit.retryAfter} 秒后重试。` };
   const db = createAdminClient();
 
   const { data: roster } = await db.from("bots").select("id, name, role").eq("workspace_id", input.workspaceId);
@@ -33,11 +33,11 @@ export async function runChannelTurn(input: { workspaceId: string; text: string;
   const head = bots.find((b: any) => b.role === "head");
   const routed = routeMessage(input.text, bots);
   const botId = routed.botId ?? head?.id;
-  if (!botId) return { botName: "Dotty", isHead: true, reply: "This workspace has no bots yet." };
+  if (!botId) return { botName: "Dotty", isHead: true, reply: "这个工作空间还没有 Bot。" };
   const text = routed.text || input.text;
 
   const chat = await loadChatContext(db, botId);
-  if (!chat || chat.bot.workspace_id !== input.workspaceId) return { botName: "Dotty", isHead: true, reply: "That bot doesn't exist any more." };
+  if (!chat || chat.bot.workspace_id !== input.workspaceId) return { botName: "Dotty", isHead: true, reply: "这个 Bot 已不存在。" };
   const { bot } = chat;
 
   const [{ data: workspace }, { data: divider }] = await Promise.all([
@@ -71,7 +71,7 @@ export async function runChannelTurn(input: { workspaceId: string; text: string;
   const tools = buildChatTools(db, chat, {
     source: input.via,
     onTaskCreated: async (task) => {
-      if (!(await startTaskRun(task))) throw new Error("Background runs aren't configured yet");
+      if (!(await startTaskRun(task))) throw new Error("后台任务尚未配置");
     },
     ...chatSideTools(chat, appTools, timezone),
   });
@@ -85,7 +85,7 @@ export async function runChannelTurn(input: { workspaceId: string; text: string;
   }
 
   // "Working" while it replies, like the web chat; back to resting afterwards.
-  const detail = bot.role === "head" ? "Planning your request" : "Chatting with you";
+  const detail = bot.role === "head" ? "正在规划你的请求" : "正在回复你";
   const { data: claimed } = await db
     .from("bots")
     .update({ status: "working", status_detail: detail, last_active_at: new Date().toISOString() })
@@ -101,21 +101,21 @@ export async function runChannelTurn(input: { workspaceId: string; text: string;
       instructions: [
         buildInstructions(chat, timezone, { mine: appTools.apps, connected: appTools.connected }),
         "",
-        `The user is writing to you from ${where}. Keep replies short and chat-friendly: plain sentences and simple bullet lists, no tables or headings. Anything waiting for their OK shows up in ${where} with buttons and in Waiting on me.`,
+        `用户正在通过 ${where} 与你交流。回复要简短、适合聊天：使用自然语言和简单项目符号，不要使用表格或标题。任何需要用户批准的事项都会以按钮形式出现在 ${where} 和“待我处理”中。`,
       ].join("\n"),
       messages: await convertToModelMessages(messages),
       tools: { ...appTools.tools, ...tools },
       stopWhen: isStepCount(8),
     });
-    reply = result.text.trim() || "Done.";
+    reply = result.text.trim() || "已完成。";
   } catch (error) {
     console.error("[chat] channel turn failed", error);
-    reply = "Something went wrong while replying. Try again in a moment.";
+    reply = "回复时出了点问题，请稍后重试。";
   } finally {
     if (claimed?.length) {
       await db
         .from("bots")
-        .update({ status: "resting", status_detail: "Resting", last_active_at: new Date().toISOString() })
+        .update({ status: "resting", status_detail: "休息中", last_active_at: new Date().toISOString() })
         .eq("id", bot.id)
         .eq("status", "working")
         .eq("status_detail", detail);

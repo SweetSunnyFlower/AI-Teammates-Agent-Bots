@@ -10,7 +10,7 @@ export function researchTools(db: DbClient, workspaceId: string, botId: string, 
 
   if (has("web.search")) {
     tools.web_search = tool({
-      description: "Search the public web through the self-hosted SearXNG instance. Use precise queries and cite the returned URLs.",
+      description: "通过自建 SearXNG 搜索公开网页。使用精确查询，并引用返回的 URL。",
       inputSchema: z.object({
         query: z.string().min(2).max(500),
         limit: z.number().int().min(1).max(10).default(6),
@@ -27,7 +27,7 @@ export function researchTools(db: DbClient, workspaceId: string, botId: string, 
 
   if (has("browser.extract")) {
     tools.browser_extract = tool({
-      description: "Read a public web page and return readable text. Private and local addresses are blocked.",
+      description: "读取公开网页并返回正文。私有地址和本地地址会被阻止。",
       inputSchema: z.object({
         url: z.string().url().max(2048),
         maxChars: z.number().int().min(500).max(30_000).default(12_000),
@@ -44,10 +44,10 @@ export function researchTools(db: DbClient, workspaceId: string, botId: string, 
 
   if (has("watch.add")) {
     tools.watch_add = tool({
-      description: "Add a price watch. Each check reads the public page and records the first visible price.",
+      description: "添加价格监控。每次检查都会读取公开页面并记录第一个可见价格。",
       inputSchema: z.object({
         url: z.string().url().max(2048),
-        target: z.string().max(500).default("first visible price"),
+        target: z.string().max(500).default("第一个可见价格"),
         threshold: z.number().optional(),
       }),
       execute: async ({ url, target, threshold }) => {
@@ -56,20 +56,20 @@ export function researchTools(db: DbClient, workspaceId: string, botId: string, 
           .insert({ workspace_id: workspaceId, bot_id: botId, url, target, threshold })
           .select("id")
           .single();
-        return error ? { ok: false, error: error.message } : { ok: true, watchId: data.id, url, threshold: threshold ?? null };
+        return error ? { ok: false, error: "添加价格监控失败。" } : { ok: true, watchId: data.id, url, threshold: threshold ?? null };
       },
     });
   }
 
   if (has("watch.check")) {
     tools.watch_check = tool({
-      description: "Check one price watch or all of your active watches. Reports prices and crossed thresholds.",
+      description: "检查一个或全部启用的价格监控，返回价格以及是否跌破阈值。",
       inputSchema: z.object({ watchId: z.string().uuid().optional() }),
       execute: async ({ watchId }) => {
         let query = db.from("watches").select("id, url, target, last_value, threshold").eq("workspace_id", workspaceId).eq("bot_id", botId);
         if (watchId) query = query.eq("id", watchId);
         const { data: watches, error } = await query;
-        if (error) return { ok: false, error: error.message };
+        if (error) return { ok: false, error: "读取价格监控失败。" };
         const checked = [];
         for (const watch of watches ?? []) {
           try {

@@ -9,6 +9,6 @@ import { loadOffice } from "@/lib/office/load";
 export async function GET(_req: Request, ctx: RouteContext<"/api/office/[workspaceId]">) {
   const { workspaceId } = await ctx.params;
   const snapshot = await loadOffice(workspaceId);
-  if (!snapshot) return Response.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  if (!snapshot) return Response.json({ error: "未找到办公室" }, { status: 404, headers: { "Cache-Control": "no-store" } });
   return Response.json(snapshot, { headers: { "Cache-Control": "no-store" } });
 }

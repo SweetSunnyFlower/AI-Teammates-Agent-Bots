@@ -40,7 +40,7 @@ export async function getWorkspaceSettings(
   workspaceId: string,
 ): Promise<Result<{ settings: WorkspaceSettings }>> {
   const s = await session(workspaceId);
-  if (!s) return { ok: false, error: "Your session expired — sign in again." };
+  if (!s) return { ok: false, error: "会话已过期，请重新登录。" };
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   const iso = since.toISOString();
@@ -73,7 +73,7 @@ export async function getWorkspaceSettings(
       .eq("workspace_id", workspaceId)
       .gte("created_at", iso),
   ]);
-  if (!ws.data) return { ok: false, error: "Unknown workspace." };
+  if (!ws.data) return { ok: false, error: "工作空间不存在。" };
   return {
     ok: true,
     settings: {
@@ -95,27 +95,27 @@ export async function getWorkspaceSettings(
 
 const dollarsField = z.coerce
   .number()
-  .min(0, "Can't be negative")
-  .max(1000, "Up to $1,000 a day");
+  .min(0, "不能为负数")
+  .max(1000, "每天最多 $1,000");
 
 const settingsInput = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Give your workspace a name")
-    .max(60, "Up to 60 characters"),
-  icon: z.string().trim().min(1, "Pick an icon").max(16, "One emoji"),
+    .min(1, "请填写工作空间名称")
+    .max(60, "最多 60 个字符"),
+  icon: z.string().trim().min(1, "请选择图标").max(16, "请只输入一个表情符号"),
   dailySpendCap: dollarsField,
   dailyEngineeringCap: dollarsField,
   dailyTaskCap: z.coerce
     .number()
-    .int("Whole tasks only")
-    .min(0, "Can't be negative")
-    .max(1000, "Up to 1,000 a day"),
+    .int("任务数必须是整数")
+    .min(0, "不能为负数")
+    .max(1000, "每天最多 1,000 个"),
   timezone: z
     .string()
     .trim()
-    .refine((tz) => isValidTimeZone(tz), "Pick a timezone from the list"),
+    .refine((tz) => isValidTimeZone(tz), "请从列表中选择有效时区"),
 });
 export type SettingsInput = z.input<typeof settingsInput>;
 
@@ -124,12 +124,12 @@ export async function saveWorkspaceSettings(
   input: SettingsInput,
 ): Promise<Result> {
   const s = await session(workspaceId);
-  if (!s) return { ok: false, error: "Your session expired — sign in again." };
+  if (!s) return { ok: false, error: "会话已过期，请重新登录。" };
   const parsed = settingsInput.safeParse(input);
   if (!parsed.success)
     return {
       ok: false,
-      error: parsed.error.issues[0]?.message ?? "Check the fields.",
+      error: parsed.error.issues[0]?.message ?? "请检查输入内容。",
     };
   const v = parsed.data;
 
@@ -144,8 +144,8 @@ export async function saveWorkspaceSettings(
     })
     .eq("id", workspaceId)
     .select("id");
-  if (error) return { ok: false, error: "Couldn't save — try again." };
-  if (!data?.length) return { ok: false, error: "Unknown workspace." };
+  if (error) return { ok: false, error: "保存失败，请重试。" };
+  if (!data?.length) return { ok: false, error: "工作空间不存在。" };
 
   const { error: tzError } = await s.supabase
     .from("profiles")
@@ -154,7 +154,7 @@ export async function saveWorkspaceSettings(
       { onConflict: "user_id" },
     );
   if (tzError)
-    return { ok: false, error: "Saved, but couldn't update your timezone." };
+    return { ok: false, error: "已保存，但时区更新失败。" };
 
   revalidatePath(`/workspace/${workspaceId}`);
   return { ok: true };
@@ -166,23 +166,23 @@ export async function deleteWorkspace(
   confirmName: string,
 ): Promise<Result> {
   const s = await session(workspaceId);
-  if (!s) return { ok: false, error: "Your session expired — sign in again." };
+  if (!s) return { ok: false, error: "会话已过期，请重新登录。" };
   const { data: ws } = await s.supabase
     .from("workspaces")
     .select("name")
     .eq("id", workspaceId)
     .maybeSingle();
-  if (!ws) return { ok: false, error: "Unknown workspace." };
+  if (!ws) return { ok: false, error: "工作空间不存在。" };
   if (confirmName.trim() !== ws.name)
     return {
       ok: false,
-      error: "Type the workspace name exactly to delete it.",
+      error: "请准确输入工作空间名称后再删除。",
     };
   const { error } = await s.supabase
     .from("workspaces")
     .delete()
     .eq("id", workspaceId);
   if (error)
-    return { ok: false, error: "Couldn't delete the workspace — try again." };
+    return { ok: false, error: "删除工作空间失败，请重试。" };
   return { ok: true };
 }

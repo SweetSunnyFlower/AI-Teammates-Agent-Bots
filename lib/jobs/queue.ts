@@ -18,7 +18,7 @@ export function hasQueue() {
 }
 
 export async function getBoss() {
-  if (!hasQueue()) throw new Error("DATABASE_URL is required for background jobs.");
+  if (!hasQueue()) throw new Error("后台任务需要 DATABASE_URL。");
   bossPromise ??= (async () => {
     const boss = new PgBoss({
       connectionString: process.env.DATABASE_URL!,

@@ -8,11 +8,11 @@ import type { DottyChange } from "@/lib/events/types";
 export async function GET(request: Request) {
   const workspaceId = new URL(request.url).searchParams.get("workspace") ?? "";
   if (!z.string().uuid().safeParse(workspaceId).success) {
-    return Response.json({ error: "Unknown workspace." }, { status: 400 });
+    return Response.json({ error: "工作空间不存在。" }, { status: 400 });
   }
 
   const userId = await getCurrentUserId();
-  if (!userId) return Response.json({ error: "Sign in required." }, { status: 401 });
+  if (!userId) return Response.json({ error: "请先登录。" }, { status: 401 });
 
   const db = createDbClient(userId);
   const { data: workspace } = await db
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     .select("id")
     .eq("id", workspaceId)
     .maybeSingle<{ id: string }>();
-  if (!workspace) return Response.json({ error: "Unknown workspace." }, { status: 404 });
+  if (!workspace) return Response.json({ error: "工作空间不存在。" }, { status: 404 });
 
   await ensurePostgresListener();
 

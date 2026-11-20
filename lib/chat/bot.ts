@@ -34,7 +34,7 @@ let ready: Promise<void> | null = null;
 
 export function chatBot(): DottyChat {
   if (instance) return instance;
-  if (!hasChatState()) throw new Error("Chat channels need DATABASE_URL in .env.local.");
+  if (!hasChatState()) throw new Error("聊天渠道需要 .env.local 中的 DATABASE_URL。");
 
   const adapters: Record<string, Adapter> = {};
   if (hasTelegram()) {

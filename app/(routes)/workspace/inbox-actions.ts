@@ -26,10 +26,10 @@ const uuid = z.string().uuid();
 
 /** The item's workspace, if the signed-in user can see the item (RLS). */
 async function webContext(itemId: string): Promise<DecideContext | { error: string }> {
-  if (!hasDatabaseEnv || !uuid.safeParse(itemId).success) return { error: "Unknown item." };
+  if (!hasDatabaseEnv || !uuid.safeParse(itemId).success) return { error: "事项不存在。" };
   const supabase = await createClient();
   const { data: item } = await supabase.from("inbox_items").select("workspace_id").eq("id", itemId).maybeSingle();
-  if (!item) return { error: "That item doesn't exist or isn't yours." };
+  if (!item) return { error: "事项不存在，或者你没有访问权限。" };
   return { db: createAdminClient(), workspaceId: item.workspace_id, via: "web" };
 }
 

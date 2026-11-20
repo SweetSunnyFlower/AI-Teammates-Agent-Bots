@@ -148,7 +148,7 @@ export async function run(
 export function clipOutput(text: string, max = 12_000) {
   if (text.length <= max) return text;
   const head = Math.floor(max * 0.2);
-  return `${text.slice(0, head)}\n…(${text.length - max} characters cut)…\n${text.slice(-(max - head))}`;
+  return `${text.slice(0, head)}\n…（已截断 ${text.length - max} 个字符）…\n${text.slice(-(max - head))}`;
 }
 
 /** Clone `ref` into REPO_DIR (auth comes from the injected header). Returns the checked-out commit. */
@@ -160,7 +160,7 @@ export async function cloneRepo(
 ) {
   const url = `https://github.com/${owner}/${repo}.git`;
   const token = (box as Sandbox & { __readToken?: string }).__readToken;
-  if (!token) throw new Error("The sandbox clone token is missing.");
+  if (!token) throw new Error("沙箱克隆令牌缺失。");
   const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
   const repoHostDir = path.join(box.workspaceDir, "repo");
   await new Promise<void>((resolve, reject) => {
@@ -177,7 +177,7 @@ export async function cloneRepo(
         },
       },
       (error, _stdout, stderr) => {
-        if (error) reject(new Error(`Couldn't clone ${owner}/${repo}@${ref}: ${clipOutput(stderr || error.message, 600)}`));
+        if (error) reject(new Error(`无法克隆 ${owner}/${repo}@${ref}：${clipOutput(stderr || error.message, 600)}`));
         else resolve();
       },
     );
@@ -191,7 +191,7 @@ export async function cloneRepo(
     });
   });
   if (!/^[0-9a-f]{40}$/.test(sha))
-    throw new Error("Couldn't read the cloned commit.");
+    throw new Error("无法读取克隆后的提交。");
   return sha;
 }
 
@@ -208,7 +208,7 @@ function repoPath(path: string) {
     clean.startsWith(".git/") ||
     clean === ".git"
   ) {
-    throw new Error(`Use a path inside the repository (got "${path}").`);
+    throw new Error(`请使用仓库内部路径（收到“${path}”）。`);
   }
   return clean;
 }
@@ -253,7 +253,7 @@ export function sandboxTools(
   return {
     run_command: tool({
       description:
-        "Run a shell command in the repository (bash, in the repo root). Use it to install dependencies, build, run tests and linters, and inspect things. Output is trimmed when long. Internet is limited to GitHub and package registries.",
+        "在仓库根目录通过 bash 运行命令，可用于安装依赖、构建、测试、lint 和检查内容。输出过长时会截断；网络仅限 GitHub 和包管理器仓库。",
       inputSchema: z.object({
         command: z.string().min(1).max(4000),
         timeoutSeconds: z.number().int().min(5).max(900).default(300),
@@ -272,7 +272,7 @@ export function sandboxTools(
 
     list_files: tool({
       description:
-        "List files in the repository (tracked and new), optionally under a folder.",
+        "列出仓库中的已跟踪文件和新文件，也可以只列某个文件夹。",
       inputSchema: z.object({ path: z.string().max(500).default("") }),
       execute: ({ path }) =>
         guard(async () => {
@@ -288,14 +288,14 @@ export function sandboxTools(
 
     search: tool({
       description:
-        "Search file contents in the repository (extended regex, like grep -E). Returns matching lines with file and line number.",
+        "在仓库文件中搜索内容（类似 grep -E 的扩展正则），返回匹配行、文件名和行号。",
       inputSchema: z.object({
         pattern: z.string().min(1).max(500),
         path: z
           .string()
           .max(500)
           .default("")
-          .describe("Limit to this folder or file."),
+          .describe("只搜索这个文件夹或文件。"),
         ignoreCase: z.boolean().default(false),
       }),
       execute: ({ pattern, path, ignoreCase }) =>
@@ -308,14 +308,14 @@ export function sandboxTools(
           );
           return {
             ok: true,
-            matches: clipOutput(r.output, 15_000) || "(no matches)",
+            matches: clipOutput(r.output, 15_000) || "（没有匹配项）",
           };
         }),
     }),
 
     read_file: tool({
       description:
-        "Read a file with line numbers. For big files, read a range of lines.",
+        "读取文件并显示行号。大文件请分段读取。",
       inputSchema: z.object({
         path: z.string().min(1).max(500),
         startLine: z.number().int().min(1).default(1),
@@ -337,14 +337,14 @@ export function sandboxTools(
             ),
             more:
               startLine - 1 + lineCount < lines.length
-                ? `Lines ${startLine + lineCount}–${lines.length} not shown.`
+                ? `第 ${startLine + lineCount}–${lines.length} 行未显示。`
                 : undefined,
           };
         }),
     }),
 
     write_file: tool({
-      description: "Create or overwrite a file with the full content.",
+      description: "用完整内容创建或覆盖文件。",
       inputSchema: z.object({
         path: z.string().min(1).max(500),
         content: z.string().max(500_000),
@@ -359,7 +359,7 @@ export function sandboxTools(
 
     edit_file: tool({
       description:
-        "Replace exact text in a file. oldText must match exactly once (include enough surrounding lines), unless replaceAll is true.",
+        "替换文件中的精确文本。除非 replaceAll 为 true，否则 oldText 必须只匹配一次，请包含足够的上下文。",
       inputSchema: z.object({
         path: z.string().min(1).max(500),
         oldText: z.string().min(1).max(100_000),
@@ -375,12 +375,12 @@ export function sandboxTools(
             return {
               ok: false,
               error:
-                "oldText wasn't found. Read the file again and copy the text exactly.",
+                "没有找到 oldText，请重新读取文件并原样复制文本。",
             };
           if (count > 1 && !replaceAll)
             return {
               ok: false,
-              error: `oldText appears ${count} times. Add more surrounding lines, or set replaceAll.`,
+              error: `oldText 出现了 ${count} 次。请增加上下文行，或设置 replaceAll。`,
             };
           const next = replaceAll
             ? text.split(oldText).join(newText)
@@ -392,28 +392,28 @@ export function sandboxTools(
 
     finish: tool({
       description:
-        "Call once when the work is done (or can't be done). Dotty then runs the tests, commits your changes to a branch and opens a draft pull request. Don't commit or push yourself.",
+        "工作完成或确认无法完成时调用一次。Dotty 随后会运行测试、把修改提交到分支并创建草稿 Pull Request。不要自行 commit 或 push。",
       inputSchema: z.object({
         summary: z
           .string()
           .min(1)
           .max(4000)
           .describe(
-            "What you changed and why, and anything the reviewer should check. Markdown.",
+            "说明修改了什么、为什么修改，以及评审者需要检查的内容。支持 Markdown。",
           ),
         prTitle: z
           .string()
           .min(3)
           .max(120)
           .describe(
-            'Pull request title, e.g. "Fix empty state on the dashboard".',
+            'Pull Request 标题，例如“修复看板空状态”。',
           ),
         testCommand: z
           .string()
           .max(300)
           .optional()
           .describe(
-            'The command that runs the relevant tests, if any (e.g. "npm test").',
+            '运行相关测试的命令，没有则留空（例如 "npm test"）。',
           ),
       }),
       execute: async (report) => {

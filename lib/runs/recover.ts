@@ -22,7 +22,7 @@ export async function releaseStaleRuns(db: DbClient, taskId: string, exceptRunId
     }
     await db
       .from("runs")
-      .update({ status: "failed", ended_at: new Date().toISOString(), error: "Worker stopped unexpectedly" })
+      .update({ status: "failed", ended_at: new Date().toISOString(), error: "Worker 意外停止，任务可以重试。" })
       .eq("id", row.id);
   }
   return alive;

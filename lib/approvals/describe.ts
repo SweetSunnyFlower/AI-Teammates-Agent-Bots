@@ -48,10 +48,10 @@ export function prSummary(pr: PrPreview) {
   const { passed, failed, pending } = pr.checks;
   const checks =
     passed + failed + pending === 0
-      ? "no CI checks"
-      : `checks: ${[passed && `${passed} passed`, failed && `${failed} failed`, pending && `${pending} running`].filter(Boolean).join(", ")}`;
-  const state = pr.mergeable === false ? `can't merge (${pr.mergeState})` : pr.mergeable === null ? "mergeability unknown" : "can merge";
-  return `${pr.repo}#${pr.number} · ${pr.branch} → ${pr.base} · ${pr.files} file${pr.files === 1 ? "" : "s"} (+${pr.additions} −${pr.deletions}) · ${checks} · ${state}${pr.draft ? " · draft (marked ready on merge)" : ""}`;
+      ? "没有 CI 检查"
+      : `检查：${[passed && `${passed} 个通过`, failed && `${failed} 个失败`, pending && `${pending} 个运行中`].filter(Boolean).join("，")}`;
+  const state = pr.mergeable === false ? `无法合并（${pr.mergeState}）` : pr.mergeable === null ? "合并状态未知" : "可以合并";
+  return `${pr.repo}#${pr.number} · ${pr.branch} → ${pr.base} · ${pr.files} 个文件（+${pr.additions} −${pr.deletions}）· ${checks} · ${state}${pr.draft ? " · 草稿（合并时标记为可合并）" : ""}`;
 }
 
 const APP_NAMES: Record<string, string> = {
@@ -71,11 +71,25 @@ const APP_NAMES: Record<string, string> = {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
-/** "GMAIL_SEND_EMAIL" → { app: "Gmail", label: "send email" }. */
+function actionLabel(slug: string, raw: string) {
+  const value = `${slug} ${raw}`.toUpperCase();
+  if (/SEND.*EMAIL|REPLY|FORWARD|MESSAGE/.test(value)) return "发送消息";
+  if (/CREATE.*EVENT|ADD.*EVENT/.test(value)) return "创建日程";
+  if (/LIST.*EVENT|GET.*EVENT|CALENDAR/.test(value)) return "读取日程";
+  if (/CREATE|ADD|INSERT|WRITE|UPDATE|EDIT|PATCH/.test(value)) return "修改内容";
+  if (/DELETE|REMOVE|TRASH|ARCHIVE/.test(value)) return "删除内容";
+  if (/SEARCH|FIND|QUERY/.test(value)) return "搜索";
+  if (/LIST|GET|READ|FETCH|RETRIEVE/.test(value)) return "读取";
+  if (/MERGE/.test(value)) return "合并";
+  return "执行操作";
+}
+
+/** "GMAIL_SEND_EMAIL" → { app: "Gmail", label: "发送消息" }. */
 export function describeTool(slug: string) {
   const [head, ...rest] = slug.split("_");
   const app = APP_NAMES[head] ?? capitalize(head ?? slug);
-  const label = rest.join(" ").toLowerCase() || slug.toLowerCase();
+  const raw = rest.join("_");
+  const label = actionLabel(slug, raw);
   return { app, label };
 }
 
@@ -100,8 +114,8 @@ export function buildPreview(
   const described = calls.map((c) => ({ ...c, ...describeTool(c.tool) }));
   const first = described[0];
   const title = first
-    ? `${first.app}: ${first.label}${described.length > 1 ? ` (+${described.length - 1} more)` : ""}`
-    : "An app action";
+    ? `${first.app}：${first.label}${described.length > 1 ? `（另有 ${described.length - 1} 项）` : ""}`
+    : "应用操作";
   return {
     title: title.slice(0, 200),
     action: actionFor(calls.map((c) => c.tool)),

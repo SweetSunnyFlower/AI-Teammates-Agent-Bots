@@ -29,14 +29,14 @@ export interface CardItem {
 }
 
 const VERB: Record<string, string> = {
-  send: "send",
-  pay: "pay",
-  publish: "publish",
-  delete: "delete",
-  merge: "merge",
-  create_bot: "add a bot",
-  create_department: "add a floor",
-  create_routine: "set up a routine",
+  send: "发送",
+  pay: "支付",
+  publish: "发布",
+  delete: "删除",
+  merge: "合并",
+  create_bot: "添加 Bot",
+  create_department: "添加楼层",
+  create_routine: "创建例行任务",
 };
 
 /** Telegram only accepts https link buttons. */
@@ -63,14 +63,14 @@ export function inboxCard(item: CardItem, botName: string): CardElement {
   if (item.kind === "question") {
     const context = typeof preview.text === "string" ? preview.text : "";
     return Card({
-      title: `❓ ${botName} asks`,
+      title: `❓ ${botName} 向你提问`,
       children: [
         CardText(item.title, { style: "bold" }),
         ...(context ? [CardText(context.slice(0, 1000))] : []),
-        CardText("Tap Answer, then send your reply as a message.", { style: "muted" }),
+        CardText("点击“回答”，然后在下一条消息中发送答复。", { style: "muted" }),
         Actions([
-          Button({ id: ACTION.answer, label: "Answer", style: "primary", value: item.id }),
-          Button({ id: ACTION.skip, label: "Skip", value: item.id }),
+          Button({ id: ACTION.answer, label: "回答", style: "primary", value: item.id }),
+          Button({ id: ACTION.skip, label: "跳过", value: item.id }),
         ]),
       ],
     });
@@ -80,41 +80,41 @@ export function inboxCard(item: CardItem, botName: string): CardElement {
     const access = preview as unknown as AccessPreview;
     const holders = (access.holders ?? []).slice(0, 3);
     return Card({
-      title: `🔑 ${botName} needs ${access.appName}`,
+      title: `🔑 ${botName} 需要 ${access.appName}`,
       children: [
         CardText(access.why || item.title, { style: "bold" }),
-        CardText(access.connected ? `${botName} doesn't have ${access.appName}.` : `${access.appName} isn't connected yet — connect it in the web app first.`, { style: "muted" }),
+        CardText(access.connected ? `${botName} 还没有 ${access.appName} 的访问权限。` : `${access.appName} 尚未连接，请先在网页端连接。`, { style: "muted" }),
         Actions(
           access.connected
             ? [
-                Button({ id: ACTION.give, label: "Give access", style: "primary", value: item.id }),
-                ...holders.map((h, i) => Button({ id: ACTION.handTo(i), label: `Hand it to ${h.name}`, value: item.id })),
-                Button({ id: ACTION.decline, label: "No", style: "danger", value: item.id }),
+                Button({ id: ACTION.give, label: "授予权限", style: "primary", value: item.id }),
+                ...holders.map((h, i) => Button({ id: ACTION.handTo(i), label: `交给 ${h.name}`, value: item.id })),
+                Button({ id: ACTION.decline, label: "暂不", style: "danger", value: item.id }),
               ]
             : [
-                ...webButton(item.workspace_id, `Connect ${access.appName}`),
-                Button({ id: ACTION.give, label: "Connected — give access", value: item.id }),
-                Button({ id: ACTION.decline, label: "No", style: "danger", value: item.id }),
+                ...webButton(item.workspace_id, `连接 ${access.appName}`),
+                Button({ id: ACTION.give, label: "已连接，授予权限", value: item.id }),
+                Button({ id: ACTION.decline, label: "暂不", style: "danger", value: item.id }),
               ],
         ),
       ],
     });
   }
 
-  const verb = item.action ? (VERB[item.action] ?? "act") : "act";
+  const verb = item.action ? (VERB[item.action] ?? "执行操作") : "执行操作";
   const calls = Array.isArray(preview.calls) ? (preview.calls as PreviewCall[]) : [];
   const note = typeof preview.text === "string" ? preview.text : "";
   const pr = item.action === "merge" ? (preview.pr as PrPreview | undefined) : undefined;
   return Card({
-    title: `✋ ${botName} wants to ${verb}`,
+    title: `✋ ${botName} 想要${verb}`,
     children: [
       CardText(item.title, { style: "bold" }),
       ...(note ? [CardText(note.slice(0, 500))] : []),
       ...(pr ? [CardText(prSummary(pr))] : calls.length ? [CardText(callsText(calls))] : []),
       Actions([
-        Button({ id: ACTION.approve, label: pr ? "Merge" : "Approve", style: "primary", value: item.id }),
-        Button({ id: ACTION.reject, label: "Reject", style: "danger", value: item.id }),
-        ...(pr ? [LinkButton({ label: "View on GitHub", url: pr.url })] : isEditableAction(item.action) ? webButton(item.workspace_id, "Edit on web") : []),
+        Button({ id: ACTION.approve, label: pr ? "合并" : "批准", style: "primary", value: item.id }),
+        Button({ id: ACTION.reject, label: "拒绝", style: "danger", value: item.id }),
+        ...(pr ? [LinkButton({ label: "在 GitHub 查看", url: pr.url })] : isEditableAction(item.action) ? webButton(item.workspace_id, "在网页编辑") : []),
       ]),
     ],
   });

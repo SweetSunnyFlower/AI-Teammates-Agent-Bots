@@ -34,12 +34,12 @@ export function chatSideTools(chat: ChatContext, appTools: BotApps, timezone: st
         })
         .select("id")
         .single();
-      if (error || !item) return { ok: false, error: "Couldn't ask for access right now." };
+      if (error || !item) return { ok: false, error: "暂时无法提交权限申请。" };
       await notifyInboxItem(item.id);
       return {
         ok: true,
         requested: plan.preview.appName,
-        note: `Asked the user on Waiting on me. You don't have ${plan.preview.appName} yet — tell them, and don't attempt the app work in this reply.`,
+        note: `已在“待我处理”中向用户申请。你目前还没有 ${plan.preview.appName} 权限，请告知用户，不要在本次回复中尝试使用该应用。`,
       };
     },
   };

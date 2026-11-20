@@ -19,7 +19,7 @@ export interface Schedule {
   cron: string;
 }
 
-export const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+export const DAY_NAMES = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
 export const HOUR_STEPS = [1, 2, 3, 4, 6, 8, 12];
 
 export const DEFAULT_SCHEDULE: Schedule = { kind: "weekdays", time: "08:00", day: 1, everyHours: 3, cron: "0 8 * * 1-5" };
@@ -71,15 +71,15 @@ export function describeCron(cron: string): string {
   const s = fromCron(cron);
   switch (s.kind) {
     case "daily":
-      return `Every day · ${s.time}`;
+      return `每天 · ${s.time}`;
     case "weekdays":
-      return `Weekdays · ${s.time}`;
+      return `工作日 · ${s.time}`;
     case "weekly":
-      return `${DAY_NAMES[s.day]}s · ${s.time}`;
+      return `${DAY_NAMES[s.day]} · ${s.time}`;
     case "hourly":
-      return s.everyHours === 1 ? "Every hour" : `Every ${s.everyHours} h`;
+      return s.everyHours === 1 ? "每小时" : `每 ${s.everyHours} 小时`;
     case "custom":
-      return cron === "* * * * *" ? "Every minute" : `cron ${cron}`;
+      return cron === "* * * * *" ? "每分钟" : `cron ${cron}`;
   }
 }
 
@@ -94,12 +94,12 @@ export function isValidTimeZone(tz: string) {
 
 /** Why a cron expression can't be used, or null if it's fine. */
 export function cronError(cron: string): string | null {
-  if (cron.trim().split(/\s+/).length !== 5) return "Use 5 parts: minute hour day month weekday (e.g. 0 8 * * 1-5).";
+  if (cron.trim().split(/\s+/).length !== 5) return "请使用 5 段格式：分 时 日 月 星期（例如 0 8 * * 1-5）。";
   try {
     new Cron(cron, { paused: true, mode: "5-part" });
     return null;
   } catch {
-    return "That isn't a valid schedule.";
+    return "这不是有效的计划时间。";
   }
 }
 

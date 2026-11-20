@@ -13,9 +13,9 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
   const limited = await limitByIp("webhook", request);
   if (limited) return limited;
-  if (!hasTelegram()) return new Response("Telegram isn't configured on this server.", { status: 503 });
+  if (!hasTelegram()) return new Response("服务端尚未配置 Telegram。", { status: 503 });
   const bot = chatBot();
   const handle = bot.webhooks.telegram;
-  if (!handle) return new Response("Telegram isn't configured on this server.", { status: 503 });
+  if (!handle) return new Response("服务端尚未配置 Telegram。", { status: 503 });
   return handle(request, { waitUntil: (task) => after(() => task) });
 }

@@ -53,21 +53,21 @@ export const botRun = task({
 
     // Release run rows left behind by a crashed worker; bail if another run is genuinely active.
     const alive = await releaseStaleRuns(db, t.id, ctx.run.id);
-    if (alive && alive !== ctx.run.id) return { skipped: "another run is working on this task" };
-    if (!t.assignee_bot_id) return finishFailed(db, t, null, null, "No bot is assigned to this task.");
+    if (alive && alive !== ctx.run.id) return { skipped: "另一个运行正在处理这个任务" };
+    if (!t.assignee_bot_id) return finishFailed(db, t, null, null, "这个任务还没有分配 Bot。");
 
     // Like a small team: up to MAX_PARALLEL_PER_WORKSPACE bots work at once; the rest queue here.
     await waitForFreeDesk(db, t.workspace_id, t.assignee_bot_id, ctx.run.id);
 
     const chat = await loadChatContext(db, t.assignee_bot_id);
-    if (!chat || chat.bot.workspace_id !== t.workspace_id) return finishFailed(db, t, null, null, "The assigned bot no longer exists.");
+    if (!chat || chat.bot.workspace_id !== t.workspace_id) return finishFailed(db, t, null, null, "负责这个任务的 Bot 已不存在。");
     const { bot } = chat;
 
     // Spend cap: refuse to start once today's estimated spend reaches the workspace cap.
     const capCents = await dailyCapCents(db, t.workspace_id);
     let spentCents = await spentTodayCents(db, t.workspace_id);
     if (spentCents >= capCents) {
-      return finishFailed(db, t, bot.id, null, `Today's spend cap ($${(capCents / 100).toFixed(2)}) is reached — raise it in settings or try tomorrow.`, "resting");
+      return finishFailed(db, t, bot.id, null, `今日费用上限（$${(capCents / 100).toFixed(2)}）已达到，请在设置中提高上限或明天再试。`, "resting");
     }
 
     // Claim the task (the unique index allows one active run per task). A retry attempt of the
@@ -101,8 +101,8 @@ export const botRun = task({
 
     await Promise.all([
       db.from("tasks").update({ status: "doing" }).eq("id", t.id),
-      db.from("bots").update({ status: "working", status_detail: `Working on “${t.title}”`, last_active_at: new Date().toISOString() }).eq("id", bot.id),
-      logActivity(db, t.workspace_id, bot.id, t.id, "run_started", `started “${t.title}”`),
+      db.from("bots").update({ status: "working", status_detail: `正在处理“${t.title}”`, last_active_at: new Date().toISOString() }).eq("id", bot.id),
+      logActivity(db, t.workspace_id, bot.id, t.id, "run_started", `开始处理“${t.title}”`),
     ]);
 
     const [{ data: owner }, createdBy] = await Promise.all([
@@ -128,10 +128,10 @@ export const botRun = task({
     const askTool = {
       ask_user: tool({
         description:
-          "Ask the user a question and wait for the answer (it appears in Waiting on me). Only when you truly can't continue without them — e.g. a missing detail or a choice only they can make.",
+          "向用户提问并等待答复（会显示在“待我处理”）。只有确实无法继续时才使用，例如缺少关键信息或必须由用户做决定。",
         inputSchema: z.object({
-          question: z.string().min(3).max(200).describe("One short, specific question"),
-          context: z.string().max(1000).optional().describe("Why you're asking / the options"),
+          question: z.string().min(3).max(200).describe("一句简短、具体的问题"),
+          context: z.string().max(1000).optional().describe("提问原因或可选方案"),
         }),
         execute: ({ question, context }) => askUser(pause, question, context),
       }),
@@ -170,18 +170,18 @@ export const botRun = task({
         const decision = await requestAppAccess(pause, plan.title, plan.preview);
         if ("granted" in decision) {
           access.grants += 1;
-          return { ok: true, granted: true, note: `You now have ${plan.preview.appName}; your app tools are being refreshed.` };
+          return { ok: true, granted: true, note: `你现在已获得 ${plan.preview.appName} 权限，应用工具正在刷新。` };
         }
         if ("handoff" in decision) {
           access.handoff = decision.handoff;
-          return { ok: true, handedOff: decision.handoff.botName, note: `The user handed this task to ${decision.handoff.botName}. Stop now.` };
+          return { ok: true, handedOff: decision.handoff.botName, note: `用户已将任务交给 ${decision.handoff.botName}，你现在停止。` };
         }
         return { ok: false, granted: false, note: decision.note };
       },
     });
 
     try {
-      let messages: ModelMessage[] = [{ role: "user", content: `Start working on: ${t.title}` }];
+      let messages: ModelMessage[] = [{ role: "user", content: `开始处理：${t.title}` }];
       let finalText = "";
       for (let round = 0; ; round++) {
         const grantsBefore = access.grants;
@@ -191,7 +191,7 @@ export const botRun = task({
             title: t.title,
             body: t.body,
             depth: t.depth,
-            createdBy: createdBy.data?.name ?? (t.source === "routine" ? "your routine (it runs on a schedule)" : null),
+            createdBy: createdBy.data?.name ?? (t.source === "routine" ? "你的例行任务（按计划自动运行）" : null),
           }, { mine: appTools.apps, connected: appTools.connected }),
           messages,
           tools: { ...appTools.tools, ...tools, ...askTool },
@@ -212,7 +212,7 @@ export const botRun = task({
             ]);
 
             if (spentCents >= capCents) {
-              await logActivity(db, t.workspace_id, bot.id, t.id, "spend_cap", "stopped — today's spend cap was reached");
+              await logActivity(db, t.workspace_id, bot.id, t.id, "spend_cap", "已停止：今日费用上限已达到");
               abort.abort();
             }
           },
@@ -223,25 +223,25 @@ export const botRun = task({
         const { data: fresh } = await db.from("bots").select("app_keys").eq("id", bot.id).maybeSingle();
         if (fresh) bot.app_keys = fresh.app_keys ?? [];
         appTools = await loadApps();
-        messages = [...messages, ...result.response.messages, { role: "user", content: "Access granted — your app tools are refreshed. Carry on with the task." }];
+        messages = [...messages, ...result.response.messages, { role: "user", content: "权限已授予，应用工具已刷新，请继续处理任务。" }];
       }
 
       if (access.handoff) return handOff(db, t, bot.id, runId, ctx.run.id, access.handoff);
 
-      const report = finalText.trim() || "Done.";
+      const report = finalText.trim() || "已完成。";
       await Promise.all([
         db.from("runs").update({ status: "completed", ended_at: new Date().toISOString() }).eq("id", runId),
         db.from("tasks").update({ status: "done", result: { summary: report } }).eq("id", t.id),
-        db.from("bots").update({ status: "resting", status_detail: "Resting", last_active_at: new Date().toISOString() }).eq("id", bot.id),
-        logActivity(db, t.workspace_id, bot.id, t.id, "run_finished", `finished “${t.title}”`),
-        postToThread(db, t.workspace_id, bot.id, t.id, ctx.run.id, `**Finished: ${t.title}**\n\n${report}`),
-        relayToRequesters(db, t, bot.id, ctx.run.id, `**${bot.name} finished: ${t.title}**\n\n${report}`),
-        reportToChannel(t, `✅ **${bot.name} finished: ${t.title}**\n\n${report}`),
+        db.from("bots").update({ status: "resting", status_detail: "休息中", last_active_at: new Date().toISOString() }).eq("id", bot.id),
+        logActivity(db, t.workspace_id, bot.id, t.id, "run_finished", `完成“${t.title}”`),
+        postToThread(db, t.workspace_id, bot.id, t.id, ctx.run.id, `**已完成：${t.title}**\n\n${report}`),
+        relayToRequesters(db, t, bot.id, ctx.run.id, `**${bot.name} 已完成：${t.title}**\n\n${report}`),
+        reportToChannel(t, `✅ **${bot.name} 已完成：${t.title}**\n\n${report}`),
       ]);
       return { status: "done", steps, costCents: round4(runCents) };
     } catch (error) {
       const message = abort.signal.aborted
-        ? "Stopped: today's spend cap was reached."
+        ? "已停止：今日费用上限已达到。"
         : error instanceof Error
           ? error.message
           : String(error);
@@ -280,15 +280,15 @@ async function startCodeRun(
     },
     { idempotencyKey: `code-${key}`, tags: [`workspace:${t.workspace_id}`, `task:${t.id}`] },
   );
-  if (!result.ok) return { ok: false, error: "The code run crashed — it can be retried." };
+  if (!result.ok) return { ok: false, error: "代码运行崩溃了，可以重试。" };
   const out = result.output;
   if (!out.ok) return out;
   return {
     ...out,
     note:
       out.status === "no_changes"
-        ? "No files changed, so no pull request was opened. Say why in your report."
-        : `Report the pull request link${out.tests === "failed" ? ", that the tests are failing (with the key error)" : ""} and what changed. Merging needs the user's approval.`,
+        ? "没有任何文件变更，所以没有创建 Pull Request。请在报告中说明原因。"
+        : `请在报告中给出 Pull Request 链接${out.tests === "failed" ? "，说明测试失败和关键错误" : ""}以及修改内容。合并前需要用户批准。`,
   };
 }
 
@@ -315,7 +315,7 @@ async function waitForFreeDesk(db: Db, workspaceId: string, botId: string, trigg
     if (check === 0) {
       await db
         .from("bots")
-        .update({ status_detail: `Queued — ${MAX_PARALLEL_PER_WORKSPACE} bots are already working` })
+        .update({ status_detail: `排队中：已有 ${MAX_PARALLEL_PER_WORKSPACE} 个 Bot 在工作` })
         .eq("id", botId)
         .eq("status", "resting");
     }
@@ -335,13 +335,13 @@ function reportToChannel(t: TaskRow, markdown: string) {
  */
 async function handOff(db: Db, t: TaskRow, botId: string, runId: string, triggerRunId: string, target: { botId: string; botName: string }) {
   const { data: other } = await db.from("bots").select("id").eq("id", target.botId).eq("workspace_id", t.workspace_id).maybeSingle();
-  if (!other) return finishFailed(db, t, botId, triggerRunId, `${target.botName} no longer exists, so the task couldn't be handed over.`);
+  if (!other) return finishFailed(db, t, botId, triggerRunId, `${target.botName} 已不存在，无法移交任务。`);
   const now = new Date().toISOString();
   await db.from("runs").update({ status: "completed", ended_at: now }).eq("id", runId);
   await Promise.all([
     db.from("tasks").update({ status: "backlog", assignee_bot_id: target.botId }).eq("id", t.id),
-    db.from("bots").update({ status: "resting", status_detail: "Resting", last_active_at: now }).eq("id", botId),
-    logActivity(db, t.workspace_id, botId, t.id, "handoff", `handed “${t.title}” to ${target.botName}`),
+    db.from("bots").update({ status: "resting", status_detail: "休息中", last_active_at: now }).eq("id", botId),
+    logActivity(db, t.workspace_id, botId, t.id, "handoff", `已将“${t.title}”交给 ${target.botName}`),
   ]);
   await botRun.trigger(
     { taskId: t.id },
@@ -354,12 +354,12 @@ async function finishFailed(db: Db, t: TaskRow, botId: string | null, runId: str
   await Promise.all([
     db.from("tasks").update({ status: "failed", result: { error: reason } }).eq("id", t.id),
     botId
-      ? db.from("bots").update({ status: botStatus, status_detail: botStatus === "error" ? `Stuck on “${t.title}”` : "Resting", last_active_at: new Date().toISOString() }).eq("id", botId)
+      ? db.from("bots").update({ status: botStatus, status_detail: botStatus === "error" ? `卡在“${t.title}”` : "休息中", last_active_at: new Date().toISOString() }).eq("id", botId)
       : Promise.resolve(),
-    logActivity(db, t.workspace_id, botId, t.id, "run_failed", `couldn't finish “${t.title}”: ${reason}`.slice(0, 480)),
-    botId ? postToThread(db, t.workspace_id, botId, t.id, runId ?? `${Date.now()}`, `**Couldn't finish: ${t.title}**\n\n${reason}\n\nYou can retry it from the board.`) : Promise.resolve(),
-    botId ? relayToRequesters(db, t, botId, runId ?? `${Date.now()}`, `**Couldn't finish: ${t.title}**\n\n${reason}\n\nIt can be retried from the board.`) : Promise.resolve(),
-    reportToChannel(t, `⚠️ **Couldn't finish: ${t.title}**\n\n${reason}\n\nYou can retry it from the board.`),
+    logActivity(db, t.workspace_id, botId, t.id, "run_failed", `未能完成“${t.title}”：${reason}`.slice(0, 480)),
+    botId ? postToThread(db, t.workspace_id, botId, t.id, runId ?? `${Date.now()}`, `**未能完成：${t.title}**\n\n${reason}\n\n可以在任务看板中重试。`) : Promise.resolve(),
+    botId ? relayToRequesters(db, t, botId, runId ?? `${Date.now()}`, `**未能完成：${t.title}**\n\n${reason}\n\n可以在任务看板中重试。`) : Promise.resolve(),
+    reportToChannel(t, `⚠️ **未能完成：${t.title}**\n\n${reason}\n\n可以在任务看板中重试。`),
   ]);
   return { status: "failed", error: reason };
 }
@@ -428,38 +428,38 @@ function describeTools(step: StepResult<ToolSet>) {
     const out = (r.output ?? {}) as { ok?: boolean; title?: string; assignee?: string; error?: string };
     switch (r.toolName) {
       case "create_task":
-        return out.ok ? `handed “${out.title}” to ${out.assignee}` : `couldn't create a task: ${out.error ?? "error"}`;
+        return out.ok ? `已将“${out.title}”交给 ${out.assignee}` : `创建任务失败：${out.error ?? "未知错误"}`;
       case "update_notes":
-        return "updated its notes";
+        return "更新了笔记";
       case "read_notes":
-        return "read its notes";
+        return "读取了笔记";
       case "list_tasks":
-        return "checked the board";
+        return "检查了任务看板";
       case "ask_user":
-        return "asked you a question";
+        return "向你提问";
       case "request_app_access":
         return null; // the Waiting on me card is logged already
       case "run_code_task": {
         const code = r.output as { ok?: boolean; prUrl?: string; prNumber?: number; status?: string; error?: string };
-        if (!code.ok) return `couldn't finish a code run: ${code.error ?? "error"}`;
-        return code.prNumber ? `code run done — pull request #${code.prNumber}` : "code run done — no changes";
+        if (!code.ok) return `代码运行失败：${code.error ?? "未知错误"}`;
+        return code.prNumber ? `代码运行完成，Pull Request #${code.prNumber}` : "代码运行完成，没有文件变更";
       }
       case "propose_routine":
-        return out.ok ? `proposed a routine “${(r.output as { proposed?: string }).proposed ?? ""}” for your OK` : `couldn't propose a routine: ${out.error ?? "error"}`;
+        return out.ok ? `提议了例行任务“${(r.output as { proposed?: string }).proposed ?? ""}”，等待你确认` : `提议例行任务失败：${out.error ?? "未知错误"}`;
       default:
         if (isAppTool(r.toolName)) {
           const info = describeAppTool(r.toolName, r.input);
           // Lookups ("found tools for …") are noise in the activity feed; keep real app actions.
-          return info.lookup ? null : `used ${info.done}`;
+          return info.lookup ? null : `使用了 ${info.done}`;
         }
-        return `used ${r.toolName}`;
+        return `使用了 ${r.toolName}`;
     }
   });
 }
 
 function friendly(message: string) {
-  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the AI service — it will be retried.";
-  if (/401|403|unauthorized|api key/i.test(message)) return "DeepSeek rejected the API key — check DEEPSEEK_API_KEY.";
+  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "无法连接 AI 服务，系统会自动重试。";
+  if (/401|403|unauthorized|api key/i.test(message)) return "DeepSeek 拒绝了 API Key，请检查 DEEPSEEK_API_KEY。";
   return message.slice(0, 400);
 }
 

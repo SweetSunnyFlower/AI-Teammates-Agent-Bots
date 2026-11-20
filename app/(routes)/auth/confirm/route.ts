@@ -12,5 +12,5 @@ export async function GET(request: NextRequest) {
 
   if (tokenHash) redirect(next);
 
-  redirect(`/auth/error?error=${encodeURIComponent("This link is missing its token. Request a new one.")}`);
+    redirect(`/auth/error?error=${encodeURIComponent("这个链接缺少验证令牌，请重新获取。")}`);
 }

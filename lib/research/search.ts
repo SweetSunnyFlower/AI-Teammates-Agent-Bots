@@ -7,7 +7,7 @@ type SearxResult = {
 
 export async function searchWeb(query: string, limit = 6) {
   const base = process.env.SEARXNG_URL?.replace(/\/$/, "");
-  if (!base) return { ok: false as const, error: "Web search isn't configured — set SEARXNG_URL." };
+  if (!base) return { ok: false as const, error: "网页搜索尚未配置，请设置 SEARXNG_URL。" };
 
   const url = new URL(`${base}/search`);
   url.searchParams.set("q", query);
@@ -19,10 +19,10 @@ export async function searchWeb(query: string, limit = 6) {
   const response = await fetch(url, {
     headers: { Accept: "application/json", "User-Agent": "Dotty/1.0" },
     signal: AbortSignal.timeout(15_000),
-  }).catch((error: unknown) => {
-    throw new Error(`SearXNG request failed: ${error instanceof Error ? error.message : String(error)}`);
+  }).catch(() => {
+    throw new Error("SearXNG 请求失败，请检查搜索服务是否运行。");
   });
-  if (!response.ok) throw new Error(`SearXNG returned ${response.status}.`);
+  if (!response.ok) throw new Error(`SearXNG 返回状态码 ${response.status}。`);
   const body = (await response.json()) as { results?: SearxResult[] };
   const results = (body.results ?? [])
     .filter((item) => item.title && item.url)

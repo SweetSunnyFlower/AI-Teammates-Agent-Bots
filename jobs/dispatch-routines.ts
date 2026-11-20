@@ -26,7 +26,7 @@ export const dispatchRoutines = schedules.task({
       .lte("next_run_at", now.toISOString())
       .order("next_run_at", { ascending: true })
       .limit(100);
-    if (error) throw new Error(`Couldn't read routines: ${error.message}`);
+    if (error) throw new Error("读取例行任务失败。");
 
     let started = 0;
     for (const r of (due ?? []) as Array<RoutineRow & { next_run_at: string }>) {

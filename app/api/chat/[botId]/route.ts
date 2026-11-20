@@ -38,24 +38,24 @@ const incoming = z.object({
 const json = (status: number, error: string) => Response.json({ error }, { status });
 
 export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">) {
-  if (!hasDatabaseEnv) return json(503, "Chat needs a database — add DATABASE_URL to .env.local.");
-  if (!hasDeepSeek()) return json(503, "Chat needs a DeepSeek key — add DEEPSEEK_API_KEY to .env.local and restart.");
+  if (!hasDatabaseEnv) return json(503, "聊天需要数据库，请在 .env.local 中添加 DATABASE_URL。");
+  if (!hasDeepSeek()) return json(503, "聊天需要 DeepSeek API Key，请在 .env.local 中添加 DEEPSEEK_API_KEY 并重启。");
 
   const { botId } = await ctx.params;
-  if (!z.string().uuid().safeParse(botId).success) return json(404, "Unknown bot.");
+  if (!z.string().uuid().safeParse(botId).success) return json(404, "Bot 不存在。");
 
   const parsed = incoming.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return json(400, "Messages must be text, up to 4,000 characters.");
+  if (!parsed.success) return json(400, "消息必须是文字，且不超过 4,000 个字符。");
   const userMessage = parsed.data.message as UIMessage;
 
   const userId = await getCurrentUserId();
-  if (!userId) return json(401, "Your session expired — sign in again.");
+  if (!userId) return json(401, "会话已过期，请重新登录。");
   const supabase = await createClient();
   const limit = await rateLimit("chat", userId);
-  if (!limit.ok) return tooMany(limit, `You're sending messages quickly — try again in ${limit.retryAfter}s.`);
+  if (!limit.ok) return tooMany(limit, `消息发送过于频繁，请在 ${limit.retryAfter} 秒后重试。`);
 
   const chat = await loadChatContext(supabase, botId);
-  if (!chat) return json(404, "That bot doesn't exist or isn't yours.");
+  if (!chat) return json(404, "Bot 不存在，或者你没有访问权限。");
   const { bot } = chat;
 
   // Memory = messages after the latest divider (older ones stay visible but are forgotten).
@@ -90,7 +90,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
     ui_id: userMessage.id,
   });
   if (saveError && !saveError.message.includes("messages_bot_ui_id_unique")) {
-    return json(500, "Couldn't save your message — check your connection and try again.");
+    return json(500, "保存消息失败，请检查网络后重试。");
   }
 
   // Tasks created in chat start their background run immediately.
@@ -98,7 +98,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   const appTools = await appToolsFor(bot.workspace_id, bot.app_keys);
   const tools = buildChatTools(supabase, chat, {
     onTaskCreated: async (task) => {
-      if (!(await startTaskRun(task))) throw new Error("Background runs aren't configured yet");
+      if (!(await startTaskRun(task))) throw new Error("后台任务尚未配置");
     },
     // App access requests and the Head's routine proposals leave a card on Waiting on me.
     ...chatSideTools(chat, appTools, profile?.timezone ?? "UTC"),
@@ -118,7 +118,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
 
   // The bot is "working" while it replies (the Head plans and hands out tasks right here, not in a
   // background run). Back to resting afterwards — unless a background run took over meanwhile.
-  const chatDetail = bot.role === "head" ? "Planning your request" : "Chatting with you";
+  const chatDetail = bot.role === "head" ? "正在规划你的请求" : "正在回复你";
   const { data: claimed } = await supabase
     .from("bots")
     .update({ status: "working", status_detail: chatDetail, last_active_at: new Date().toISOString() })
@@ -130,7 +130,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
     if (!wasResting) return;
     await supabase
       .from("bots")
-      .update({ status: "resting", status_detail: "Resting", last_active_at: new Date().toISOString() })
+      .update({ status: "resting", status_detail: "休息中", last_active_at: new Date().toISOString() })
       .eq("id", bot.id)
       .eq("status", "working")
       .eq("status_detail", chatDetail);
@@ -172,9 +172,9 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
       onError: (error) => {
         void backToResting();
         const message = error instanceof Error ? error.message : String(error);
-        if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the AI service — check your connection and try again.";
-        if (/401|403|unauthorized|api key/i.test(message)) return "DeepSeek rejected the API key — check DEEPSEEK_API_KEY.";
-        return "Something went wrong while replying. Try again.";
+        if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "无法连接 AI 服务，请检查网络后重试。";
+        if (/401|403|unauthorized|api key/i.test(message)) return "DeepSeek 拒绝了 API Key，请检查 DEEPSEEK_API_KEY。";
+        return "回复时出了点问题，请重试。";
       },
     }),
   });

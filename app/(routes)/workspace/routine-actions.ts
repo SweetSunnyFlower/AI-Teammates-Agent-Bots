@@ -21,14 +21,14 @@ const uuid = z.string().uuid();
 const ROUTINE_COLUMNS = "id, workspace_id, bot_id, name, prompt, cron, timezone, enabled";
 
 async function client() {
-  if (!hasDatabaseEnv) throw new Error("Database isn't configured yet — add DATABASE_URL to .env.local.");
+  if (!hasDatabaseEnv) throw new Error("数据库尚未配置，请在 .env.local 中添加 DATABASE_URL。");
   return createClient();
 }
 
 function friendly(message: string) {
-  if (/fetch failed|network|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the database — check your connection and try again.";
-  if (message.includes("don't have access")) return "You don't have access to that workspace.";
-  if (message.includes("foreign key")) return "That bot isn't in this workspace.";
+  if (/fetch failed|network|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "无法连接数据库，请检查网络后重试。";
+  if (message.includes("don't have access")) return "你没有这个工作空间的访问权限。";
+  if (message.includes("foreign key")) return "这个 Bot 不属于当前工作空间。";
   return message;
 }
 
@@ -36,7 +36,7 @@ async function run(fn: () => Promise<RoutineResult>): Promise<RoutineResult> {
   try {
     return await fn();
   } catch (e) {
-    return { ok: false, error: friendly(e instanceof Error ? e.message : "Something went wrong.") };
+    return { ok: false, error: friendly(e instanceof Error ? e.message : "出了点问题，请重试。") };
   }
 }
 
@@ -44,8 +44,8 @@ async function run(fn: () => Promise<RoutineResult>): Promise<RoutineResult> {
 export async function saveRoutine(workspaceId: string, routineId: string | null, input: RoutineInput): Promise<RoutineResult> {
   return run(async () => {
     const parsed = routineSchema.safeParse(input);
-    if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: fieldErrors(parsed.error) };
-    if (!uuid.safeParse(workspaceId).success || (routineId && !uuid.safeParse(routineId).success)) return { ok: false, error: "Unknown routine." };
+    if (!parsed.success) return { ok: false, error: "请检查标红的字段。", fieldErrors: fieldErrors(parsed.error) };
+    if (!uuid.safeParse(workspaceId).success || (routineId && !uuid.safeParse(routineId).success)) return { ok: false, error: "例行任务不存在。" };
     const v = parsed.data;
     const supabase = await client();
 
@@ -62,7 +62,7 @@ export async function saveRoutine(workspaceId: string, routineId: string | null,
     if (routineId) {
       const { data, error } = await supabase.from("routines").update(row).eq("id", routineId).eq("workspace_id", workspaceId).select("id");
       if (error) return { ok: false, error: friendly(error.message) };
-      if (!data?.length) return { ok: false, error: "That routine doesn't exist any more." };
+      if (!data?.length) return { ok: false, error: "这个例行任务已不存在。" };
       return { ok: true, id: routineId };
     }
 
@@ -75,12 +75,12 @@ export async function saveRoutine(workspaceId: string, routineId: string | null,
 /** Switch a routine on (it schedules its next run from now) or off. */
 export async function setRoutineEnabled(routineId: string, enabled: boolean): Promise<RoutineResult> {
   return run(async () => {
-    if (!uuid.safeParse(routineId).success) return { ok: false, error: "Unknown routine." };
+    if (!uuid.safeParse(routineId).success) return { ok: false, error: "例行任务不存在。" };
     const supabase = await client();
     const { data: r } = await supabase.from("routines").select("cron, timezone").eq("id", routineId).maybeSingle();
-    if (!r) return { ok: false, error: "That routine doesn't exist any more." };
+    if (!r) return { ok: false, error: "这个例行任务已不存在。" };
     const next = nextRunFor(enabled, r.cron, r.timezone);
-    if (enabled && !next) return { ok: false, error: "This schedule never runs again — edit it first." };
+    if (enabled && !next) return { ok: false, error: "这个计划之后不会再运行，请先修改时间。" };
     const { error } = await supabase.from("routines").update({ enabled, next_run_at: next }).eq("id", routineId);
     if (error) return { ok: false, error: friendly(error.message) };
     return { ok: true };
@@ -89,11 +89,11 @@ export async function setRoutineEnabled(routineId: string, enabled: boolean): Pr
 
 export async function deleteRoutine(routineId: string): Promise<RoutineResult> {
   return run(async () => {
-    if (!uuid.safeParse(routineId).success) return { ok: false, error: "Unknown routine." };
+    if (!uuid.safeParse(routineId).success) return { ok: false, error: "例行任务不存在。" };
     const supabase = await client();
     const { error, count } = await supabase.from("routines").delete({ count: "exact" }).eq("id", routineId);
     if (error) return { ok: false, error: friendly(error.message) };
-    if (!count) return { ok: false, error: "That routine doesn't exist any more." };
+    if (!count) return { ok: false, error: "这个例行任务已不存在。" };
     return { ok: true };
   });
 }
@@ -101,15 +101,15 @@ export async function deleteRoutine(routineId: string): Promise<RoutineResult> {
 /** Run a routine once, right now (its schedule is unchanged). */
 export async function runRoutineNow(routineId: string): Promise<RoutineResult> {
   return run(async () => {
-    if (!uuid.safeParse(routineId).success) return { ok: false, error: "Unknown routine." };
-    if (!hasTrigger()) return { ok: false, error: "Background runs aren't set up yet — add DATABASE_URL and start the worker." };
+    if (!uuid.safeParse(routineId).success) return { ok: false, error: "例行任务不存在。" };
+    if (!hasTrigger()) return { ok: false, error: "后台任务尚未启用，请配置 DATABASE_URL 并启动 worker。" };
     const supabase = await client();
     const { data: r } = await supabase.from("routines").select(ROUTINE_COLUMNS).eq("id", routineId).maybeSingle();
-    if (!r) return { ok: false, error: "That routine doesn't exist any more." };
+    if (!r) return { ok: false, error: "这个例行任务已不存在。" };
     const result = await startRoutineRun(supabase, r, async (task) => {
-      if (!(await startTaskRun(task, `now-${Date.now()}`))) throw new Error("Background runs aren't configured");
+      if (!(await startTaskRun(task, `now-${Date.now()}`))) throw new Error("后台任务尚未配置");
     });
-    if (!result.ok) return { ok: false, error: `Didn't run: ${result.reason}.` };
+    if (!result.ok) return { ok: false, error: `运行失败：${result.reason}。` };
     return { ok: true, id: result.taskId };
   });
 }

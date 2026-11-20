@@ -40,18 +40,18 @@ export async function proposeRoutine(
   p: RoutineProposal,
 ) {
   const target = ctx.roster.find((b) => b.name.toLowerCase() === p.bot.trim().toLowerCase());
-  if (!target) return { ok: false, error: `No bot named "${p.bot}". Bots: ${ctx.roster.map((b) => b.name).join(", ")}` };
+  if (!target) return { ok: false, error: `找不到名为“${p.bot}”的 Bot。可选 Bot：${ctx.roster.map((b) => b.name).join("、")}` };
 
   const timezone = p.timezone?.trim() || ctx.defaultTimezone;
   const cron = p.cron.trim().replace(/\s+/g, " ");
   const parsed = routineSchema.safeParse({ name: p.name, botId: target.id, cron, timezone, prompt: p.prompt, enabled: true });
-  if (!parsed.success) return { ok: false, error: parsed.error.issues.map((i) => i.message).join("; ") };
-  if (!nextRunAt(cron, timezone)) return { ok: false, error: "That schedule never runs." };
+  if (!parsed.success) return { ok: false, error: parsed.error.issues.map((i) => i.message).join("；") };
+  if (!nextRunAt(cron, timezone)) return { ok: false, error: "这个计划之后不会再运行。" };
 
   const input: RoutineProposalInput = { name: parsed.data.name, bot: target.name, cron, timezone, prompt: parsed.data.prompt };
   const preview: ApprovalPreview = {
     text: `${target.name} · ${describeCron(cron)} (${timezone})`,
-    calls: [{ tool: "propose_routine", app: "Dotty", label: "add a routine", args: { ...input } }],
+    calls: [{ tool: "propose_routine", app: "Dotty", label: "添加例行任务", args: { ...input } }],
   };
   const { data: item, error } = await db.from("inbox_items").insert({
     workspace_id: ctx.workspaceId,
@@ -61,16 +61,16 @@ export async function proposeRoutine(
     kind: "approval",
     action: "create_routine",
     tool_key: "propose_routine",
-    title: `New routine: ${input.name}`.slice(0, 200),
+    title: `新建例行任务：${input.name}`.slice(0, 200),
     preview,
     input,
   }).select("id").single();
-  if (error || !item) return { ok: false, error: "Couldn't put the proposal on Waiting on me right now." };
+  if (error || !item) return { ok: false, error: "暂时无法把提议放进“待我处理”。" };
   await notifyInboxItem(item.id);
   return {
     ok: true,
     proposed: input.name,
     schedule: preview.text,
-    note: "The proposal is on Waiting on me. The routine only exists once the user approves it there (they can edit it first) — tell them, and don't say it's set up yet.",
+    note: "提议已经放入“待我处理”。用户批准后才会创建例行任务，并且批准前可以修改；请告诉用户正在等待确认，不要说已经创建。",
   };
 }

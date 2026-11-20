@@ -330,7 +330,7 @@ class QueryBuilder<T = any[]> implements PromiseLike<QueryResponse<T>> {
           'select 1 from "workspaces" where "id" = $1 and "owner_id" = $2',
           [workspaceId, this.userId],
         );
-        if (!owned.rowCount) throw new Error("You don't have access to that workspace.");
+        if (!owned.rowCount) throw new Error("你没有这个工作空间的访问权限。");
       }
     }
   }
@@ -404,7 +404,7 @@ class QueryBuilder<T = any[]> implements PromiseLike<QueryResponse<T>> {
         return {
           data: null,
           error: {
-            message: rows.length === 0 ? "The result contains 0 rows" : "JSON object requested, multiple rows returned",
+            message: rows.length === 0 ? "没有找到结果" : "请求只允许一条结果，但返回了多条",
             code: "PGRST116",
           },
         };
@@ -435,7 +435,7 @@ export function createDbClient(userId: string | null = null) {
     },
 
     async rpc<T = string | null>(name: string, args: Record<string, unknown> = {}): Promise<QueryResponse<T>> {
-      if (!IDENTIFIER.test(name)) return { data: null, error: { message: "Unsafe RPC name" } };
+      if (!IDENTIFIER.test(name)) return { data: null, error: { message: "RPC 名称不安全" } };
       const pool = dbPool();
       const client = await pool.connect();
       try {
@@ -456,7 +456,7 @@ export function createDbClient(userId: string | null = null) {
               'select 1 from "workspaces" where "id" = $1 and "owner_id" = $2',
               [workspaceId, userId],
             );
-            if (!owned.rowCount) throw new Error("You don't have access to that workspace.");
+            if (!owned.rowCount) throw new Error("你没有这个工作空间的访问权限。");
           }
         }
 

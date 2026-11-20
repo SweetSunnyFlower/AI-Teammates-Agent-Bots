@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     verifyInstallState(request.cookies.get(INSTALL_COOKIE)?.value);
   if (!state)
     return new Response(
-      "This GitHub link expired — start again from Dotty → Settings → Connectors → GitHub.",
+      "GitHub 连接链接已过期，请从 Dotty →“设置”→“连接器”→“GitHub”重新开始。",
       { status: 400 },
     );
 

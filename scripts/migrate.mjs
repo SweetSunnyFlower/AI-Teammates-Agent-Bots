@@ -5,7 +5,7 @@ import pg from "pg";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
-  console.error("DATABASE_URL is required.");
+  console.error("缺少 DATABASE_URL。");
   process.exit(1);
 }
 
@@ -28,12 +28,12 @@ try {
   for (const filename of files) {
     const applied = await client.query("select 1 from public._dotty_migrations where filename = $1", [filename]);
     if (applied.rowCount) {
-      console.log(`skip ${filename}`);
+      console.log(`跳过 ${filename}`);
       continue;
     }
 
     const sql = await readFile(path.join(directory, filename), "utf8");
-    console.log(`apply ${filename}`);
+    console.log(`执行 ${filename}`);
     await client.query("begin");
     try {
       await client.query(sql);
@@ -44,7 +44,7 @@ try {
       throw new Error(`${filename}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  console.log("database is up to date");
+  console.log("数据库已是最新状态");
 } finally {
   await client.end();
 }

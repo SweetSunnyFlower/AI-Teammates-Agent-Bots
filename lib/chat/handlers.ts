@@ -26,7 +26,7 @@ import { findLink, rememberThread, saveLink, type ChannelLink, type ChannelProvi
  */
 
 const PRIVATE_NOTE =
-  "Hi! I'm Dotty — this bot is private. To use it, open Dotty → Settings → Channels and press “Connect Telegram”.";
+  "你好，我是 Dotty。这个 Bot 仅限私有使用。请打开 Dotty →“设置”→“渠道”，点击“连接 Telegram”。";
 
 const providerOf = (adapter: Adapter): ChannelProvider | null =>
   adapter.name === "telegram" ? "telegram" : adapter.name === "slack" ? "slack" : null;
@@ -59,7 +59,7 @@ async function linkTelegram(event: SlashCommandEvent) {
   const db = createAdminClient();
   if (!code) {
     const link = await findLink(db, "telegram", event.user.userId);
-    await event.channel.post(link ? "You're linked. Send me anything — it goes to your Head bot. Type /help for more." : PRIVATE_NOTE);
+    await event.channel.post(link ? "关联成功。直接发消息即可，内容会交给总控 Bot。输入 /help 查看帮助。" : PRIVATE_NOTE);
     return;
   }
 
@@ -69,13 +69,13 @@ async function linkTelegram(event: SlashCommandEvent) {
     .eq("code", code)
     .maybeSingle();
   if (!row?.workspace_id || new Date(row.expires_at).getTime() < Date.now()) {
-    await event.channel.post("That link has expired. Open Dotty → Settings → Channels and press “Connect Telegram” again.");
+    await event.channel.post("这个关联链接已过期。请打开 Dotty →“设置”→“渠道”，重新点击“连接 Telegram”。");
     return;
   }
   // The code belongs to the workspace's owner; make sure it still does.
   const { data: workspace } = await db.from("workspaces").select("id, name, owner_id").eq("id", row.workspace_id).maybeSingle();
   if (!workspace || workspace.owner_id !== row.user_id) {
-    await event.channel.post("That link isn't valid any more. Create a new one in Dotty → Settings → Channels.");
+    await event.channel.post("这个关联链接已失效，请在 Dotty →“设置”→“渠道”中重新创建。");
     return;
   }
 
@@ -88,7 +88,7 @@ async function linkTelegram(event: SlashCommandEvent) {
   await db.from("telegram_link_codes").delete().eq("code", code);
   const { data: headBot } = await db.from("bots").select("name").eq("workspace_id", workspace.id).eq("role", "head").maybeSingle();
   await event.channel.post({
-    markdown: `✅ Linked to **${workspace.name}**.\n\nSend me anything and ${headBot?.name ?? "your Head bot"} will take it from there. Start a message with @ and a bot's name to talk to that bot. Approvals and questions will show up here with buttons. /help lists your bots.`,
+    markdown: `✅ 已关联到 **${workspace.name}**。\n\n直接发消息即可，${headBot?.name ?? "总控 Bot"} 会接手处理。消息以 @ 加 Bot 名称开头时，可以直接联系指定 Bot。审批和问题会以按钮形式出现在这里。输入 /help 查看 Bot 列表。`,
   });
 }
 
@@ -96,8 +96,8 @@ async function help(event: SlashCommandEvent) {
   const link = await linkOf(event.adapter, event.user.userId);
   if (!link) return void (await event.channel.post(PRIVATE_NOTE));
   const { data: bots } = await createAdminClient().from("bots").select("name, role").eq("workspace_id", link.workspaceId).order("created_at");
-  const list = (bots ?? []).map((b: any) => `• ${b.name}${b.role === "head" ? " (Head — gets your messages by default)" : b.role === "lead" ? " (Lead)" : ""}`).join("\n");
-  await event.channel.post({ markdown: `Send a message to the Head bot, or start with @ and a name:\n\n${list}\n\nExample: @${bots?.find((b: any) => b.role !== "head")?.name ?? "Inbox Zero"} summarise my unread email` });
+  const list = (bots ?? []).map((b: any) => `• ${b.name}${b.role === "head" ? "（总控 Bot，默认接收你的消息）" : b.role === "lead" ? "（主管 Bot）" : ""}`).join("\n");
+  await event.channel.post({ markdown: `直接发消息给总控 Bot，或以 @ 加 Bot 名称开头：\n\n${list}\n\n示例：@${bots?.find((b: any) => b.role !== "head")?.name ?? "收件箱助手"} 总结我的未读邮件` });
 }
 
 // ─── Messages ─────────────────────────────────────────────────────────────────────────────────
@@ -107,20 +107,20 @@ async function onMessage(thread: Thread<ThreadState>, message: Message) {
   if (!provider || message.author.isMe || message.author.isBot === true) return;
   const link = await linkOf(thread.adapter, message.author.userId);
   if (!link) {
-    await thread.post(provider === "telegram" ? PRIVATE_NOTE : "Only the person who added Dotty to this Slack workspace can use it.");
+    await thread.post(provider === "telegram" ? PRIVATE_NOTE : "只有将 Dotty 添加到这个 Slack 工作区的用户可以与其交互。");
     return;
   }
   if (provider === "slack") await rememberThread(createAdminClient(), link, thread.id).catch(() => {});
 
   const text = (message.text ?? "").trim();
-  if (!text) return void (await thread.post("I can only read text for now."));
+  if (!text) return void (await thread.post("目前只支持文字消息。"));
 
   // After "Answer" on a question card, the next message is the answer.
   const state = await thread.state;
   if (state?.answering) {
     await thread.setState({}, { replace: true });
     const res = await answerQuestionCore(contextFor(link), state.answering, text);
-    await thread.post(res.ok ? "👍 Sent — the bot carries on with your answer." : `Couldn't send that: ${res.error}`);
+    await thread.post(res.ok ? "👍 已发送，Bot 会带着你的答复继续处理。" : `发送失败：${res.error}`);
     return;
   }
 
@@ -137,38 +137,38 @@ async function onAction(event: ActionEvent) {
   const itemId = event.value ?? "";
   const reply = (text: string) => (event.thread ? event.thread.post(text) : Promise.resolve());
   const link = await linkOf(event.adapter, event.user.userId);
-  if (!link) return void (await reply("Only the linked account can decide this."));
+  if (!link) return void (await reply("只有已关联的账户才能处理这个事项。"));
   const ctx = contextFor(link);
 
   let res: DecideResult;
   switch (event.actionId) {
     case ACTION.approve:
       res = await decideApprovalCore(ctx, itemId, "approve");
-      return void (await reply(res.ok ? `✅ ${res.message ?? "Approved — the bot will go ahead."}` : `Couldn't approve: ${res.error}`));
+      return void (await reply(res.ok ? `✅ ${res.message ?? "已批准，Bot 将继续执行。"}` : `批准失败：${res.error}`));
     case ACTION.reject:
       res = await decideApprovalCore(ctx, itemId, "reject");
-      return void (await reply(res.ok ? "🚫 Rejected — nothing was done." : `Couldn't reject: ${res.error}`));
+      return void (await reply(res.ok ? "🚫 已拒绝，没有执行任何操作。" : `拒绝失败：${res.error}`));
     case ACTION.skip:
       res = await skipQuestionCore(ctx, itemId);
-      return void (await reply(res.ok ? "Skipped — the bot will use its best judgement." : `Couldn't skip: ${res.error}`));
+      return void (await reply(res.ok ? "已跳过，Bot 会自行判断。" : `跳过失败：${res.error}`));
     case ACTION.answer: {
       if (!event.thread) return;
       await (event.thread as Thread<ThreadState>).setState({ answering: itemId });
-      return void (await reply("✍️ Send your answer as your next message."));
+      return void (await reply("✍️ 请在下一条消息中发送你的答复。"));
     }
     case ACTION.give:
       res = await grantAppAccessCore(ctx, itemId);
-      return void (await reply(res.ok ? `🔑 ${res.message ?? "Access given."}` : `Couldn't give access: ${res.error}`));
+      return void (await reply(res.ok ? `🔑 ${res.message ?? "权限已授予。"}` : `授权失败：${res.error}`));
     case ACTION.decline:
       res = await declineAppAccessCore(ctx, itemId);
-      return void (await reply(res.ok ? "OK — the bot will do without it." : `Couldn't do that: ${res.error}`));
+      return void (await reply(res.ok ? "好的，Bot 会在没有该权限的情况下继续。" : `操作失败：${res.error}`));
     default: {
       const n = Number(event.actionId.slice(1));
       const { data: item } = await ctx.db.from("inbox_items").select("preview").eq("id", itemId).eq("workspace_id", ctx.workspaceId).maybeSingle();
       const holder = (item?.preview as AccessPreview | undefined)?.holders?.[n];
-      if (!holder) return void (await reply("That bot isn't available any more."));
+      if (!holder) return void (await reply("这个 Bot 已不可用。"));
       res = await handOffForAppCore(ctx, itemId, holder.id);
-      return void (await reply(res.ok ? `➡️ ${res.message ?? `Handed to ${holder.name}.`}` : `Couldn't hand it over: ${res.error}`));
+      return void (await reply(res.ok ? `➡️ ${res.message ?? `已交给 ${holder.name}。`}` : `移交失败：${res.error}`));
     }
   }
 }

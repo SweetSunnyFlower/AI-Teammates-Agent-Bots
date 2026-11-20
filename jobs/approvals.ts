@@ -35,7 +35,7 @@ async function pauseFor(ctx: PauseContext, item: Record<string, unknown>, waitin
     .insert({ workspace_id: ctx.workspaceId, bot_id: ctx.botId, task_id: ctx.taskId, run_id: ctx.runId, waitpoint_token_id: token.id, ...item })
     .select("id")
     .single();
-  if (error || !row) throw new Error(`Couldn't create the inbox item: ${error?.message}`);
+  if (error || !row) throw new Error("创建待处理事项失败。");
 
   await Promise.all([
     db.from("tasks").update({ status: "waiting_on_me" }).eq("id", ctx.taskId),
@@ -51,7 +51,7 @@ async function pauseFor(ctx: PauseContext, item: Record<string, unknown>, waitin
   await Promise.all([
     db.from("tasks").update({ status: "doing" }).eq("id", ctx.taskId),
     db.from("runs").update({ status: "running" }).eq("id", ctx.runId),
-    db.from("bots").update({ status: "working", status_detail: `Working on “${ctx.taskTitle}”`, last_active_at: new Date().toISOString() }).eq("id", ctx.botId),
+    db.from("bots").update({ status: "working", status_detail: `正在处理“${ctx.taskTitle}”`, last_active_at: new Date().toISOString() }).eq("id", ctx.botId),
   ]);
 
   if (!result.ok) {
@@ -72,20 +72,20 @@ export async function waitForApproval(ctx: PauseContext, request: ApprovalReques
   const decided = await pauseFor(
     ctx,
     { kind: "approval", action, tool_key: request.tool.slice(0, 120), title, preview, input: request.args },
-    `Waiting for your OK: ${title}`,
+    `等待你批准：${title}`,
   );
 
   if (decided.status === "approved") {
-    await activity(ctx, "inbox_approved", `got your approval for “${title}”`);
+    await activity(ctx, "inbox_approved", `已获得你对“${title}”的批准`);
     return { approved: true, args: decided.edited_payload ?? decided.input ?? request.args };
   }
   if (decided.status === "expired") {
-    await activity(ctx, "inbox_expired", `didn't get an answer about “${title}” in time`);
-    return { approved: false, reason: "The user didn't answer within 72 hours, so this was NOT done. Don't retry it; say so in your report." };
+    await activity(ctx, "inbox_expired", `“${title}”等待超时，未收到你的答复`);
+    return { approved: false, reason: "用户在 72 小时内没有答复，因此没有执行这个操作。不要重试，请在报告中说明。" };
   }
-  await activity(ctx, "inbox_rejected", `was told not to do “${title}”`);
-  const note = decided.answer ? ` Their note: “${decided.answer}”.` : "";
-  return { approved: false, reason: `The user rejected this action, so it was NOT done. Don't try again or work around it; mention it in your report.${note}` };
+  await activity(ctx, "inbox_rejected", `用户拒绝执行“${title}”`);
+  const note = decided.answer ? ` 用户备注：“${decided.answer}”。` : "";
+  return { approved: false, reason: `用户拒绝了这个操作，因此没有执行。不要重试或绕过，请在报告中说明。${note}` };
 }
 
 /** `ask_user` for background runs: post a question to Waiting on me and wait for the answer. */
@@ -93,15 +93,15 @@ export async function askUser(ctx: PauseContext, question: string, context?: str
   const decided = await pauseFor(
     ctx,
     { kind: "question", title: question.slice(0, 200), preview: { text: context?.slice(0, 1000) ?? "" } },
-    `Has a question: ${question}`,
+    `有问题想问你：${question}`,
   );
   if (decided.status === "answered" && decided.answer) {
-    await activity(ctx, "inbox_answered", `got your answer to “${question.slice(0, 120)}”`);
+    await activity(ctx, "inbox_answered", `已收到你对“${question.slice(0, 120)}”的答复`);
     return { answered: true, answer: decided.answer };
   }
   return {
     answered: false,
-    note: decided.status === "expired" ? "No answer within 72 hours. Use your best judgement or stop and explain." : "The user skipped the question. Use your best judgement or stop and explain.",
+    note: decided.status === "expired" ? "72 小时内没有收到答复。请自行判断，或者停止并向用户说明原因。" : "用户跳过了这个问题。请自行判断，或者停止并向用户说明原因。",
   };
 }
 
@@ -120,22 +120,22 @@ export async function requestAppAccess(ctx: PauseContext, title: string, preview
   const decided = await pauseFor(
     ctx,
     { kind: "access", tool_key: preview.app, title, preview },
-    `Needs ${preview.appName}: ${preview.why}`,
+    `需要 ${preview.appName}：${preview.why}`,
   );
   if (decided.status === "approved") {
-    await activity(ctx, "inbox_approved", `got access to ${preview.appName}`);
+    await activity(ctx, "inbox_approved", `已获得 ${preview.appName} 的访问权限`);
     return { granted: true };
   }
   const handoff = decided.edited_payload?.handoff as { botId?: unknown; botName?: unknown } | undefined;
   if (decided.status === "answered" && typeof handoff?.botId === "string") {
-    return { handoff: { botId: handoff.botId, botName: String(handoff.botName ?? "another bot") } };
+    return { handoff: { botId: handoff.botId, botName: String(handoff.botName ?? "其他 Bot") } };
   }
   if (decided.status === "expired") {
-    await activity(ctx, "inbox_expired", `didn't get access to ${preview.appName} in time`);
-    return { declined: true, note: `No answer within 72 hours, so you still can't use ${preview.appName}. Do what you can without it and say what's missing in your report.` };
+    await activity(ctx, "inbox_expired", `等待 ${preview.appName} 权限超时`);
+    return { declined: true, note: `72 小时内没有获得答复，因此你仍然无法使用 ${preview.appName}。请在没有它的情况下尽量完成，并在报告中说明缺少什么。` };
   }
-  await activity(ctx, "inbox_rejected", `wasn't given access to ${preview.appName}`);
-  return { declined: true, note: `The user didn't give you ${preview.appName}. Do what you can without it, don't ask again, and say what's missing in your report.` };
+  await activity(ctx, "inbox_rejected", `用户没有授予 ${preview.appName} 权限`);
+  return { declined: true, note: `用户没有授予 ${preview.appName} 权限。请在没有它的情况下尽量完成，不要重复申请，并在报告中说明缺少什么。` };
 }
 
 function activity(ctx: PauseContext, type: string, summary: string) {

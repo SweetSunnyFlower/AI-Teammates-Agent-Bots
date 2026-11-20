@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (limited) return limited;
   const url = new URL(request.url);
   const state = verifyInstallState(url.searchParams.get("state"));
-  if (!state) return new Response("This install link expired — start again from Dotty → Settings → Channels.", { status: 400 });
+  if (!state) return new Response("安装链接已过期，请从 Dotty →“设置”→“渠道”重新开始。", { status: 400 });
   const back = (status: string) => Response.redirect(new URL(`/workspace/${state.w}?settings=channels&slack=${status}`, state.o), 302);
   if (!hasSlack()) return back("not-configured");
   if (url.searchParams.get("error")) return back("cancelled");
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
         async () => {
           const threadId = await slack.openDM(install.userId);
           await bot.thread(threadId).post({
-            markdown: "👋 Dotty is connected. Message me here and your Head bot will take it from there — start with @ and a bot's name to talk to that bot. Approvals and questions will show up here with buttons.",
+            markdown: "👋 Dotty 已连接。直接在这里发消息，总控 Bot 会接手处理；以 @ 加 Bot 名称开头可以和指定 Bot 对话。审批和问题会以按钮形式显示在这里。",
           });
         },
         { installationId: install.teamId, botUserId: install.botUserId },

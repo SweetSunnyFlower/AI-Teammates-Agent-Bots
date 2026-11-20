@@ -38,7 +38,7 @@ function fail(message) {
 async function publicUrl() {
   const fromEnv = (urlArg || process.env.CHAT_PUBLIC_URL || "").trim().replace(/\/$/, "");
   if (fromEnv) {
-    if (!fromEnv.startsWith("https://")) fail(`The public URL must start with https:// (got ${fromEnv}).`);
+    if (!fromEnv.startsWith("https://")) fail(`公开地址必须以 https:// 开头（收到 ${fromEnv}）。`);
     return fromEnv;
   }
   try {
@@ -49,26 +49,26 @@ async function publicUrl() {
   } catch {
     // ngrok isn't running
   }
-  fail("No public URL. Start ngrok first (npm run tunnel), set CHAT_PUBLIC_URL, or pass one: npm run telegram:webhook -- https://your-domain");
+  fail("没有可用的公开地址。请先启动 ngrok（npm run tunnel）、设置 CHAT_PUBLIC_URL，或直接传入地址：npm run telegram:webhook -- https://your-domain");
 }
 
 async function telegram(method, body) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) fail("TELEGRAM_BOT_TOKEN is missing from .env.local (get it from @BotFather).");
+  if (!token) fail(".env.local 中缺少 TELEGRAM_BOT_TOKEN（请向 @BotFather 获取）。");
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body ?? {}),
   });
   const json = await res.json();
-  if (!json.ok) fail(`Telegram ${method} failed: ${json.description ?? res.status}`);
+  if (!json.ok) fail(`Telegram ${method} 调用失败：${json.description ?? res.status}`);
   return json.result;
 }
 
 async function setTelegramWebhook() {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
-  if (!secret) fail("TELEGRAM_WEBHOOK_SECRET_TOKEN is missing from .env.local (make one with npm run chat:secrets).");
-  if (!/^[A-Za-z0-9_-]{1,256}$/.test(secret)) fail("TELEGRAM_WEBHOOK_SECRET_TOKEN may only contain A–Z, a–z, 0–9, _ and -.");
+  if (!secret) fail(".env.local 中缺少 TELEGRAM_WEBHOOK_SECRET_TOKEN（可运行 npm run chat:secrets 生成）。");
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(secret)) fail("TELEGRAM_WEBHOOK_SECRET_TOKEN 只能包含字母、数字、下划线和连字符。");
   const base = await publicUrl();
   const url = `${base}/api/webhooks/telegram`;
   await telegram("setWebhook", {
@@ -79,52 +79,52 @@ async function setTelegramWebhook() {
   });
   await telegram("setMyCommands", {
     commands: [
-      { command: "help", description: "Your bots and how to talk to them" },
-      { command: "start", description: "Link this chat (use the link from Dotty settings)" },
+      { command: "help", description: "查看 Bot 列表和使用方式" },
+      { command: "start", description: "关联当前聊天（使用 Dotty 设置中的链接）" },
     ],
   });
   const me = await telegram("getMe");
   const info = await telegram("getWebhookInfo");
-  console.log(`\n✔ @${me.username} now sends updates to ${info.url}`);
-  if (info.last_error_message) console.log(`  (last delivery error reported by Telegram: ${info.last_error_message})`);
+  console.log(`\n✔ @${me.username} 现在会把更新发送到 ${info.url}`);
+  if (info.last_error_message) console.log(`  （Telegram 报告的上次投递错误：${info.last_error_message}）`);
   if (process.env.TELEGRAM_BOT_USERNAME && process.env.TELEGRAM_BOT_USERNAME.replace(/^@/, "") !== me.username) {
-    console.log(`  ⚠ TELEGRAM_BOT_USERNAME in .env.local should be "${me.username}".`);
+    console.log(`  ⚠ .env.local 中的 TELEGRAM_BOT_USERNAME 应设置为 "${me.username}"。`);
   }
-  console.log("  Keep `npm run dev` (and the tunnel) running, then link from Dotty → Settings → Channels.\n");
+  console.log("  请保持 `npm run dev` 和隧道运行，然后从 Dotty →“设置”→“渠道”完成关联。\n");
 }
 
 /** What Telegram knows about the webhook: the fastest way to see why messages don't arrive. */
 async function telegramStatus() {
   const me = await telegram("getMe");
   const info = await telegram("getWebhookInfo");
-  console.log(`\nBot:      @${me.username}`);
-  console.log(`Webhook:  ${info.url || "(none set — run npm run telegram:webhook -- https://your-domain)"}`);
-  console.log(`Waiting:  ${info.pending_update_count} update(s) Telegram hasn't delivered yet`);
+  console.log(`\nBot：      @${me.username}`);
+  console.log(`Webhook：  ${info.url || "（未设置，请运行 npm run telegram:webhook -- https://your-domain）"}`);
+  console.log(`待投递：   ${info.pending_update_count} 条 Telegram 尚未投递的更新`);
   if (!info.url) {
-    console.log("Errors:   none — but with no webhook set, Telegram is holding every message. Set it first.\n");
+    console.log("错误：     无；但由于从未设置 Webhook，Telegram 会积压所有消息。请先设置 Webhook。\n");
     return;
   }
   if (!info.last_error_message) {
-    console.log("Errors:   none reported — Telegram is delivering fine.\n");
+    console.log("错误：     未报告错误，Telegram 投递正常。\n");
     return;
   }
-  const when = info.last_error_date ? new Date(info.last_error_date * 1000).toLocaleString() : "unknown time";
-  console.log(`Last error (${when}): ${info.last_error_message}`);
+  const when = info.last_error_date ? new Date(info.last_error_date * 1000).toLocaleString() : "未知时间";
+  console.log(`最近错误（${when}）：${info.last_error_message}`);
   const e = info.last_error_message;
   const hint = /401/.test(e)
-    ? "401: the secret doesn't match. TELEGRAM_WEBHOOK_SECRET_TOKEN on the server must be the same value this webhook was set with\n  (re-run telegram:webhook with the server's value, then redeploy) — or Vercel Deployment Protection is on for production."
+    ? "401：密钥不匹配。服务端 TELEGRAM_WEBHOOK_SECRET_TOKEN 必须与设置 Webhook 时使用的值一致\n  （使用服务端的值重新运行 telegram:webhook，然后重新部署）。"
     : /403/.test(e)
-      ? "403: something in front of the app (Vercel Firewall / protection) is blocking Telegram."
+      ? "403：应用前面的防火墙或访问保护阻止了 Telegram。"
       : /404/.test(e)
-        ? "404: wrong URL — it must be https://your-domain/api/webhooks/telegram on the live deployment."
+        ? "404：地址错误，生产环境必须是 https://your-domain/api/webhooks/telegram。"
         : /503/.test(e)
-          ? "503: the server says Telegram isn't configured — TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET_TOKEN, TELEGRAM_BOT_USERNAME\n  or DATABASE_URL is missing. Add them and restart Dotty."
+          ? "503：服务端表示 Telegram 未配置，可能缺少 TELEGRAM_BOT_TOKEN、TELEGRAM_WEBHOOK_SECRET_TOKEN、TELEGRAM_BOT_USERNAME\n  或 DATABASE_URL。请补全并重启 Dotty。"
           : /500|502|504/.test(e)
-            ? "5xx: the app crashed handling the update — check `journalctl -u dotty` and `journalctl -u dotty-worker`."
+            ? "5xx：应用处理更新时崩溃，请检查 `journalctl -u dotty` 和 `journalctl -u dotty-worker`。"
             : /429/.test(e)
-              ? "429: rate limited by the app — wait a minute."
+              ? "429：应用触发了限流，请稍等一分钟。"
               : /SSL|certificate|resolve|connection/i.test(e)
-                ? "Telegram can't reach the domain — check the domain/DNS and that it serves HTTPS."
+                ? "Telegram 无法访问该域名，请检查域名、DNS 和 HTTPS。"
                 : "";
   if (hint) console.log(`  → ${hint}`);
   console.log("");
@@ -135,7 +135,7 @@ async function slackManifest() {
   const manifest = {
     display_information: {
       name: "Dotty",
-      description: "Your AI team: message your bots and approve their work.",
+      description: "你的 AI 团队：联系 Bot 并审批它们的工作。",
       background_color: "#2b2620",
     },
     features: {
@@ -158,10 +158,10 @@ async function slackManifest() {
   console.error(
     [
       "",
-      "↑ Paste this at https://api.slack.com/apps → Create New App → From a manifest (or App Manifest → edit, for an existing app).",
-      "  Then copy Basic Information → Client ID, Client Secret and Signing Secret into .env.local (SLACK_CLIENT_ID, SLACK_CLIENT_SECRET,",
-      "  SLACK_SIGNING_SECRET), add SLACK_ENCRYPTION_KEY (npm run chat:secrets) and restart `npm run dev`.",
-      "  When your public URL changes (a new ngrok address), update the three URLs in the manifest.",
+      "↑ 将以上内容粘贴到 https://api.slack.com/apps → Create New App → From a manifest（已有应用则编辑 App Manifest）。",
+      "  然后把 Basic Information 中的 Client ID、Client Secret 和 Signing Secret 写入 .env.local，",
+      "  再添加 SLACK_ENCRYPTION_KEY（npm run chat:secrets），并重启 `npm run dev`。",
+      "  公开地址变化时（例如更换 ngrok 地址），请同步修改 manifest 中的三个 URL。",
       "",
     ].join("\n"),
   );
@@ -170,15 +170,15 @@ async function slackManifest() {
 function secrets() {
   console.log(`TELEGRAM_WEBHOOK_SECRET_TOKEN=${randomBytes(32).toString("base64url")}`);
   console.log(`SLACK_ENCRYPTION_KEY=${randomBytes(32).toString("base64")}`);
-  console.error("\n↑ New random values — paste the ones you need into .env.local (don't commit them).\n");
+  console.error("\n↑ 已生成新的随机值。请按需粘贴到 .env.local，不要提交到 Git。\n");
 }
 
 function tunnel() {
   const domain = process.env.NGROK_DOMAIN?.trim();
   const args = ["http", "3000", ...(domain ? [`--url=${domain}`] : [])];
-  console.log(`Starting ngrok ${args.join(" ")} …  (then, in another terminal: npm run telegram:webhook)`);
+  console.log(`正在启动 ngrok ${args.join(" ")}…（随后在另一个终端运行 npm run telegram:webhook）`);
   const child = spawn("ngrok", args, { stdio: "inherit", shell: process.platform === "win32" });
-  child.on("error", () => fail("Couldn't start ngrok. Install it from https://ngrok.com/download and run `ngrok config add-authtoken <token>` once."));
+  child.on("error", () => fail("无法启动 ngrok。请从 https://ngrok.com/download 安装，并运行一次 `ngrok config add-authtoken <token>`。"));
   child.on("exit", (code) => process.exit(code ?? 0));
 }
 
@@ -199,5 +199,5 @@ switch (command) {
     tunnel();
     break;
   default:
-    fail("Usage: node scripts/chat-setup.mjs <telegram|telegram-status|slack-manifest|secrets|tunnel> [public URL]");
+    fail("用法：node scripts/chat-setup.mjs <telegram|telegram-status|slack-manifest|secrets|tunnel> [公开地址]");
 }

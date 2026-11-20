@@ -33,7 +33,7 @@ export async function commitToBranch(input: {
   message: string;
   files: ChangedFile[];
 }) {
-  if (!DOTTY_BRANCH.test(input.branch)) throw new Error(`Dotty only pushes to dotty/… branches (got ${input.branch}).`);
+  if (!DOTTY_BRANCH.test(input.branch)) throw new Error(`Dotty 只会推送到 dotty/… 分支（收到 ${input.branch}）。`);
   const base = `/repos/${input.owner}/${input.repo}`;
   const parent = await gh<{ tree: { sha: string } }>(input.token, `${base}/git/commits/${input.parentSha}`);
 
@@ -79,7 +79,7 @@ export async function freeBranchName(token: string, owner: string, repo: string,
       throw error;
     }
   }
-  throw new Error("Couldn't find a free branch name.");
+  throw new Error("找不到可用的分支名称。");
 }
 
 /** Open a draft pull request (or a normal one where the repo's plan has no drafts). */

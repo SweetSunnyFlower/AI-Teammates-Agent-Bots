@@ -31,7 +31,7 @@ export async function startRoutineRun(
     .eq("routine_id", r.id)
     .in("status", ["backlog", "doing", "waiting_on_me"])
     .limit(1);
-  if (open?.length) return { ok: false, reason: "the last run is still going" };
+  if (open?.length) return { ok: false, reason: "上一次运行仍在进行" };
 
   const [{ data: workspace }, { count }] = await Promise.all([
     db.from("workspaces").select("daily_task_cap").eq("id", r.workspace_id).single(),
@@ -42,7 +42,7 @@ export async function startRoutineRun(
       .gte("created_at", startOfDay(now).toISOString()),
   ]);
   const cap = workspace?.daily_task_cap ?? 50;
-  if ((count ?? 0) >= cap) return { ok: false, reason: `the daily task cap (${cap}) is reached` };
+  if ((count ?? 0) >= cap) return { ok: false, reason: `今日任务上限（${cap}）已达到` };
 
   const { data: task, error } = await db
     .from("tasks")
@@ -57,7 +57,7 @@ export async function startRoutineRun(
     })
     .select("id")
     .single();
-  if (error || !task) return { ok: false, reason: error?.message ?? "couldn't create the task" };
+  if (error || !task) return { ok: false, reason: "创建任务失败" };
 
   try {
     await start({ id: task.id, workspaceId: r.workspace_id, assigneeBotId: r.bot_id });
@@ -79,7 +79,7 @@ function runLabel(r: RoutineRow, now: Date) {
   const kind = fromCron(r.cron).kind;
   const withTime = kind === "hourly" || kind === "custom";
   try {
-    return new Intl.DateTimeFormat("en-GB", {
+    return new Intl.DateTimeFormat("zh-CN", {
       weekday: "short",
       day: "numeric",
       month: "short",

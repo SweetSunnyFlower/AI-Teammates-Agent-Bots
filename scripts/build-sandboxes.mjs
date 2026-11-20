@@ -9,7 +9,7 @@ const selected = runtimes.length ? runtimes : ["node", "python", "golang", "rust
 
 for (const runtime of selected) {
   const file = path.join(root, "deploy", "podman", `Containerfile.${runtime}`);
-  console.log(`Building dotty-sandbox-${runtime} with ${container}...`);
+  console.log(`正在使用 ${container} 构建 dotty-sandbox-${runtime}…`);
   const result = spawnSync(
     container,
     ["build", "-f", file, "-t", `localhost/dotty-sandbox-${runtime}:latest`, path.join(root, "deploy", "podman")],

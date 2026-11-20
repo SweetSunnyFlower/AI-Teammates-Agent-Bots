@@ -17,18 +17,18 @@ function privateIp(ip: string) {
 
 async function assertPublicUrl(raw: string) {
   const url = new URL(raw);
-  if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only http and https URLs are allowed.");
+  if (!["http:", "https:"].includes(url.protocol)) throw new Error("只允许 http 和 https URL。");
   const host = url.hostname.toLowerCase();
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal")) {
-    throw new Error("Private network addresses are not allowed.");
+    throw new Error("不允许访问私有网络地址。");
   }
   if (isIP(host)) {
-    if (privateIp(host)) throw new Error("Private network addresses are not allowed.");
+    if (privateIp(host)) throw new Error("不允许访问私有网络地址。");
     return url;
   }
   const addresses = await lookup(host, { all: true });
   if (!addresses.length || addresses.some((entry) => privateIp(entry.address))) {
-    throw new Error("Private network addresses are not allowed.");
+    throw new Error("不允许访问私有网络地址。");
   }
   return url;
 }
@@ -43,16 +43,16 @@ async function safeFetch(raw: string) {
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
-      if (!location) throw new Error(`Redirect ${response.status} without a location.`);
+      if (!location) throw new Error(`重定向 ${response.status} 没有提供目标地址。`);
       url = await assertPublicUrl(new URL(location, url).toString());
       continue;
     }
-    if (!response.ok) throw new Error(`Page returned ${response.status}.`);
+    if (!response.ok) throw new Error(`网页返回状态码 ${response.status}。`);
     const length = Number(response.headers.get("content-length") ?? 0);
-    if (length > MAX_BYTES) throw new Error("Page is too large to extract.");
+    if (length > MAX_BYTES) throw new Error("网页过大，无法提取正文。");
     return { response, finalUrl: url.toString() };
   }
-  throw new Error("Too many redirects.");
+  throw new Error("重定向次数过多。");
 }
 
 export async function extractPage(rawUrl: string, maxChars = 12_000) {

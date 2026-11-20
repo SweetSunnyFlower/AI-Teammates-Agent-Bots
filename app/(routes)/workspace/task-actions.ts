@@ -67,12 +67,12 @@ const toDetail = (t: TaskRow): TaskDetail => ({
  * handed off, finished…) and every bot's report, oldest first. RLS limits it to the owner.
  */
 export async function loadTaskThread(taskId: string): Promise<TaskThreadResult> {
-  if (!hasDatabaseEnv) return { ok: false, error: "Database isn't configured yet." };
-  if (!uuid.safeParse(taskId).success) return { ok: false, error: "Unknown task." };
+  if (!hasDatabaseEnv) return { ok: false, error: "数据库尚未配置。" };
+  if (!uuid.safeParse(taskId).success) return { ok: false, error: "任务不存在。" };
   const supabase = await createClient();
 
   const { data: task } = await supabase.from("tasks").select(TASK_COLUMNS).eq("id", taskId).maybeSingle<TaskRow>();
-  if (!task) return { ok: false, error: "That task doesn't exist or isn't yours." };
+  if (!task) return { ok: false, error: "任务不存在，或者你没有访问权限。" };
 
   // Walk the delegation tree (max 3 levels below).
   const tree: TaskRow[] = [task];
@@ -126,15 +126,15 @@ const MOVABLE = z.enum(["backlog", "doing", "waiting_on_me", "done"]);
 
 /** Dragging a card to another column changes the task's status. */
 export async function setTaskStatus(taskId: string, status: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!hasDatabaseEnv) return { ok: false, error: "Database isn't configured yet." };
+  if (!hasDatabaseEnv) return { ok: false, error: "数据库尚未配置。" };
   const parsed = z.object({ taskId: uuid, status: MOVABLE }).safeParse({ taskId, status });
-  if (!parsed.success) return { ok: false, error: "That move isn't allowed." };
+  if (!parsed.success) return { ok: false, error: "不允许移动到这个状态。" };
   const supabase = await createClient();
   const { error, count } = await supabase
     .from("tasks")
     .update({ status: parsed.data.status }, { count: "exact" })
     .eq("id", parsed.data.taskId);
   if (error) return { ok: false, error: error.message };
-  if (!count) return { ok: false, error: "That task doesn't exist or isn't yours." };
+  if (!count) return { ok: false, error: "任务不存在，或者你没有访问权限。" };
   return { ok: true };
 }

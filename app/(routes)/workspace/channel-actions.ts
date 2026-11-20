@@ -32,7 +32,7 @@ async function owned(workspaceId: string) {
 
 export async function getChannels(workspaceId: string): Promise<Result<{ status: ChannelStatus }>> {
   const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "Unknown workspace." };
+  if (!supabase) return { ok: false, error: "工作空间不存在。" };
   const { data: rows } = await supabase
     .from("connections")
     .select("provider, meta")
@@ -55,9 +55,9 @@ export async function getChannels(workspaceId: string): Promise<Result<{ status:
 
 /** A one-time link (15 minutes): opening it in Telegram and pressing Start links that chat. */
 export async function createTelegramLink(workspaceId: string): Promise<Result<{ url: string }>> {
-  if (!hasTelegram()) return { ok: false, error: "Telegram isn't set up on the server yet — see .env.example → Chat channels." };
+  if (!hasTelegram()) return { ok: false, error: "服务端尚未配置 Telegram，请参考 .env.example 中的聊天渠道配置。" };
   const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "Unknown workspace." };
+  if (!supabase) return { ok: false, error: "工作空间不存在。" };
   const code = randomBytes(24).toString("base64url"); // 32 chars, Telegram's allowed set
   const { error } = await supabase.from("telegram_link_codes").insert({ code, workspace_id: workspaceId });
   if (error) return { ok: false, error: error.message };
@@ -66,7 +66,7 @@ export async function createTelegramLink(workspaceId: string): Promise<Result<{ 
 
 export async function unlinkChannel(workspaceId: string, provider: "telegram" | "slack"): Promise<Result<object>> {
   const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "Unknown workspace." };
+  if (!supabase) return { ok: false, error: "工作空间不存在。" };
   const db = createAdminClient();
   const { data: row } = await db
     .from("connections")

@@ -17,13 +17,13 @@ export async function createRoutine(
   input: RoutineInput,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string; fieldErrors?: Record<string, string> }> {
   const parsed = routineSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) return { ok: false, error: "请检查标红的字段。", fieldErrors: fieldErrors(parsed.error) };
   const v = parsed.data;
 
   const { data: bot } = await db.from("bots").select("id").eq("id", v.botId).eq("workspace_id", workspaceId).maybeSingle();
-  if (!bot) return { ok: false, error: "That bot isn't in this workspace.", fieldErrors: { botId: "Pick a bot" } };
+  if (!bot) return { ok: false, error: "这个 Bot 不属于当前工作空间。", fieldErrors: { botId: "请选择 Bot" } };
   const { count } = await db.from("routines").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId);
-  if ((count ?? 0) >= MAX_ROUTINES) return { ok: false, error: `A workspace can have up to ${MAX_ROUTINES} routines.` };
+  if ((count ?? 0) >= MAX_ROUTINES) return { ok: false, error: `一个工作空间最多可以有 ${MAX_ROUTINES} 个例行任务。` };
 
   const { data, error } = await db
     .from("routines")
@@ -39,6 +39,6 @@ export async function createRoutine(
     })
     .select("id")
     .single();
-  if (error || !data) return { ok: false, error: error?.message ?? "Couldn't save the routine." };
+  if (error || !data) return { ok: false, error: "保存例行任务失败，请重试。" };
   return { ok: true, id: data.id };
 }

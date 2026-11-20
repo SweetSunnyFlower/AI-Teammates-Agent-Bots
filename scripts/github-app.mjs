@@ -38,7 +38,7 @@ const webhookBase = publicUrl.startsWith("https://") ? publicUrl : null;
 
 const existing = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, "utf8") : "";
 if (/^GITHUB_APP_ID=\S+/m.test(existing) && !args.force) {
-  fail(`${ENV_FILE} already has a GitHub App (GITHUB_APP_ID). Pass --force to create a new one and replace it.`);
+  fail(`${ENV_FILE} 中已经有 GitHub App（GITHUB_APP_ID）。如需新建并覆盖，请传入 --force。`);
 }
 
 const host = new URL(appUrl).hostname.replace(/^www\./, "");
@@ -49,7 +49,7 @@ const callbackUrls = [...new Set([`${appUrl}/api/github/callback`, ...(webhookBa
 const manifest = {
   name,
   url: webhookBase ?? (appUrl.startsWith("https://") ? appUrl : "https://github.com"),
-  description: "Dotty — your AI team. Bots read issues and pull requests, and Engineering bots open draft pull requests.",
+  description: "Dotty — 你的 AI 团队。Bot 可以读取 Issue 和 Pull Request，工程 Bot 可以创建草稿 PR。",
   redirect_url: `http://localhost:${PORT}/done`,
   callback_urls: callbackUrls,
   request_oauth_on_install: true,
@@ -79,8 +79,8 @@ const target =
 const escape = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 const startPage = `<!doctype html><meta charset="utf-8"><title>Create Dotty's GitHub App</title>
 <body style="font-family:system-ui;padding:40px">
-<p>Sending you to GitHub to create <b>${escape(name)}</b>…</p>
-<form id="f" method="post" action="${escape(target)}"><input type="hidden" name="manifest" value="${escape(JSON.stringify(manifest))}"><button>Continue to GitHub</button></form>
+<p>正在跳转到 GitHub 创建 <b>${escape(name)}</b>…</p>
+<form id="f" method="post" action="${escape(target)}"><input type="hidden" name="manifest" value="${escape(JSON.stringify(manifest))}"><button>继续前往 GitHub</button></form>
 <script>document.getElementById("f").submit()</script></body>`;
 const page = (title, text) => `<!doctype html><meta charset="utf-8"><title>${title}</title><body style="font-family:system-ui;padding:40px"><h2>${title}</h2><p>${text}</p></body>`;
 
@@ -106,7 +106,7 @@ async function convert(code) {
     headers: { Accept: "application/vnd.github+json", "User-Agent": "dotty-setup" },
   });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.message ?? `GitHub said ${res.status}`);
+  if (!res.ok) throw new Error(body.message ?? `GitHub 返回状态码 ${res.status}`);
   return body;
 }
 
@@ -121,7 +121,7 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (url.searchParams.get("state") !== state) {
-    res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" }).end(page("That link doesn't match", "Run npm run github:app again."));
+    res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" }).end(page("链接不匹配", "请重新运行 npm run github:app。"));
     return;
   }
   try {
@@ -136,15 +136,15 @@ const server = createServer(async (req, res) => {
     });
     res
       .writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-      .end(page("Dotty's GitHub App is ready", "Its credentials are saved in .env.local. You can close this tab and go back to the terminal."));
-    console.log(`\n✔ Created the GitHub App "${app.name}" (https://github.com/apps/${app.slug}).`);
-    console.log(`  Saved GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_APP_PRIVATE_KEY, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and GITHUB_WEBHOOK_SECRET to ${ENV_FILE}.`);
-    console.log(webhookBase ? `  Webhook: ${webhookBase}/api/webhooks/github` : "  No webhook (set CHAT_PUBLIC_URL to your ngrok URL and re-run with --force to add one — optional for now).");
-    console.log("  Next: restart `npm run dev` and `npm run worker:dev`, then Dotty → Settings → Connectors → GitHub → Connect.");
-    console.log("  Production: run this again with --url=https://your-domain and put those values in .env.local.\n");
+      .end(page("Dotty 的 GitHub App 已创建", "凭据已保存到 .env.local。可以关闭此标签页并返回终端。"));
+    console.log(`\n✔ 已创建 GitHub App“${app.name}”（https://github.com/apps/${app.slug}）。`);
+    console.log(`  已将 GITHUB_APP_ID、GITHUB_APP_SLUG、GITHUB_APP_PRIVATE_KEY、GITHUB_CLIENT_ID、GITHUB_CLIENT_SECRET 和 GITHUB_WEBHOOK_SECRET 保存到 ${ENV_FILE}。`);
+    console.log(webhookBase ? `  Webhook：${webhookBase}/api/webhooks/github` : "  未配置 Webhook（可选；设置 CHAT_PUBLIC_URL 后可带 --force 重新运行添加）。");
+    console.log("  下一步：重启 `npm run dev` 和 `npm run worker:dev`，然后进入 Dotty →“设置”→“连接器”→“GitHub”→“连接”。");
+    console.log("  生产环境：使用 --url=https://your-domain 再运行一次，并把这些值放入生产环境。\n");
   } catch (error) {
-    res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" }).end(page("Something went wrong", "See the terminal."));
-    console.error(`\n✖ Couldn't finish creating the app: ${error instanceof Error ? error.message : error}\n`);
+    res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" }).end(page("出了点问题", "请查看终端输出。"));
+    console.error(`\n✖ 创建 GitHub App 失败：${error instanceof Error ? error.message : error}\n`);
     process.exitCode = 1;
   }
   setTimeout(() => server.close(() => process.exit()), 300);
@@ -152,9 +152,9 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   const start = `http://localhost:${PORT}/`;
-  console.log(`\nCreating "${name}" for ${appUrl}${webhookBase ? ` (webhook on ${webhookBase})` : ""}.`);
-  console.log(`Opening ${start} — if the browser doesn't open, visit it yourself. Press "Create GitHub App" on GitHub.\n`);
+  console.log(`\n正在为 ${appUrl} 创建“${name}”${webhookBase ? `（Webhook：${webhookBase}）` : ""}。`);
+  console.log(`正在打开 ${start}；如果浏览器没有自动打开，请手动访问，并在 GitHub 点击“Create GitHub App”。\n`);
   const opener = process.platform === "win32" ? ["cmd", ["/c", "start", "", start]] : process.platform === "darwin" ? ["open", [start]] : ["xdg-open", [start]];
   spawn(opener[0], opener[1], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
 });
-server.on("error", (error) => fail(`Couldn't listen on port ${PORT}: ${error.message}`));
+server.on("error", (error) => fail(`无法监听端口 ${PORT}：${error.message}`));

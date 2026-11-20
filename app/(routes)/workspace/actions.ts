@@ -18,8 +18,8 @@ export async function createWorkspace(_prev: CreateWorkspaceState, formData: For
   const icon = WORKSPACE_ICONS.includes(iconRaw) ? iconRaw : WORKSPACE_ICONS[0];
   const timezone = String(formData.get("timezone") ?? "").slice(0, 64);
 
-  if (!hasDatabaseEnv) return { error: "Database isn't configured yet — add DATABASE_URL to .env.local.", name, icon };
-  if (name.length < 1 || name.length > 60) return { error: "Give your workspace a name (up to 60 characters).", name, icon };
+  if (!hasDatabaseEnv) return { error: "数据库尚未配置，请在 .env.local 中添加 DATABASE_URL。", name, icon };
+  if (name.length < 1 || name.length > 60) return { error: "请填写工作空间名称，最多 60 个字符。", name, icon };
 
   const userId = await getCurrentUserId();
   if (!userId) redirect("/auth/login?next=/workspace/new");
@@ -33,8 +33,8 @@ export async function createWorkspace(_prev: CreateWorkspaceState, formData: For
   const { data: workspaceId, error } = await supabase.rpc("create_workspace", { p_name: name, p_icon: icon });
   if (error || typeof workspaceId !== "string") {
     const message = error?.message.includes("Workspace limit")
-      ? "You've reached the limit of 10 workspaces."
-      : `Couldn't create the workspace${error ? `: ${error.message}` : "."}`;
+      ? "你已达到 10 个工作空间的上限。"
+      : "创建工作空间失败，请稍后重试。";
     return { error: message, name, icon };
   }
 

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspace") ?? "";
   if (!z.string().uuid().safeParse(workspaceId).success)
-    return new Response("Unknown workspace.", { status: 400 });
+    return new Response("工作空间不存在。", { status: 400 });
   const back = (status: string) =>
     NextResponse.redirect(
       new URL(
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     .select("id")
     .eq("id", workspaceId)
     .maybeSingle();
-  if (!workspace) return new Response("Unknown workspace.", { status: 404 });
+  if (!workspace) return new Response("工作空间不存在。", { status: 404 });
 
   const state = signInstallState({ w: workspaceId, u: userId, o: url.origin });
   const res = NextResponse.redirect(installUrl(state), 302);

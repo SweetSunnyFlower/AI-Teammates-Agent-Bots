@@ -94,7 +94,7 @@ export async function exchangeSlackCode(code: string) {
     is_enterprise_install?: boolean;
   };
   if (!body.ok || !body.access_token || !body.team?.id || !body.authed_user?.id) {
-    throw new Error(body.is_enterprise_install ? "Org-wide (Enterprise Grid) installs aren't supported — install Dotty in one workspace." : `Slack said: ${body.error ?? "unknown error"}`);
+    throw new Error(body.is_enterprise_install ? "暂不支持企业级全组织安装，请将 Dotty 安装到单个 Slack 工作区。" : `Slack 返回错误：${body.error ?? "未知错误"}`);
   }
   return {
     botToken: body.access_token,

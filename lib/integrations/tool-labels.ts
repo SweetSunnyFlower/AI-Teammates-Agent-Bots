@@ -44,7 +44,7 @@ const uniqueApps = (slugs: string[]) => {
 };
 
 const actions = (slugs: string[]) =>
-  [...new Set(slugs.map((s) => `${describeTool(s).app} · ${describeTool(s).label}`))].join(", ") || "an app";
+  [...new Set(slugs.map((s) => `${describeTool(s).app} · ${describeTool(s).label}`))].join("，") || "应用";
 
 export function describeAppTool(name: string, input: unknown): AppToolLabel {
   const args = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
@@ -54,28 +54,28 @@ export function describeAppTool(name: string, input: unknown): AppToolLabel {
       ? (args.tools as Array<Record<string, unknown>>).map((t) => String(t.tool_slug ?? t.slug ?? "")).filter(Boolean)
       : [];
     const what = actions(slugs);
-    return { done: what, running: `Using ${what}…`, apps: uniqueApps(slugs), lookup: false };
+    return { done: what, running: `正在执行 ${what}…`, apps: uniqueApps(slugs), lookup: false };
   }
 
   if (name === "COMPOSIO_SEARCH_TOOLS") {
     const queries = Array.isArray(args.queries) ? (args.queries as Array<Record<string, unknown>>) : [];
     const need = queries.map((q) => String(q.use_case ?? "")).filter(Boolean)[0];
-    const short = need ? `“${need.length > 60 ? `${need.slice(0, 57)}…` : need}”` : "the right app tool";
-    return { done: `Found tools for ${short}`, running: `Finding tools for ${short}…`, apps: [], lookup: true };
+    const short = need ? `“${need.length > 60 ? `${need.slice(0, 57)}…` : need}”` : "合适的应用工具";
+    return { done: `已找到用于 ${short} 的工具`, running: `正在查找用于 ${short} 的工具…`, apps: [], lookup: true };
   }
 
   if (name === "COMPOSIO_GET_TOOL_SCHEMAS") {
     const slugs = Array.isArray(args.tool_slugs) ? (args.tool_slugs as unknown[]).map(String) : [];
     const what = actions(slugs);
-    return { done: `Read how to use ${what}`, running: `Reading how to use ${what}…`, apps: uniqueApps(slugs), lookup: true };
+    return { done: `已读取 ${what} 的使用方式`, running: `正在读取 ${what} 的使用方式…`, apps: uniqueApps(slugs), lookup: true };
   }
 
   if (name.startsWith("GITHUB_")) {
     // Dotty's own GitHub tools: "GitHub · get issue (acme/web#42)".
     const where = typeof args.repo === "string" ? ` (${args.repo}${typeof args.number === "number" ? `#${args.number}` : ""})` : "";
     const what = `${describeTool(name).app} · ${describeTool(name).label}${where}`;
-    return { done: what, running: `Using ${what}…`, apps: [appOf(name)], lookup: false };
+    return { done: what, running: `正在使用 ${what}…`, apps: [appOf(name)], lookup: false };
   }
 
-  return { done: "Used an app", running: "Using an app…", apps: [], lookup: true };
+  return { done: "已使用应用", running: "正在使用应用…", apps: [], lookup: true };
 }

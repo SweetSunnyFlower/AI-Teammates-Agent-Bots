@@ -18,6 +18,6 @@ export async function getCurrentUserId() {
 
 export async function requireCurrentUserId() {
   const userId = await getCurrentUserId();
-  if (!userId) throw new Error("Your session expired — sign in again.");
+  if (!userId) throw new Error("会话已过期，请重新登录。");
   return userId;
 }

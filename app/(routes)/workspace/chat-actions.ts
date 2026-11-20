@@ -20,10 +20,10 @@ export async function loadThread(
   if (!hasDatabaseEnv)
     return {
       ok: false,
-      error: "Chat needs a database — add DATABASE_URL to .env.local.",
+      error: "聊天需要数据库，请在 .env.local 中添加 DATABASE_URL。",
     };
   if (!uuid.safeParse(botId).success)
-    return { ok: false, error: "Unknown bot." };
+    return { ok: false, error: "Bot 不存在。" };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("messages")
@@ -53,7 +53,7 @@ export async function startNewChat(
   { ok: true; divider: ThreadMessage } | { ok: false; error: string }
 > {
   if (!hasDatabaseEnv || !uuid.safeParse(botId).success)
-    return { ok: false, error: "Unknown bot." };
+    return { ok: false, error: "Bot 不存在。" };
   const supabase = await createClient();
   const { data: bot } = await supabase
     .from("bots")
@@ -61,7 +61,7 @@ export async function startNewChat(
     .eq("id", botId)
     .maybeSingle();
   if (!bot)
-    return { ok: false, error: "That bot doesn't exist or isn't yours." };
+    return { ok: false, error: "Bot 不存在，或者你没有访问权限。" };
   const { data, error } = await supabase
     .from("messages")
     .insert({
@@ -88,6 +88,6 @@ export async function startNewChat(
 
 function friendly(message: string) {
   if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message))
-    return "Couldn't reach the database — check your connection and try again.";
+    return "无法连接数据库，请检查网络后重试。";
   return message;
 }

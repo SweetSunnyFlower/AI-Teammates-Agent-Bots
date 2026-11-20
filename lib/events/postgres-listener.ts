@@ -27,7 +27,7 @@ function state() {
 async function connect() {
   const current = state();
   if (current.client) return;
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for live events.");
+  if (!process.env.DATABASE_URL) throw new Error("实时事件需要 DATABASE_URL。");
 
   const client = new pg.Client({
     connectionString: process.env.DATABASE_URL,

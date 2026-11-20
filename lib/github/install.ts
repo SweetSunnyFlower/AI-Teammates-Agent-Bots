@@ -84,7 +84,7 @@ async function userToken(code: string) {
   };
   if (!body.access_token)
     throw new Error(
-      body.error_description ?? body.error ?? "GitHub didn't sign you in.",
+      body.error_description ?? body.error ?? "GitHub 未能完成登录。",
     );
   return body.access_token;
 }
@@ -110,10 +110,10 @@ export async function verifiedInstallation(
   if (!pick) {
     throw new Error(
       installationId
-        ? "That installation isn't one your GitHub account can see."
+        ? "这个安装实例不属于你的 GitHub 账户，或你的账户无法查看。"
         : mine.length
-          ? "Your GitHub account has Dotty installed in several places — choose one from Connect GitHub."
-          : "Dotty isn't installed on your GitHub account yet.",
+          ? "你的 GitHub 账户有多个 Dotty 安装实例，请从“连接 GitHub”中选择一个。"
+          : "你的 GitHub 账户还没有安装 Dotty。",
     );
   }
   return getInstallation(String(pick.id));

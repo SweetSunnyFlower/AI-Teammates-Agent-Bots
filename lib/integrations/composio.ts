@@ -162,7 +162,7 @@ function gateTools(tools: ToolSet, session: AppSession, onApproval?: ApprovalHan
             return {
               successful: false,
               error:
-                "This action needs the user's approval, which can only wait inside a background task. Create a task for yourself (create_task) with every detail needed (recipient, subject, full text…), and it will ask the user to approve it.",
+                "这个操作需要用户批准，而等待批准只能在后台任务中进行。请用 create_task 为自己创建任务，提供完整细节（收件人、主题、正文等），系统会向用户申请批准。",
             };
           }
           const decision = await onApproval(request);
@@ -277,11 +277,11 @@ export async function planAccessRequest(input: {
   why: string;
 }): Promise<{ ok: false; message: string } | { ok: true; title: string; preview: AccessPreview }> {
   const wanted = squash(input.app);
-  if (!wanted) return { ok: false, message: "Say which app you need (e.g. Gmail, Notion, Slack)." };
+  if (!wanted) return { ok: false, message: "请说明需要哪个应用，例如 Gmail、Notion、Slack。" };
   let app: { slug: string; name: string } | undefined = input.connected.find((a) => squash(a.slug) === wanted || squash(a.name) === wanted);
   const connected = Boolean(app);
   if (app && hasApp(input.bot.app_keys, app.slug)) {
-    return { ok: false, message: `You already have ${app.name}. ${app.slug === GITHUB.slug ? "Use the GITHUB_* tools." : "Use it through COMPOSIO_SEARCH_TOOLS."}` };
+    return { ok: false, message: `你已经拥有 ${app.name} 权限。${app.slug === GITHUB.slug ? "请直接使用 GITHUB_* 工具。" : "请通过 COMPOSIO_SEARCH_TOOLS 使用。"}` };
   }
   if (!app && wanted === GITHUB.slug) app = GITHUB;
   if (!app && hasComposio()) {
@@ -301,7 +301,7 @@ export async function planAccessRequest(input: {
     : [];
   return {
     ok: true,
-    title: `Needs ${appName}: ${input.why}`.slice(0, 200),
+    title: `需要 ${appName}：${input.why}`.slice(0, 200),
     preview: { app: slug, appName, connected, holders, why: input.why.slice(0, 1000) },
   };
 }

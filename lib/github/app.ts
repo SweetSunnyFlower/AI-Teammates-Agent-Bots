@@ -48,13 +48,13 @@ function privateKey(): KeyObject {
   const pem = /-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/.exec(raw);
   const body = pem?.[2].replace(/\s+/g, "") ?? "";
   try {
-    if (!pem || !body) throw new Error("no PEM block");
+    if (!pem || !body) throw new Error("缺少 PEM 内容");
     const key = createPrivateKey(`-----BEGIN ${pem[1]}-----\n${body.match(/.{1,64}/g)!.join("\n")}\n-----END ${pem[1]}-----\n`);
     cachedKey = { source, key };
     return key;
   } catch {
     throw new GitHubSetupError(
-      "GITHUB_APP_PRIVATE_KEY on this server isn't a readable private key (it was probably cut short or mangled when pasted). Re-paste the GitHub App's .pem, or set it base64-encoded, then redeploy.",
+      "服务端的 GITHUB_APP_PRIVATE_KEY 不是可读取的私钥，可能粘贴时被截断或破坏。请重新粘贴 GitHub App 的 .pem，或使用 base64 编码后重新部署。",
     );
   }
 }

@@ -12,13 +12,13 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/office/[workspa
   const { workspaceId } = await ctx.params;
   const headers = { "Cache-Control": "no-store" };
   if (!hasDatabaseEnv || !z.string().uuid().safeParse(workspaceId).success) {
-    return Response.json({ apps: [], error: "Unknown workspace." }, { status: 404, headers });
+    return Response.json({ apps: [], error: "工作空间不存在。" }, { status: 404, headers });
   }
   const supabase = await createClient();
   const { data: workspace } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
-  if (!workspace) return Response.json({ apps: [], error: "Unknown workspace." }, { status: 404, headers });
+  if (!workspace) return Response.json({ apps: [], error: "工作空间不存在。" }, { status: 404, headers });
   if (!hasComposio() && !hasGitHubApp()) {
-    return Response.json({ apps: [], error: "Composio isn't set up yet — add COMPOSIO_API_KEY to .env.local.", setup: true }, { headers });
+    return Response.json({ apps: [], error: "Composio 尚未配置，请在 .env.local 中添加 COMPOSIO_API_KEY。", setup: true }, { headers });
   }
   try {
     // GitHub (Dotty's own app) plus Composio's toolkits; a Composio failure leaves just GitHub.
@@ -26,6 +26,6 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/office/[workspa
     return Response.json({ apps, error: null }, { headers });
   } catch (error) {
     console.error("[composio] couldn't list connected apps", error);
-    return Response.json({ apps: [], error: "Couldn't reach Composio — try again." }, { status: 502, headers });
+    return Response.json({ apps: [], error: "无法连接 Composio，请重试。" }, { status: 502, headers });
   }
 }

@@ -13,6 +13,6 @@ export async function GET(request: Request) {
 
   if (code) return NextResponse.redirect(`${url.origin}${next}`);
 
-  const message = providerError ?? "The sign-in link is missing its code. Request a new link.";
+  const message = providerError ? `登录服务返回错误：${providerError}` : "登录链接缺少验证码，请重新获取登录链接。";
   return NextResponse.redirect(`${url.origin}/auth/error?error=${encodeURIComponent(message)}`);
 }

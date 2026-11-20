@@ -35,17 +35,17 @@ const REOPEN = { status: "pending", edited_payload: null, answer: null, decided_
 type Kind = "approval" | "question" | "access";
 
 export async function pendingItem(ctx: DecideContext, itemId: string, kind: Kind) {
-  if (!uuid.safeParse(itemId).success) return { error: "Unknown item." } as const;
+  if (!uuid.safeParse(itemId).success) return { error: "事项不存在。" } as const;
   const { data: item } = await ctx.db
     .from("inbox_items")
     .select("id, workspace_id, bot_id, task_id, kind, action, status, title, input, preview, tool_key, waitpoint_token_id, created_at")
     .eq("id", itemId)
     .eq("workspace_id", ctx.workspaceId)
     .maybeSingle();
-  if (!item) return { error: "That item doesn't exist or isn't yours." } as const;
-  if (item.kind !== kind) return { error: `That item is a ${item.kind}, not a ${kind}.` } as const;
-  if (item.status !== "pending") return { error: `That was already ${item.status}.` } as const;
-  if (Date.now() - new Date(item.created_at).getTime() > EXPIRY_MS) return { error: "This expired — the bot moved on without it." } as const;
+  if (!item) return { error: "事项不存在，或者你没有访问权限。" } as const;
+  if (item.kind !== kind) return { error: "事项类型不匹配，请刷新页面。" } as const;
+  if (item.status !== "pending") return { error: "这个事项已经处理过了。" } as const;
+  if (Date.now() - new Date(item.created_at).getTime() > EXPIRY_MS) return { error: "这个事项已过期，Bot 已经继续执行。" } as const;
   return { item } as const;
 }
 
@@ -59,14 +59,14 @@ async function decide(ctx: DecideContext, itemId: string, tokenId: string | null
     .eq("status", "pending")
     .select("id");
   if (error) return { ok: false, error: friendly(error.message) };
-  if (!updated?.length) return { ok: false, error: "That was already decided." };
+  if (!updated?.length) return { ok: false, error: "这个事项已经处理过了。" };
 
   if (tokenId && hasTrigger()) {
     try {
       await wait.completeToken(tokenId, { status: update.status });
-    } catch (e) {
+    } catch {
       await ctx.db.from("inbox_items").update(REOPEN).eq("id", itemId);
-      return { ok: false, error: `Couldn't wake the bot: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) };
+      return { ok: false, error: "无法唤醒 Bot，请重试。" };
     }
   }
   return { ok: true };
@@ -94,7 +94,7 @@ export async function decideApprovalCore(
   // A merge is exactly the pull request shown — never edited.
   if (options.edits?.length && isEditableAction(item.action)) {
     const edits = editsSchema.safeParse(options.edits);
-    if (!edits.success) return { ok: false, error: "Those edits aren't valid." };
+    if (!edits.success) return { ok: false, error: "修改内容无效。" };
     const input = (item.input ?? {}) as Record<string, unknown>;
     const next = applyEdits(input, edits.data);
     if (JSON.stringify(next) !== JSON.stringify(input)) edited = next;
@@ -121,7 +121,7 @@ async function approveRoutine(
     .ilike("name", String(proposal.bot ?? "").replace(/[%_\\]/g, "\\$&"))
     .limit(1)
     .maybeSingle();
-  if (!bot) return { ok: false, error: `There's no bot named “${proposal.bot}” — edit the bot name.` };
+  if (!bot) return { ok: false, error: `找不到名为“${proposal.bot}”的 Bot，请修改 Bot 名称。` };
 
   const claimed = await decide(ctx, item.id, item.waitpoint_token_id, { status: "approved", edited_payload: edited });
   if (!claimed.ok) return claimed;
@@ -135,16 +135,15 @@ async function approveRoutine(
   });
   if (!saved.ok) {
     await reopen(ctx, item.id);
-    const detail = saved.fieldErrors ? Object.values(saved.fieldErrors).join(" ") : saved.error;
-    return { ok: false, error: `Couldn't create the routine: ${detail}` };
+    return { ok: false, error: "创建例行任务失败，请检查名称、时间和 Bot 设置。" };
   }
-  return { ok: true, message: `Routine “${proposal.name}” created.` };
+  return { ok: true, message: `例行任务“${proposal.name}”已创建。` };
 }
 
 /** Answer a bot's question; the paused run continues with the answer. */
 export async function answerQuestionCore(ctx: DecideContext, itemId: string, answer: string): Promise<DecideResult> {
   const text = answer.trim();
-  if (!text || text.length > 4000) return { ok: false, error: "Write an answer (up to 4,000 characters)." };
+  if (!text || text.length > 4000) return { ok: false, error: "请输入答复，最多 4,000 个字符。" };
   const found = await pendingItem(ctx, itemId, "question");
   if ("error" in found) return { ok: false, error: found.error! };
   return decide(ctx, found.item.id, found.item.waitpoint_token_id, { status: "answered", answer: text });
@@ -167,21 +166,21 @@ export async function grantAppAccessCore(ctx: DecideContext, itemId: string): Pr
   const { item } = found;
   const preview = item.preview as AccessPreview;
   const slug = String(item.tool_key ?? preview.app ?? "");
-  if (!item.bot_id) return { ok: false, error: "That bot no longer exists." };
-  if (slug !== GITHUB.slug && !hasComposio()) return { ok: false, error: "Composio isn't set up yet — add COMPOSIO_API_KEY to .env.local." };
+  if (!item.bot_id) return { ok: false, error: "这个 Bot 已不存在。" };
+  if (slug !== GITHUB.slug && !hasComposio()) return { ok: false, error: "Composio 尚未配置，请在 .env.local 中添加 COMPOSIO_API_KEY。" };
 
   const connected = (await connectedToolkits(ctx.workspaceId)).some((a) => a.slug === slug);
-  if (!connected) return { ok: false, error: `Connect ${preview.appName} first (or try again if it is connected), then give access.` };
+  if (!connected) return { ok: false, error: `请先连接 ${preview.appName}，然后再授予权限。` };
 
   const { data: bot } = await ctx.db.from("bots").select("id, name, app_keys").eq("id", item.bot_id).eq("workspace_id", ctx.workspaceId).maybeSingle();
-  if (!bot) return { ok: false, error: "That bot no longer exists." };
+  if (!bot) return { ok: false, error: "这个 Bot 已不存在。" };
   const keys = (bot.app_keys ?? []) as string[];
   if (!hasApp(keys, slug)) {
     const { error } = await ctx.db.from("bots").update({ app_keys: [...keys, slug] }).eq("id", bot.id);
     if (error) return { ok: false, error: friendly(error.message) };
   }
   const done = await decide(ctx, item.id, item.waitpoint_token_id, { status: "approved" });
-  return done.ok ? { ok: true, message: `${bot.name} can use ${preview.appName} now.` } : done;
+  return done.ok ? { ok: true, message: `${bot.name} 现在可以使用 ${preview.appName}。` } : done;
 }
 
 /**
@@ -189,7 +188,7 @@ export async function grantAppAccessCore(ctx: DecideContext, itemId: string): Pr
  * itself; a request from chat becomes a new task for that bot.
  */
 export async function handOffForAppCore(ctx: DecideContext, itemId: string, botId: string): Promise<DecideResult> {
-  if (!uuid.safeParse(botId).success) return { ok: false, error: "Pick a bot." };
+  if (!uuid.safeParse(botId).success) return { ok: false, error: "请选择 Bot。" };
   const found = await pendingItem(ctx, itemId, "access");
   if ("error" in found) return { ok: false, error: found.error! };
   const { item } = found;
@@ -202,11 +201,11 @@ export async function handOffForAppCore(ctx: DecideContext, itemId: string, botI
     .eq("id", botId)
     .eq("workspace_id", ctx.workspaceId)
     .maybeSingle();
-  if (!target || target.id === item.bot_id) return { ok: false, error: "Pick another bot in this workspace." };
-  if (!hasApp((target.app_keys ?? []) as string[], slug)) return { ok: false, error: `${target.name} can't use ${preview.appName} either.` };
+  if (!target || target.id === item.bot_id) return { ok: false, error: "请选择这个工作空间里的另一个 Bot。" };
+  if (!hasApp((target.app_keys ?? []) as string[], slug)) return { ok: false, error: `${target.name} 也没有 ${preview.appName} 的访问权限。` };
 
   const handoff = { botId: target.id, botName: target.name };
-  const message = `Handed to ${target.name}.`;
+  const message = `已交给 ${target.name}。`;
   if (item.waitpoint_token_id) {
     const done = await decide(ctx, item.id, item.waitpoint_token_id, { status: "answered", edited_payload: { handoff } });
     return done.ok ? { ok: true, message } : done;
@@ -220,8 +219,8 @@ export async function handOffForAppCore(ctx: DecideContext, itemId: string, botI
     .from("tasks")
     .insert({
       workspace_id: ctx.workspaceId,
-      title: preview.why.trim().slice(0, 200) || `Use ${preview.appName}`,
-      body: `${requester?.name ?? "A bot"} needed ${preview.appName} for this and you handed it to ${target.name}.`,
+      title: preview.why.trim().slice(0, 200) || `使用 ${preview.appName}`,
+      body: `${requester?.name ?? "某个 Bot"} 需要使用 ${preview.appName}，这项任务已交给你指定的 ${target.name}。`,
       status: "backlog",
       assignee_bot_id: target.id,
       created_by_bot_id: item.bot_id,
@@ -231,7 +230,7 @@ export async function handOffForAppCore(ctx: DecideContext, itemId: string, botI
     .single();
   if (error || !task) {
     await reopen(ctx, item.id);
-    return { ok: false, error: friendly(error?.message ?? "Couldn't create the task.") };
+    return { ok: false, error: friendly(error?.message ?? "创建任务失败。") };
   }
   try {
     await startTaskRun({ id: task.id, workspaceId: ctx.workspaceId, assigneeBotId: target.id });
@@ -249,6 +248,6 @@ export async function declineAppAccessCore(ctx: DecideContext, itemId: string): 
 }
 
 function friendly(message: string) {
-  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the database — check your connection and try again.";
+  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "无法连接数据库，请检查网络后重试。";
   return message;
 }

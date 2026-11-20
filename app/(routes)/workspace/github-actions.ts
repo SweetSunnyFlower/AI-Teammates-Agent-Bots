@@ -42,7 +42,7 @@ export async function getGitHubStatus(
   workspaceId: string,
 ): Promise<Result<{ status: GitHubStatus }>> {
   const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "Unknown workspace." };
+  if (!supabase) return { ok: false, error: "工作空间不存在。" };
   const link = await githubLink(supabase, workspaceId);
   if (!link)
     return { ok: true, status: { configured: hasGitHubApp(), link: null } };
@@ -80,7 +80,7 @@ export async function unlinkGitHub(
   workspaceId: string,
 ): Promise<Result<object>> {
   if (!(await owned(workspaceId)))
-    return { ok: false, error: "Unknown workspace." };
+    return { ok: false, error: "工作空间不存在。" };
   const { error } = await createAdminClient()
     .from("connections")
     .delete()

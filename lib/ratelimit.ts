@@ -43,7 +43,7 @@ export function clientIp(request: Request) {
   );
 }
 
-export function tooMany(result: LimitResult, message = "Too many requests — slow down and try again shortly.") {
+export function tooMany(result: LimitResult, message = "请求过于频繁，请稍后重试。") {
   return Response.json(
     { error: message },
     { status: 429, headers: { "Retry-After": String(result.retryAfter) } },
