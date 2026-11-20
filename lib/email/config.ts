@@ -37,7 +37,9 @@ export interface NormalizedEmail {
   text: string;
 }
 
-function required(env: NodeJS.ProcessEnv, key: string) {
+type Env = Readonly<Record<string, string | undefined>>;
+
+function required(env: Env, key: string) {
   const value = env[key]?.trim();
   if (!value) throw new SmtpConfigError(`缺少 ${key}。`);
   return value;
@@ -48,7 +50,7 @@ function parseOneEmail(value: string, label: string) {
   return value;
 }
 
-export function smtpConfigFromEnv(env: NodeJS.ProcessEnv = process.env): SmtpConfig {
+export function smtpConfigFromEnv(env: Env = process.env): SmtpConfig {
   const host = required(env, "SMTP_HOST");
   const port = Number(required(env, "SMTP_PORT"));
   if (!Number.isInteger(port) || port < 1 || port > 65535) {

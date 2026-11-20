@@ -2,6 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { DbClient } from "@/lib/db/client";
 import { hasApp } from "@/lib/integrations/app-access";
+import type { ApprovalHandler } from "@/lib/approvals/types";
+import { emailTools } from "@/lib/email/tools";
 import { researchTools } from "@/lib/research/tools";
 
 /** The user's client (chat, RLS applies) or the service-role client (background runs). */
@@ -211,6 +213,8 @@ export interface ToolOptions {
   onCodeTask?: (request: { repo: string; instructions: string; issue?: number; pr?: number; baseBranch?: string }) => Promise<unknown>;
   /** The Head's `propose_routine`: puts the routine on Waiting on me for approval (creates nothing). */
   onProposeRoutine?: (proposal: { name: string; bot: string; cron: string; timezone?: string; prompt: string }) => Promise<unknown>;
+  /** Background runs provide approval; chat omits it and therefore cannot send email. */
+  onApproval?: ApprovalHandler;
 }
 
 const MAX_DEPTH = 3; // matches the tasks.depth check in the database
@@ -291,6 +295,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
       },
     }),
     ...researchTools(supabase, bot.workspace_id, bot.id, bot.tool_keys),
+    ...(bot.tool_keys.includes("email.send") ? emailTools({ onApproval: options.onApproval }) : {}),
   };
 
   return {

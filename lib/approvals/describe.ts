@@ -67,6 +67,7 @@ const APP_NAMES: Record<string, string> = {
   TWITTER: "X",
   LINKEDIN: "LinkedIn",
   OUTLOOK: "Outlook",
+  SMTP: "SMTP 邮箱",
 };
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();

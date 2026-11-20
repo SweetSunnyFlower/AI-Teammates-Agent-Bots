@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SentMessageInfo, Transporter } from "nodemailer";
+import type { Transporter } from "nodemailer";
 import { smtpConfigFromEnv } from "../lib/email/config";
 import { sendSmtpEmail } from "../lib/email/sender";
 
@@ -12,7 +12,15 @@ const config = smtpConfigFromEnv({
   EMAIL_FROM: "bot@example.com",
 });
 
-function fakeTransport(info: SentMessageInfo) {
+type FakeInfo = {
+  messageId: string;
+  response: string;
+  accepted: string[];
+  rejected: string[];
+  pending: string[];
+};
+
+function fakeTransport(info: FakeInfo) {
   return {
     sendMail: async () => info,
   } as unknown as Pick<Transporter, "sendMail">;

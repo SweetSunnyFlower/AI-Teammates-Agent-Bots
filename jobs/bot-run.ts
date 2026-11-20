@@ -154,6 +154,7 @@ export const botRun = task({
           { workspaceId: t.workspace_id, proposerId: bot.id, roster: chat.roster.bots, defaultTimezone: profile?.timezone ?? "UTC", taskId: t.id, runId },
           proposal,
         ),
+      onApproval: (request) => waitForApproval(pause, request),
       // Engineering bots with GitHub: a code run in a sandbox (waits for it; one at a time).
       onCodeTask:
         canCode(chat) && hasBox() && appTools.apps.includes("GitHub")
