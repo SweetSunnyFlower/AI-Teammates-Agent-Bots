@@ -70,3 +70,9 @@ test("compact Chinese controls apply optical vertical correction", () => {
   assert.match(tabs, /translate-y-\[0\.5px\]/);
   assert.match(panel, /translate-y-\[0\.5px\]/);
 });
+
+test("the sliding chat window does not use user messages as prepend anchors", () => {
+  const chat = read("components/chat/bot-chat.tsx");
+
+  assert.doesNotMatch(chat, /scrollAnchor=\{m\.role === "user"\}/);
+});

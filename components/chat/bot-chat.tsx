@@ -229,7 +229,6 @@ export function BotChat({ bot }: { bot: Bot }) {
                     key={m.id}
                     id={`msg-${m.id}`}
                     messageId={m.id}
-                    scrollAnchor={m.role === "user"}
                     className={cn(
                       "scroll-my-6 rounded-[14px] transition-[background-color,box-shadow] duration-700",
                       highlightId === m.id && "bg-honey/60 ring-2 ring-[#f0dab1] ring-offset-4 ring-offset-panel",
