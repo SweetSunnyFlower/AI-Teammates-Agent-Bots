@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import * as officeStatus from "../lib/office/status";
 
 const read = (file: string) => readFileSync(path.resolve(file), "utf8");
 
@@ -24,4 +25,12 @@ test("the office shell uses Chinese status and panel titles", () => {
   assert.match(status, /等待中/);
   assert.match(status, /休息中/);
   assert.match(panels, /待我处理/);
+});
+
+test("the bot status appends the current activity after the main label", () => {
+  const statusLine = (officeStatus as typeof officeStatus & {
+    statusLine?: (detail: string, status: "working" | "waiting" | "error" | "resting") => string;
+  }).statusLine;
+  assert.equal(statusLine?.("Planning your request", "working"), "工作中 · 正在规划你的请求");
+  assert.equal(statusLine?.("Resting", "resting"), "休息中");
 });

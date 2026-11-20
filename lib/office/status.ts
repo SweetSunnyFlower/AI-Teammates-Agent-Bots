@@ -43,6 +43,14 @@ export function localizeStatusDetail(detail: string, status: BotStatus) {
   return clean || STATUS_META[status].label;
 }
 
+/** Main status first, followed by the current activity when it adds useful detail. */
+export function statusLine(detail: string, status: BotStatus) {
+  const main = status === "waiting" ? "等待你处理" : STATUS_META[status].label;
+  const localized = localizeStatusDetail(detail, status);
+  if (!localized || localized === main || localized === STATUS_META[status].label) return main;
+  return `${main} · ${localized}`;
+}
+
 export function countByStatus(statuses: BotStatus[]) {
   const counts: Record<BotStatus, number> = { working: 0, waiting: 0, error: 0, resting: 0 };
   for (const s of statuses) counts[s] += 1;

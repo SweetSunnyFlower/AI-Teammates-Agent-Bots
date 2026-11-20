@@ -5,7 +5,7 @@ import { ClipboardList, Code, Hand, Mail, Search, Sparkles, TriangleAlert } from
 import { Vector3 } from "three";
 import { cn } from "@/lib/utils";
 import { floorTag } from "@/lib/office/floors";
-import { countByStatus, STATUS_META } from "@/lib/office/status";
+import { countByStatus, STATUS_META, statusLine } from "@/lib/office/status";
 import type { Bot, Department, DepartmentKind } from "@/lib/office/types";
 import { BotAvatar } from "./bot-avatar";
 import { useOffice, VISIBLE_FLOORS, type OverlayAnchor } from "./office-provider";
@@ -89,6 +89,7 @@ const BotPin = memo(function BotPin({
   const ref = useAnchor(`bot:${bot.id}`, points, "point", true, bot.id);
 
   const meta = STATUS_META[bot.status];
+  const line = statusLine(bot.statusDetail, bot.status);
   const selected = selectedBotId === bot.id;
   const Icon = bot.status === "error" ? TriangleAlert : bot.status === "waiting" ? Hand : KIND_ICON[kind];
   // Only busy bots animate; resting/error bots show a still expression (cheaper, calmer).
@@ -105,8 +106,8 @@ const BotPin = memo(function BotPin({
           selected && "ring-[3px] ring-[#f0dab1] ring-offset-0",
         )}
         style={{ opacity: dimmed ? 0.22 : 1 }}
-        aria-label={`${bot.name}, ${meta.label}. Open details`}
-        title={`${bot.name} · ${bot.statusDetail}`}
+        aria-label={`${bot.name}, ${line}。打开详情`}
+        title={`${bot.name} · ${line}`}
       >
         {bubble && <SpeechBubble key={bubble.key} text={bubble.text} color={bot.avatar.color} />}
         <BotAvatar bot={bot} size={44} animated={animated} />

@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Pencil, Plus, X } from "lucide-react";
 import { floorColors, floorTag } from "@/lib/office/floors";
-import { localizeStatusDetail, STATUS_META } from "@/lib/office/status";
+import { STATUS_META, statusLine } from "@/lib/office/status";
 import { GATED_TOOLS } from "@/lib/office/tools";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice, type DrawerTab } from "@/components/office/office-provider";
@@ -40,8 +40,7 @@ export function BotDrawer({ botId }: { botId: string }) {
   const bot = botById.get(botId);
   if (!bot) return null;
   const dept = departmentById.get(bot.departmentId);
-  const meta = STATUS_META[bot.status];
-  const statusDetail = localizeStatusDetail(bot.statusDetail, bot.status);
+  const detailLine = statusLine(bot.statusDetail, bot.status);
   const chip = dept ? floorColors([...departmentById.values()], dept.id).chip : "#eee";
 
   return (
@@ -67,13 +66,9 @@ export function BotDrawer({ botId }: { botId: string }) {
         <div className="min-w-0">
           <h2 className="truncate text-[22px] leading-tight font-extrabold text-ink">{bot.name}</h2>
           {dept && <p className="font-mono text-[12px] text-ink-muted">{floorTag(dept)} · {bot.role === "head" ? "总控 Bot" : bot.role === "lead" ? "主管 Bot" : "执行 Bot"}</p>}
-          <BotStatus status={bot.status} label={bot.status === "waiting" ? "等待你处理" : meta.label} className="mt-1.5" />
+          <BotStatus status={bot.status} label={detailLine} className="mt-1.5 max-w-full" />
         </div>
       </header>
-      {/* Only when it says more than the status pill already does (e.g. what it's working on). */}
-      {statusDetail && statusDetail !== meta.label && (
-        <p className="mx-4 rounded-[10px] bg-panel-sunken px-3 py-2 text-[13px] leading-snug text-ink/85">{statusDetail}</p>
-      )}
 
       <Tabs value={drawerTab} onValueChange={(v) => setDrawerTab(v as DrawerTab)} className="mt-3 min-h-0 flex-1 gap-0">
         <TabsList variant="line" className="w-full justify-start border-b border-hairline px-3">

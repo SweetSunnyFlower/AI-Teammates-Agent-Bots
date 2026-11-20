@@ -3,7 +3,7 @@
 import { Activity, Plus } from "lucide-react";
 import { floorTag } from "@/lib/office/floors";
 import type { Bot } from "@/lib/office/types";
-import { countByStatus, localizeStatusDetail, STATUS_META } from "@/lib/office/status";
+import { countByStatus, STATUS_META, statusLine } from "@/lib/office/status";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { BotStatusIndicator } from "@/components/office/bot-status";
 import { useOffice } from "@/components/office/office-provider";
@@ -118,7 +118,7 @@ function BotRow({ bot, onSelect, floor }: { bot: Bot; onSelect: (id: string) => 
             )}
             {floor && <span className="shrink-0 font-mono text-[10.5px] text-ink-muted">{floor}</span>}
           </span>
-          <span className="block truncate text-[12.5px] text-ink/75">{localizeStatusDetail(bot.statusDetail, bot.status)}</span>
+          <span className="block truncate text-[12.5px] text-ink/75">{statusLine(bot.statusDetail, bot.status)}</span>
         </span>
         <BotStatusIndicator status={bot.status} className="size-2.5" />
       </button>

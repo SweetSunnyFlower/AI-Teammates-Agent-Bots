@@ -28,7 +28,7 @@ export function BotStatus({
       style={{ backgroundColor: `${meta.color}26`, borderColor: `${meta.color}80` }}
     >
       <BotStatusIndicator status={status} />
-      <StatusLabel>{label ?? meta.label}</StatusLabel>
+      <StatusLabel className="truncate">{label ?? meta.label}</StatusLabel>
     </Status>
   );
 }
