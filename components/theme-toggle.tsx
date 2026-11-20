@@ -16,8 +16,8 @@ export function ThemeToggle({ className }: { className?: string }) {
     <button
       type="button"
       onClick={() => setTheme(dark ? "light" : "dark")}
-      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-      title={dark ? "Light mode" : "Dark mode"}
+      aria-label={dark ? "切换到浅色模式" : "切换到深色模式"}
+      title={dark ? "浅色模式" : "深色模式"}
       className={cn("fn-sticker w-11 justify-center px-0", className)}
     >
       {dark ? <Sun className="size-5" /> : <Moon className="size-5" />}

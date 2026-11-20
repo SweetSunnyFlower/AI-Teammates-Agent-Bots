@@ -6,7 +6,7 @@ import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser, listMyWorkspaces } from "@/lib/office/load";
 import { hasDatabaseEnv } from "@/lib/db/env";
 
-export const metadata: Metadata = { title: "New workspace · Dotty" };
+export const metadata: Metadata = { title: "新建工作空间 · Dotty" };
 
 export default function NewWorkspacePage() {
   return (
@@ -31,7 +31,7 @@ async function NewWorkspace() {
 function SetupSkeleton() {
   return (
     <div aria-busy="true" className="grid w-full max-w-[880px] gap-5 md:grid-cols-[1fr_340px]">
-      <LoadingLabel>Loading…</LoadingLabel>
+      <LoadingLabel>加载中…</LoadingLabel>
       <div className="flex flex-col gap-4 rounded-[18px] border-2 border-ink bg-panel p-6 shadow-[0_5px_0_0_var(--lip)] sm:p-7">
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-7 w-2/3" />

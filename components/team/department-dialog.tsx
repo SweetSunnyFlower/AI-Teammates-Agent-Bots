@@ -43,17 +43,17 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
     startTransition(async () => {
       const res = await saveDepartment(snapshot.workspace.id, departmentId ?? null, parsed.data);
       if (!res.ok) {
-        toast.error(dept ? "Couldn't save the floor" : "Couldn't add the floor", { description: res.error });
+        toast.error(dept ? "保存楼层失败" : "添加楼层失败", { description: res.error });
         return setErrors({ ...(res.fieldErrors ?? {}), form: res.error });
       }
-      toast.success(dept ? `${parsed.data.name} saved` : `${parsed.data.name} floor added`);
+      toast.success(dept ? `${parsed.data.name} 已保存` : `${parsed.data.name}楼层已添加`);
       close();
       void refreshOffice();
     });
   };
 
-  const title = dept ? `Edit ${dept.name}` : "Add a floor";
-  const kicker = dept ? `${dept.floorIndex}F · floor settings` : "new floor · goes under the head office";
+  const title = dept ? `编辑 ${dept.name}` : "添加楼层";
+  const kicker = dept ? `${dept.floorIndex}F · 楼层设置` : "新楼层 · 位于总控办公室下方";
 
   if (mode === "delete" && dept) {
     return (
@@ -77,14 +77,14 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
       onOpenChange={(o) => !o && close()}
       kicker={kicker}
       title={title}
-      description={isHead ? "The Head office is always the top floor and can't be deleted." : undefined}
+      description={isHead ? "总控办公室始终位于顶层，不能删除。" : undefined}
     >
       <form onSubmit={submit} noValidate className={formClass}>
         <DialogBody>
         <FieldGroup className="gap-5 px-6 py-5">
           <Field data-invalid={!!errors.name}>
             <FieldLabel htmlFor="dept-name" className={labelClass}>
-              floor name
+              楼层名称
             </FieldLabel>
             <Input
               id="dept-name"
@@ -93,31 +93,31 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
               value={values.name}
               onChange={(e) => set("name", e.target.value)}
               aria-invalid={!!errors.name}
-              placeholder="e.g. Marketing"
+              placeholder="例如：市场部"
               className={inputClass}
             />
             <FieldError className={errorClass}>{errors.name}</FieldError>
           </Field>
 
           <Field>
-            <FieldLabel className={labelClass}>glass tint</FieldLabel>
-            <Swatches label="Glass tint" colors={FLOOR_TINTS} value={values.color} onChange={(c) => set("color", c)} />
+            <FieldLabel className={labelClass}>玻璃色</FieldLabel>
+            <Swatches label="玻璃颜色" colors={FLOOR_TINTS} value={values.color} onChange={(c) => set("color", c)} />
             <FieldError className={errorClass}>{errors.color}</FieldError>
           </Field>
 
           {!isHead && (
             <Field>
               <FieldLabel htmlFor="dept-kind" className={labelClass}>
-                floor style
+                楼层风格
               </FieldLabel>
               <FnSelect id="dept-kind" value={values.kind} onChange={(k) => set("kind", k)} items={FLOOR_STYLES} />
-              <FieldDescription className="text-[12.5px] text-ink-muted">The furniture you&apos;ll see on this floor.</FieldDescription>
+              <FieldDescription className="text-[12.5px] text-ink-muted">这一层的家具样式。</FieldDescription>
             </Field>
           )}
 
           <Field data-invalid={!!errors.description}>
             <FieldLabel htmlFor="dept-desc" className={labelClass}>
-              what this floor does <span className="text-ink-muted/70">(optional)</span>
+              这个楼层负责什么 <span className="text-ink-muted/70">（可选）</span>
             </FieldLabel>
             <Textarea
               id="dept-desc"
@@ -126,7 +126,7 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
               value={values.description}
               onChange={(e) => set("description", e.target.value)}
               aria-invalid={!!errors.description}
-              placeholder="Shown to the Head bot when it decides who gets a task."
+              placeholder="总控 Bot 分派任务时会参考这段说明。"
               className="min-h-20 rounded-[10px] border-2 border-ink/70 bg-field text-[14px]"
             />
             <FieldError className={errorClass}>{errors.description}</FieldError>
@@ -143,16 +143,16 @@ export function DepartmentDialog({ departmentId }: { departmentId?: string }) {
         <FormFooter>
           {dept && !isHead && (
             <button type="button" className="fn-pill text-[#b5473f]" onClick={() => setMode("delete")}>
-              <Trash2 className="size-3.5" /> Delete floor
+              <Trash2 className="size-3.5" /> 删除楼层
             </button>
           )}
           <div className="ml-auto flex gap-2">
             <button type="button" className="fn-sticker h-10" onClick={close}>
-              Cancel
+              取消
             </button>
             <button type="submit" disabled={pending} className="fn-sticker h-10 bg-[#1d6ff4] text-white">
               {pending && <Loader2 className="size-4 animate-spin" />}
-              {dept ? "Save floor" : "Add floor"}
+              {dept ? "保存楼层" : "添加楼层"}
             </button>
           </div>
         </FormFooter>
@@ -186,39 +186,39 @@ function DeleteFloor({
     startTransition(async () => {
       const res = await deleteDepartment(departmentId, choice === "move" && botNames.length ? target : null);
       if (!res.ok) {
-        toast.error("Couldn't delete the floor", { description: res.error });
+        toast.error("删除楼层失败", { description: res.error });
         return setError(res.error);
       }
-      toast.success(`${name} was deleted`);
+      toast.success(`${name} 已删除`);
       onDone();
     });
 
   return (
-    <TeamDialog open onOpenChange={(o) => !o && openEditor(null)} kicker="delete floor" title={`Delete ${name}?`}>
+    <TeamDialog open onOpenChange={(o) => !o && openEditor(null)} kicker="删除楼层" title={`确定删除 ${name}？`}>
       <DialogBody className="flex flex-col gap-4 px-6 py-5 text-[14px]">
         {botNames.length === 0 ? (
-          <p>This floor is empty. The floors above it move down one level.</p>
+          <p>这个楼层没有 Bot。删除后，上面的楼层会自动下移一层。</p>
         ) : (
           <>
             <p>
-              {botNames.length} bot{botNames.length === 1 ? "" : "s"} work here: <b>{botNames.join(", ")}</b>. What should happen to them?
+              这里有 {botNames.length} 个 Bot：<b>{botNames.join("、")}</b>。你希望如何处理它们？
             </p>
-            <div role="radiogroup" aria-label="What happens to the bots" className="flex flex-col gap-2">
+            <div role="radiogroup" aria-label="如何处理这些 Bot" className="flex flex-col gap-2">
               <label className="flex cursor-pointer items-start gap-2.5 rounded-[12px] border-2 border-ink/30 p-3 has-checked:border-ink has-checked:bg-honey">
                 <input type="radio" name="bots" checked={choice === "move"} onChange={() => setChoice("move")} className="mt-1 accent-ink" />
                 <span className="flex-1">
-                  <b>Move them to another floor</b>
+                  <b>移动到其他楼层</b>
                   <span className="mt-2 block">
                     <FnSelect value={target} onChange={setTarget} items={targets} disabled={choice !== "move"} />
                   </span>
-                  <span className="mt-1 block text-[12.5px] text-ink-muted">If that floor already has a Lead, this floor&apos;s Lead becomes a worker.</span>
+                  <span className="mt-1 block text-[12.5px] text-ink-muted">如果目标楼层已有主管，这里的主管会转为执行角色。</span>
                 </span>
               </label>
               <label className="flex cursor-pointer items-start gap-2.5 rounded-[12px] border-2 border-ink/30 p-3 has-checked:border-[#b5473f] has-checked:bg-danger-bg">
                 <input type="radio" name="bots" checked={choice === "delete"} onChange={() => setChoice("delete")} className="mt-1 accent-[#b5473f]" />
                 <span>
-                  <b>Delete them too</b>
-                  <span className="block text-[12.5px] text-ink-muted">Their notes and chat history are deleted. This can&apos;t be undone.</span>
+                  <b>一起删除</b>
+                  <span className="block text-[12.5px] text-ink-muted">它们的笔记和聊天记录也会删除，且无法恢复。</span>
                 </span>
               </label>
             </div>
@@ -232,11 +232,11 @@ function DeleteFloor({
       </DialogBody>
       <FormFooter>
         <button type="button" className="fn-sticker h-10" onClick={onBack}>
-          Back
+          返回
         </button>
         <button type="button" disabled={pending} onClick={confirm} className="fn-sticker ml-auto h-10 bg-[#dd6d62] text-white">
           {pending && <Loader2 className="size-4 animate-spin" />}
-          {choice === "move" && botNames.length ? "Move bots & delete floor" : "Delete floor"}
+          {choice === "move" && botNames.length ? "移动 Bot 并删除楼层" : "删除楼层"}
         </button>
       </FormFooter>
     </TeamDialog>

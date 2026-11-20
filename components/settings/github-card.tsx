@@ -33,22 +33,22 @@ export function GitHubCard({ workspaceId }: { workspaceId: string }) {
   const unlink = () =>
     startTransition(async () => {
       const res = await unlinkGitHub(workspaceId);
-      if (!res.ok) return void toast.error("Couldn't disconnect GitHub", { description: res.error });
-      toast.success("GitHub disconnected", { description: "Dotty's app is still installed on GitHub — remove it there if you like." });
+      if (!res.ok) return void toast.error("断开 GitHub 失败", { description: res.error });
+      toast.success("GitHub 已断开", { description: "Dotty 的 GitHub App 仍安装在你的账户中，如需移除请前往 GitHub 设置。" });
       setConfirm(false);
       void queryClient.invalidateQueries({ queryKey: ["github", workspaceId] });
       void queryClient.invalidateQueries({ queryKey: ["connected-apps", workspaceId] });
     });
 
   const statusLine = isPending
-    ? "checking…"
+    ? "正在检查…"
     : error
-      ? "couldn't check"
+      ? "检查失败"
       : !link
-        ? "not connected"
+        ? "未连接"
         : !connected
-          ? "needs reconnecting"
-          : [`connected${link.account ? ` · ${link.account}` : ""}`, link.repoCount !== null ? `${link.repoCount} repo${link.repoCount === 1 ? "" : "s"}` : null]
+          ? "需要重新连接"
+          : [`已连接${link.account ? ` · ${link.account}` : ""}`, link.repoCount !== null ? `${link.repoCount} 个仓库` : null]
               .filter(Boolean)
               .join(" · ");
 
@@ -70,36 +70,36 @@ export function GitHubCard({ workspaceId }: { workspaceId: string }) {
         ) : !data?.configured ? null : connected ? (
           <span className="flex shrink-0 gap-1">
             <a href={link.manageUrl} target="_blank" rel="noopener noreferrer" className="fn-pill px-2.5">
-              <ExternalLink className="size-3.5" /> Choose repos
+              <ExternalLink className="size-3.5" /> 选择仓库
             </a>
             {confirm ? (
               <>
                 <button type="button" onClick={unlink} disabled={pending} className="fn-pill border-[#b5473f] bg-[#dd6d62] px-2.5 text-white">
-                  {pending ? <Loader2 className="size-3.5 animate-spin" /> : "Disconnect"}
+                  {pending ? <Loader2 className="size-3.5 animate-spin" /> : "断开"}
                 </button>
                 <button type="button" onClick={() => setConfirm(false)} className="fn-pill px-2.5">
-                  Keep
+                  保留
                 </button>
               </>
             ) : (
-              <button type="button" onClick={() => setConfirm(true)} className="fn-pill px-2.5" aria-label="Disconnect GitHub">
+              <button type="button" onClick={() => setConfirm(true)} className="fn-pill px-2.5" aria-label="断开 GitHub">
                 <Unplug className="size-3.5" />
               </button>
             )}
           </span>
         ) : (
           <a href={installHref} className="fn-sticker h-8 shrink-0 bg-[#1d6ff4] px-3 text-[13px] text-white">
-            {link ? "Reconnect" : "Connect"}
+            {link ? "重新连接" : "连接"}
           </a>
         )}
       </div>
       {connected && link.repos?.length ? (
         <p className="truncate pl-12 font-mono text-[11.5px] text-ink-muted">
           {link.repos.join(" · ")}
-          {link.repoCount && link.repoCount > link.repos.length ? ` · +${link.repoCount - link.repos.length} more` : ""}
+          {link.repoCount && link.repoCount > link.repos.length ? ` · 另有 ${link.repoCount - link.repos.length} 个` : ""}
         </p>
       ) : connected && link.repoCount === 0 ? (
-        <p className="pl-12 text-[12.5px] text-ink/75">No repositories yet — use Choose repos to give Dotty some.</p>
+        <p className="pl-12 text-[12.5px] text-ink/75">还没有选择仓库，请点击“选择仓库”授权给 Dotty。</p>
       ) : null}
     </li>
   );

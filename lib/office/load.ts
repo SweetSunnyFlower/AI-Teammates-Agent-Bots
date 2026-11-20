@@ -45,7 +45,7 @@ export async function getCurrentUser() {
 export async function listMyWorkspaces(handle = "@you"): Promise<Workspace[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("workspaces").select("id, name, icon").order("created_at", { ascending: true });
-  if (error) throw new Error(`Could not load workspaces: ${error.message}`);
+  if (error) throw new Error("加载工作空间失败。");
   return (data ?? []).map((w: any) => ({ id: w.id, name: w.name, icon: w.icon, ownerHandle: handle }));
 }
 
@@ -117,12 +117,12 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
   const workspace = workspaces.find((w) => w.id === workspaceId);
   if (!workspace) return null;
   for (const r of [departments, bots, inbox, tasks, routines, activity]) {
-    if (r.error) throw new Error(`Could not load the office: ${r.error.message}`);
+    if (r.error) throw new Error("加载办公室失败。");
   }
 
   const now = Date.now();
   const timeZone = profile.data?.timezone ?? "UTC";
-  const clock = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone });
+  const clock = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone });
 
   const mappedTasks: Task[] = (tasks.data ?? []).flatMap((t: any) =>
     t.assignee_bot_id
@@ -195,14 +195,14 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
     finished: mappedTasks
       .filter((t: any) => t.status === "done")
       .slice(0, 6)
-      .map((t): FinishedItem => ({ id: t.id, botId: t.assigneeBotId, summary: t.title, ago: `${t.updated} ago` })),
+      .map((t): FinishedItem => ({ id: t.id, botId: t.assigneeBotId, summary: t.title, ago: t.updated === "刚刚" ? t.updated : `${t.updated}前` })),
     routines: (routines.data ?? []).map(
       (r: any): Routine => ({
         id: r.id,
         botId: r.bot_id,
         name: r.name,
         schedule: describeCron(r.cron),
-        nextRunIn: r.enabled && r.next_run_at ? `in ${until(r.next_run_at, now)}` : "paused",
+        nextRunIn: r.enabled && r.next_run_at ? `${until(r.next_run_at, now)}后` : "已暂停",
         enabled: r.enabled,
         cron: r.cron,
         timezone: r.timezone,
@@ -240,15 +240,15 @@ function toAvatar(raw: unknown): Bot["avatar"] {
 
 function ago(iso: string, now: number) {
   const mins = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
+  if (mins < 1) return "刚刚";
+  if (mins < 60) return `${mins} 分钟`;
   const hours = Math.round(mins / 60);
-  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+  return hours < 24 ? `${hours} 小时` : `${Math.round(hours / 24)} 天`;
 }
 
 function until(iso: string, now: number) {
   const mins = Math.max(0, Math.round((new Date(iso).getTime() - now) / 60000));
-  if (mins < 60) return `${mins} min`;
+  if (mins < 60) return `${mins} 分钟`;
   const h = Math.floor(mins / 60);
-  return `${h} h ${mins % 60} min`;
+  return `${h} 小时 ${mins % 60} 分钟`;
 }

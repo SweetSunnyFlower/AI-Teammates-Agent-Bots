@@ -13,9 +13,9 @@ export function BoardToggleButton() {
       onClick={toggleBoard}
       aria-pressed={open}
       className={cn("fn-sticker", open && "bg-honey")}
-      title={open ? "Close the board" : "Open the board"}
+      title={open ? "关闭任务看板" : "打开任务看板"}
     >
-      {open ? <X className="size-4.5" /> : <LayoutGrid className="size-4.5" />} Boards
+      {open ? <X className="size-4.5" /> : <LayoutGrid className="size-4.5" />} 任务看板
     </button>
   );
 }

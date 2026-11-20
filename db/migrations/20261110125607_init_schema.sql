@@ -452,38 +452,38 @@ begin
   values (v_uid, btrim(p_name), coalesce(nullif(btrim(p_icon), ''), '🏢'))
   returning id into v_ws;
 
-  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, 'Head office', 'head', 4) returning id into v_head;
-  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, 'Assistant', 'assistant', 3) returning id into v_assistant;
-  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, 'Research', 'research', 2) returning id into v_research;
-  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, 'Engineering', 'engineering', 1) returning id into v_engineering;
+  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, '总控办公室', 'head', 4) returning id into v_head;
+  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, '助理', 'assistant', 3) returning id into v_assistant;
+  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, '研究', 'research', 2) returning id into v_research;
+  insert into public.departments (workspace_id, name, kind, floor_index) values (v_ws, '工程', 'engineering', 1) returning id into v_engineering;
 
   insert into public.bots (workspace_id, department_id, role, name, instructions, tool_keys, avatar) values
-    (v_ws, v_head, 'head', 'Chief of Staff',
-      'Plan the user''s requests, split them into tasks and delegate them to the right floor. Propose new bots or departments when the team is missing a skill.',
+    (v_ws, v_head, 'head', '幕僚长',
+      '规划用户需求，拆成任务并交给合适的楼层。团队缺少能力时，提议创建新的 Bot 或部门。',
       v_base || array['assign_task', 'propose_bot', 'propose_department'],
       '{"shape":"sphere","color":"#5c8fd6"}'),
-    (v_ws, v_assistant, 'lead', 'Inbox Zero',
-      'Triage the inbox, draft replies and manage the calendar. Always ask before sending anything.',
+    (v_ws, v_assistant, 'lead', '收件箱助手',
+      '整理收件箱、起草回复并管理日程。发送任何内容前都必须先征求确认。',
       v_base || array['assign_task', 'gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'calendar.list', 'calendar.create_event'],
       '{"shape":"sphere","color":"#e3a857"}'),
-    (v_ws, v_assistant, 'worker', 'Daily Brief',
-      'Write a short morning brief from email and calendar.',
+    (v_ws, v_assistant, 'worker', '每日简报',
+      '根据邮件和日程生成简短的每日早报。',
       v_base || array['gmail.search', 'gmail.read', 'calendar.list'],
       '{"shape":"cube","color":"#7fb5a0"}'),
-    (v_ws, v_research, 'lead', 'Scout',
-      'Lead research requests: search the web, read pages and split bigger questions across the floor.',
+    (v_ws, v_research, 'lead', '研究员',
+      '负责研究需求：搜索网页、读取页面，并把较大的问题拆分给研究楼层。',
       v_base || array['assign_task', 'web.search', 'browser.extract'],
       '{"shape":"diamond","color":"#8e7cc3"}'),
-    (v_ws, v_research, 'worker', 'Price Watcher',
-      'Watch product prices and report drops below the threshold.',
+    (v_ws, v_research, 'worker', '价格监控',
+      '监控商品价格，并在低于阈值时报告。',
       v_base || array['browser.extract', 'watch.add', 'watch.check'],
       '{"shape":"capsule","color":"#d9775f"}'),
-    (v_ws, v_engineering, 'lead', 'Tech Lead',
-      'Break engineering work down, review the builders'' pull requests and ask before merging.',
+    (v_ws, v_engineering, 'lead', '技术主管',
+      '拆分工程任务，评审执行 Bot 的 Pull Request，并在合并前征求确认。',
       v_base || array['assign_task', 'repo.list', 'code.run_task', 'pr.open_draft', 'pr.merge'],
       '{"shape":"cube","color":"#3b3a45"}'),
-    (v_ws, v_engineering, 'worker', 'Builder',
-      'Implement scoped tasks in the sandbox and open draft pull requests.',
+    (v_ws, v_engineering, 'worker', '工程师',
+      '在沙箱中完成指定任务并创建草稿 Pull Request。',
       v_base || array['code.run_task', 'pr.open_draft'],
       '{"shape":"capsule","color":"#5c8fd6"}');
 

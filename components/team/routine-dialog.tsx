@@ -16,11 +16,11 @@ import { cn } from "@/lib/utils";
 import { DialogBody, errorClass, FnSelect, formClass, FormFooter, inputClass, labelClass, TeamDialog } from "./form-bits";
 
 const KINDS: Array<{ value: ScheduleKind; label: string }> = [
-  { value: "daily", label: "Every day" },
-  { value: "weekdays", label: "Weekdays" },
-  { value: "weekly", label: "Once a week" },
-  { value: "hourly", label: "Every few hours" },
-  { value: "custom", label: "Custom" },
+  { value: "daily", label: "每天" },
+  { value: "weekdays", label: "工作日" },
+  { value: "weekly", label: "每周一次" },
+  { value: "hourly", label: "每隔几小时" },
+  { value: "custom", label: "自定义" },
 ];
 
 /** Every timezone the browser knows, for the timezone field's suggestions. */
@@ -55,7 +55,7 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
   const nextLabel = useMemo(() => {
     if (!next) return null;
     try {
-      return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: timezone }).format(next);
+      return new Intl.DateTimeFormat("zh-CN", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: timezone }).format(next);
     } catch {
       return null;
     }
@@ -81,11 +81,11 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
     startTransition(async () => {
       const res = await saveRoutine(snapshot.workspace.id, routineId ?? null, parsed.data);
       if (!res.ok) {
-        toast.error(routine ? "Couldn't save the routine" : "Couldn't add the routine", { description: res.error });
+        toast.error(routine ? "保存例行任务失败" : "添加例行任务失败", { description: res.error });
         return setErrors({ ...(res.fieldErrors ?? {}), form: res.error });
       }
-      toast.success(routine ? `${parsed.data.name} saved` : `${parsed.data.name} added`, {
-        description: enabled && nextLabel ? `Next run: ${nextLabel}` : enabled ? undefined : "It's off until you switch it on.",
+      toast.success(routine ? `${parsed.data.name} 已保存` : `${parsed.data.name} 已添加`, {
+        description: enabled && nextLabel ? `下次运行：${nextLabel}` : enabled ? undefined : "当前已关闭，启用后才会运行。",
       });
       close();
       void refreshOffice();
@@ -96,8 +96,8 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
     startTransition(async () => {
       if (!routineId) return;
       const res = await runRoutineNow(routineId);
-      if (!res.ok) return void toast.error("Couldn't run it", { description: res.error });
-      toast.success(`${botById.get(bot)?.name ?? "The bot"} is on it`);
+      if (!res.ok) return void toast.error("运行失败", { description: res.error });
+      toast.success(`${botById.get(bot)?.name ?? "Bot"} 已开始处理`);
       close();
       void refreshOffice();
     });
@@ -106,8 +106,8 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
     startTransition(async () => {
       if (!routineId) return;
       const res = await deleteRoutine(routineId);
-      if (!res.ok) return void toast.error("Couldn't delete the routine", { description: res.error });
-      toast.success(`${routine?.name ?? "Routine"} deleted`);
+      if (!res.ok) return void toast.error("删除例行任务失败", { description: res.error });
+      toast.success(`${routine?.name ?? "例行任务"} 已删除`);
       close();
       void refreshOffice();
     });
@@ -116,9 +116,9 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
     <TeamDialog
       open
       onOpenChange={(o) => !o && close()}
-      kicker={routine ? "routine settings" : "new routine"}
-      title={routine ? `Edit ${routine.name}` : "Add a routine"}
-      description="A bot does this on a schedule. Each run shows up as a task on the board, and anything that sends, posts or deletes still waits for your OK."
+      kicker={routine ? "例行任务设置" : "新建例行任务"}
+      title={routine ? `编辑 ${routine.name}` : "添加例行任务"}
+      description="Bot 会按计划执行这项工作。每次运行都会在任务看板中生成任务；发送、发布或删除操作仍会等待你批准。"
     >
       <form onSubmit={submit} noValidate className={formClass}>
         <DialogBody>
@@ -126,7 +126,7 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
             <div className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={!!errors.name}>
                 <FieldLabel htmlFor="routine-name" className={labelClass}>
-                  name
+                  名称
                 </FieldLabel>
                 <Input
                   id="routine-name"
@@ -138,14 +138,14 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
                     clear("name");
                   }}
                   aria-invalid={!!errors.name}
-                  placeholder="e.g. Morning brief"
+                  placeholder="例如：每日早报"
                   className={inputClass}
                 />
                 <FieldError className={errorClass}>{errors.name}</FieldError>
               </Field>
               <Field data-invalid={!!errors.botId}>
                 <FieldLabel htmlFor="routine-bot" className={labelClass}>
-                  bot
+                  Bot
                 </FieldLabel>
                 <FnSelect id="routine-bot" value={bot} onChange={(v) => (setBot(v), clear("botId"))} items={botItems} invalid={!!errors.botId} />
                 <FieldError className={errorClass}>{errors.botId}</FieldError>
@@ -154,7 +154,7 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
 
             <Field data-invalid={!!errors.prompt}>
               <FieldLabel htmlFor="routine-prompt" className={labelClass}>
-                what to do each time
+                每次要做什么
               </FieldLabel>
               <Textarea
                 id="routine-prompt"
@@ -166,15 +166,15 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
                   clear("prompt");
                 }}
                 aria-invalid={!!errors.prompt}
-                placeholder="e.g. Summarise my unread emails from the last 24 hours and list anything that needs a reply."
+                placeholder="例如：总结过去 24 小时的未读邮件，并列出需要回复的事项。"
                 className="min-h-24 rounded-[10px] border-2 border-ink/70 bg-field text-[14px]"
               />
               <FieldError className={errorClass}>{errors.prompt}</FieldError>
             </Field>
 
             <FieldSet className="gap-3" data-invalid={!!errors.cron}>
-              <FieldLegend className={cn(labelClass, "mb-0")}>when</FieldLegend>
-              <div role="radiogroup" aria-label="How often" className="flex flex-wrap gap-1.5">
+              <FieldLegend className={cn(labelClass, "mb-0")}>运行时间</FieldLegend>
+              <div role="radiogroup" aria-label="运行频率" className="flex flex-wrap gap-1.5">
                 {KINDS.map((k) => (
                   <button
                     key={k.value}
@@ -196,7 +196,7 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
                 {schedule.kind === "weekly" && (
                   <Field>
                     <FieldLabel htmlFor="routine-day" className={labelClass}>
-                      day
+                      星期
                     </FieldLabel>
                     <FnSelect
                       id="routine-day"
@@ -209,7 +209,7 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
                 {(schedule.kind === "daily" || schedule.kind === "weekdays" || schedule.kind === "weekly") && (
                   <Field>
                     <FieldLabel htmlFor="routine-time" className={labelClass}>
-                      time
+                      时间
                     </FieldLabel>
                     <Input id="routine-time" type="time" value={schedule.time} onChange={(e) => e.target.value && patch({ time: e.target.value })} className={inputClass} />
                   </Field>
@@ -217,20 +217,20 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
                 {schedule.kind === "hourly" && (
                   <Field>
                     <FieldLabel htmlFor="routine-hours" className={labelClass}>
-                      every
+                      每隔
                     </FieldLabel>
                     <FnSelect
                       id="routine-hours"
                       value={String(schedule.everyHours)}
                       onChange={(h) => patch({ everyHours: Number(h) })}
-                      items={HOUR_STEPS.map((h) => ({ value: String(h), label: h === 1 ? "hour" : `${h} hours` }))}
+                      items={HOUR_STEPS.map((h) => ({ value: String(h), label: `${h} 小时` }))}
                     />
                   </Field>
                 )}
                 {schedule.kind === "custom" && (
                   <Field className="sm:col-span-2" data-invalid={!!errors.cron}>
                     <FieldLabel htmlFor="routine-cron" className={labelClass}>
-                      cron (minute hour day month weekday)
+                      cron（分 时 日 月 星期）
                     </FieldLabel>
                     <Input
                       id="routine-cron"
@@ -244,7 +244,7 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
                 )}
                 <Field data-invalid={!!errors.timezone}>
                   <FieldLabel htmlFor="routine-tz" className={labelClass}>
-                    timezone
+                    时区
                   </FieldLabel>
                   <Input
                     id="routine-tz"
@@ -267,15 +267,15 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
               </div>
               <FieldError className={errorClass}>{errors.cron}</FieldError>
               <FieldDescription className="text-[12.5px] text-ink-muted">
-                {nextLabel ? `Next run: ${nextLabel}` : "This schedule doesn't run — check it."}
-                {schedule.kind === "custom" && cron === "* * * * *" && " · every minute is handy for testing, but each run is a task and costs tokens."}
+                {nextLabel ? `下次运行：${nextLabel}` : "这个计划不会运行，请检查配置。"}
+                {schedule.kind === "custom" && cron === "* * * * *" && " · 每分钟运行适合测试，但每次运行都会创建任务并消耗 Token。"}
               </FieldDescription>
             </FieldSet>
 
             <Field orientation="horizontal" className="items-center gap-2.5">
               <Switch id="routine-on" checked={enabled} onCheckedChange={setEnabled} className="data-checked:bg-status-working" />
               <FieldLabel htmlFor="routine-on" className="text-[14px] font-bold">
-                {enabled ? "On" : "Off — saved but won't run"}
+                {enabled ? "已启用" : "已关闭 · 保存后不会运行"}
               </FieldLabel>
             </Field>
 
@@ -291,31 +291,31 @@ export function RoutineDialog({ routineId, botId }: { routineId?: string; botId?
           {routine && !confirmDelete && (
             <>
               <button type="button" className="fn-pill text-[#b5473f]" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="size-3.5" /> Delete
+                <Trash2 className="size-3.5" /> 删除
               </button>
-              <button type="button" disabled={pending} className="fn-pill" onClick={runNow} title="Run it once now; the schedule stays the same">
-                <Play className="size-3.5" /> Run now
+              <button type="button" disabled={pending} className="fn-pill" onClick={runNow} title="立即运行一次，计划不变">
+                <Play className="size-3.5" /> 立即运行
               </button>
             </>
           )}
           {confirmDelete && (
             <span className="flex items-center gap-2 text-[13px]">
-              Delete {routine?.name}? Past runs stay on the board.
+              确定删除 {routine?.name}？过去的运行记录会保留在任务看板中。
               <button type="button" disabled={pending} className="fn-pill border-[#b5473f] bg-[#dd6d62] text-white" onClick={remove}>
-                Yes, delete
+                确认删除
               </button>
               <button type="button" className="fn-pill" onClick={() => setConfirmDelete(false)}>
-                Keep
+                保留
               </button>
             </span>
           )}
           <div className="ml-auto flex gap-2">
             <button type="button" className="fn-sticker h-10" onClick={close}>
-              Cancel
+              取消
             </button>
             <button type="submit" disabled={pending} className="fn-sticker h-10 bg-[#1d6ff4] text-white">
               {pending && <Loader2 className="size-4 animate-spin" />}
-              {routine ? "Save routine" : "Add routine"}
+              {routine ? "保存例行任务" : "添加例行任务"}
             </button>
           </div>
         </FormFooter>

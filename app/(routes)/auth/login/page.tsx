@@ -5,7 +5,7 @@ import { LoginCard } from "@/components/auth/login-card";
 import { hasDatabaseEnv } from "@/lib/db/env";
 import { safeNext } from "@/lib/auth/safe-next";
 
-export const metadata: Metadata = { title: "Sign in · Dotty" };
+export const metadata: Metadata = { title: "登录 · Dotty" };
 const envReady = hasDatabaseEnv && Boolean(process.env.BETTER_AUTH_SECRET);
 
 export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {

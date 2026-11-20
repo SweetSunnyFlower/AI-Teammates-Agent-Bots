@@ -32,7 +32,7 @@ import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 import { mergeThreadMessages } from "@/lib/chat/merge-thread";
 
 /** Words the bot "says" while it works on a reply (shimmering, like Claude's). */
-const THINKING_WORDS = ["Whirring", "Thinking", "Ideating", "Unraveling", "Pondering", "Tinkering", "Noodling", "Percolating", "Scheming", "Brewing"];
+const THINKING_WORDS = ["运转中", "思考中", "构思中", "梳理中", "推演中", "调整中", "琢磨中", "酝酿中", "规划中", "整理中"];
 
 /** At most this many messages of the current conversation are on screen; older ones sit behind a button. */
 const VISIBLE_LIMIT = 40;
@@ -165,7 +165,7 @@ export function BotChat({ bot }: { bot: Bot }) {
   const newChat = () =>
     startNewChatTransition(async () => {
       const res = await startNewChat(bot.id);
-      if (!res.ok) return void toast.error("Couldn't start a new chat", { description: res.error });
+      if (!res.ok) return void toast.error("无法开始新对话", { description: res.error });
       setMessages((m) => [...m, res.divider]);
       setShowAllFor(null);
       clearError();
@@ -174,7 +174,7 @@ export function BotChat({ bot }: { bot: Bot }) {
   if (!canEdit) {
     return (
       <p className="m-4 rounded-[12px] bg-panel-sunken p-3 text-[13px] text-ink/80">
-        This is the demo office. Sign in and open your own workspace to chat with your bots.
+        这是演示办公室。登录并打开你自己的工作空间后，就可以和 Bot 聊天。
       </p>
     );
   }
@@ -183,21 +183,21 @@ export function BotChat({ bot }: { bot: Bot }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-hairline px-4 py-2.5">
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-bold text-ink">Chat with {bot.name}</p>
+          <p className="truncate text-[14px] font-bold text-ink">与 {bot.name} 聊天</p>
           <p className="truncate text-[12px] text-ink-muted">{memoryNote(messages)}</p>
         </div>
         <Tooltip>
           <TooltipTrigger
             onClick={newChat}
             disabled={busy || newChatPending || !loaded || messages.length === 0 || Boolean(last?.metadata?.divider)}
-            aria-label="Start a new chat"
+            aria-label="开始新对话"
             className="fn-sticker h-9 shrink-0 gap-1.5 px-3 text-[13px]"
           >
             {newChatPending ? <Spinner className="size-3.5" /> : <SquarePen className="size-3.5" />}
-            New chat
+            新对话
           </TooltipTrigger>
           <TooltipContent className="max-w-56 text-center">
-            Starts fresh: {bot.name} forgets the messages above. Nothing is deleted.
+            重新开始：{bot.name} 会忘记上方消息，但不会删除任何记录。
           </TooltipContent>
         </Tooltip>
       </div>
@@ -218,7 +218,7 @@ export function BotChat({ bot }: { bot: Bot }) {
                       onClick={() => setShowAllFor(bot.id)}
                       className="mx-auto rounded-full border border-hairline bg-panel-sunken px-3 py-1 font-mono text-[12px] text-ink-muted transition-colors hover:text-ink"
                     >
-                      Show {hiddenCount} earlier message{hiddenCount === 1 ? "" : "s"}
+                      显示之前 {hiddenCount} 条消息
                     </button>
                   )}
                   {visible.length === 0 && !busy ? (
@@ -263,7 +263,7 @@ export function BotChat({ bot }: { bot: Bot }) {
                   <div role="alert" className="flex items-start gap-2 rounded-[10px] border-2 border-[#b5473f]/50 bg-danger-bg px-3 py-2 text-[13px]">
                     <span className="flex-1">{readError(error)}</span>
                     <button type="button" className="fn-pill shrink-0 px-2 py-0.5 text-[11.5px]" onClick={() => void regenerate()}>
-                      <RotateCcw className="size-3" /> retry
+                      <RotateCcw className="size-3" /> 重试
                     </button>
                   </div>
                 </MessageScrollerItem>
@@ -293,13 +293,13 @@ export function BotChat({ bot }: { bot: Bot }) {
             }}
             rows={1}
             maxLength={4000}
-            placeholder={`Message ${bot.name}…`}
-            aria-label={`Message ${bot.name} (Enter to send, Shift+Enter for a new line)`}
+            placeholder={`给 ${bot.name} 发消息…`}
+            aria-label={`给 ${bot.name} 发消息（Enter 发送，Shift+Enter 换行）`}
             className="field-sizing-content max-h-24 min-h-9 py-2 pl-4 text-[14px] leading-5"
           />
           <InputGroupAddon align="inline-end" className="self-end pb-1">
             {busy ? (
-              <InputGroupButton size="icon-sm" variant="outline" className="rounded-full border-2 border-ink" aria-label="Stop" onClick={() => void stop()}>
+              <InputGroupButton size="icon-sm" variant="outline" className="rounded-full border-2 border-ink" aria-label="停止" onClick={() => void stop()}>
                 <Square className="size-3 fill-current" />
               </InputGroupButton>
             ) : (
@@ -308,7 +308,7 @@ export function BotChat({ bot }: { bot: Bot }) {
                 size="icon-sm"
                 disabled={!input.trim()}
                 className="rounded-full border-2 border-ink bg-[#1d6ff4] text-white hover:bg-[#1a62d8] hover:text-white"
-                aria-label="Send"
+                aria-label="发送"
               >
                 <ArrowUp className="size-4" strokeWidth={3} />
               </InputGroupButton>
@@ -398,11 +398,11 @@ function Greeting({ bot }: { bot: Bot }) {
   return (
     <div className="flex flex-col items-center gap-2 py-6 text-center">
       <BotAvatar bot={{ ...bot, status: "working" }} size={64} animated />
-      <p className="text-[14px] font-bold">Say hi to {bot.name}</p>
+      <p className="text-[14px] font-bold">和 {bot.name} 打个招呼</p>
       <p className="max-w-[260px] text-[12.5px] text-ink/70">
         {bot.role === "head"
-          ? "Tell me what you want done — I'll plan it and hand tasks to the right floors."
-          : "Ask about my work, or give me something to do. Big jobs become tasks on the board."}
+          ? "告诉我你想完成什么，我会制定计划并把任务交给合适的楼层。"
+          : "你可以询问我的工作进度，也可以直接给我安排任务。较大的工作会进入任务看板。"}
       </p>
     </div>
   );
@@ -411,7 +411,7 @@ function Greeting({ bot }: { bot: Bot }) {
 function Divider({ at }: { at: string }) {
   return (
     <Marker variant="separator" role="separator" className="font-mono text-[11.5px] text-ink-muted before:bg-hairline after:bg-hairline">
-      <MarkerContent>New chat · {formatWhen(at)}</MarkerContent>
+      <MarkerContent>新对话 · {formatWhen(at)}</MarkerContent>
     </Marker>
   );
 }
@@ -423,7 +423,7 @@ function formatWhen(at: string) {
 /** Subtitle: what the bot currently remembers. */
 function memoryNote(messages: ThreadMessage[]) {
   const lastDivider = [...messages].reverse().find((m) => m.metadata?.divider);
-  return lastDivider ? `Remembers since ${formatWhen(lastDivider.metadata!.createdAt)}` : "Remembers this whole conversation";
+  return lastDivider ? `将记住 ${formatWhen(lastDivider.metadata!.createdAt)} 之后的内容` : "将记住整段对话";
 }
 
 type ToolPart = { type: string; state: string; input?: Record<string, unknown>; output?: Record<string, unknown> };
@@ -437,25 +437,25 @@ function ToolChip({ part }: { part: ToolPart }) {
   let label: string;
   let Icon = ClipboardList;
   if (name === "create_task") {
-    const title = String(part.output?.title ?? part.input?.title ?? "a task");
-    const who = part.output?.assignee ? ` for ${String(part.output.assignee)}` : "";
-    const queued = done && part.output?.started === false ? " · waiting to start" : done ? " · running" : "";
-    label = failed ? `Couldn't create “${title}”: ${String(part.output?.error ?? "error")}` : done ? `Created task “${title}”${who}${queued}` : `Creating “${title}”…`;
+    const title = String(part.output?.title ?? part.input?.title ?? "任务");
+    const who = part.output?.assignee ? `，负责人：${String(part.output.assignee)}` : "";
+    const queued = done && part.output?.started === false ? " · 等待开始" : done ? " · 正在运行" : "";
+    label = failed ? `创建“${title}”失败：${String(part.output?.error ?? "错误")}` : done ? `已创建任务“${title}”${who}${queued}` : `正在创建“${title}”…`;
   } else if (name === "update_notes") {
     Icon = NotebookPen;
-    label = done ? "Updated notes" : "Updating notes…";
+    label = done ? "已更新笔记" : "正在更新笔记…";
   } else if (name === "read_notes") {
     Icon = NotebookPen;
-    label = done ? "Read notes" : "Reading notes…";
+    label = done ? "已读取笔记" : "正在读取笔记…";
   } else if (name === "list_tasks") {
-    label = done ? "Checked the board" : "Checking the board…";
+    label = done ? "已检查任务看板" : "正在检查任务看板…";
   } else if (name === "propose_routine") {
-    const routine = String(part.output?.proposed ?? part.input?.name ?? "a routine");
+    const routine = String(part.output?.proposed ?? part.input?.name ?? "例行任务");
     label = failed
-      ? `Couldn't propose “${routine}”: ${String(part.output?.error ?? "error")}`
+      ? `提议“${routine}”失败：${String(part.output?.error ?? "错误")}`
       : done
-        ? `Proposed routine “${routine}” · ${String(part.output?.schedule ?? "")} · waiting for your OK`
-        : `Proposing “${routine}”…`;
+        ? `已提议例行任务“${routine}” · ${String(part.output?.schedule ?? "")} · 等待你确认`
+        : `正在提议“${routine}”…`;
   } else {
     label = name;
   }
@@ -475,10 +475,10 @@ function AppToolChip({ name, part }: { name: string; part: ToolPart }) {
   const reason = String(part.output?.error ?? "");
   const label = error
     ? /approval/i.test(reason)
-      ? `${info.done} — needs your approval`
+      ? `${info.done} — 需要你审批`
       : /rejected|NOT done/i.test(reason)
-        ? `${info.done} — you said no`
-        : `${info.done} — didn't work`
+        ? `${info.done} — 你已拒绝`
+        : `${info.done} — 执行失败`
     : done
       ? info.done
       : info.running;
@@ -514,14 +514,14 @@ function readError(error: Error) {
   } catch {
     /* not JSON */
   }
-  return /fetch|network/i.test(error.message) ? "Couldn't reach the server — check your connection and try again." : error.message;
+  return /fetch|network/i.test(error.message) ? "无法连接服务器，请检查网络后重试。" : error.message;
 }
 
 /** Placeholder bubbles while the conversation loads. */
 function ChatSkeleton() {
   return (
     <div className="flex flex-col gap-4" aria-busy="true">
-      <LoadingLabel>Loading the conversation…</LoadingLabel>
+      <LoadingLabel>正在加载对话…</LoadingLabel>
       <div className="flex items-start gap-2">
         <Skeleton className="size-7 shrink-0 rounded-full" />
         <div className="flex w-[70%] flex-col gap-1.5">

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { setTaskStatus } from "@/app/(routes)/workspace/task-actions";
 import { retryTask } from "@/app/(routes)/workspace/team-actions";
 import { cn } from "@/lib/utils";
-import { STATUS_META } from "@/lib/office/status";
+import { sourceLabel, STATUS_META } from "@/lib/office/status";
 import type { Bot, Task, TaskStatus } from "@/lib/office/types";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice } from "@/components/office/office-provider";
@@ -15,10 +15,10 @@ import { Kanban, KanbanBoard, KanbanColumn, KanbanItem, KanbanOverlay } from "@/
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export const BOARD_COLUMNS: Array<{ id: Exclude<TaskStatus, "failed">; title: string; dot: string; empty: string }> = [
-  { id: "backlog", title: "Backlog", dot: STATUS_META.resting.color, empty: "New and queued tasks wait here." },
-  { id: "doing", title: "Doing", dot: STATUS_META.working.color, empty: "No bot is working on anything." },
-  { id: "waiting_on_me", title: "Waiting on me", dot: STATUS_META.waiting.color, empty: "Nothing is waiting on you." },
-  { id: "done", title: "Done", dot: "#5c8fd6", empty: "Finished tasks land here." },
+  { id: "backlog", title: "待处理", dot: STATUS_META.resting.color, empty: "新任务和排队任务会显示在这里。" },
+  { id: "doing", title: "进行中", dot: STATUS_META.working.color, empty: "当前没有 Bot 正在处理任务。" },
+  { id: "waiting_on_me", title: "待我处理", dot: STATUS_META.waiting.color, empty: "目前没有需要你处理的事项。" },
+  { id: "done", title: "已完成", dot: "#5c8fd6", empty: "完成的任务会显示在这里。" },
 ];
 
 /** Failed tasks wait in the backlog with a Retry button. */
@@ -61,7 +61,7 @@ export function BoardView({ selectedTaskId, onSelectTask }: { selectedTaskId: st
     const { id, to } = moved;
     void setTaskStatus(id, to).then((res) => {
       if (!res.ok) {
-        toast.error("Couldn't move the task", { description: res.error });
+        toast.error("移动任务失败", { description: res.error });
         setColumns(toColumns(snapshot.tasks));
       } else {
         void refreshOffice();
@@ -115,7 +115,7 @@ export function BoardView({ selectedTaskId, onSelectTask }: { selectedTaskId: st
   );
 }
 
-export function RetryButton({ taskId, label = "Retry", quiet = false }: { taskId: string; label?: string; quiet?: boolean }) {
+export function RetryButton({ taskId, label = "重试", quiet = false }: { taskId: string; label?: string; quiet?: boolean }) {
   const { refreshOffice } = useOffice();
   const [pending, startTransition] = useTransition();
   return (
@@ -127,29 +127,29 @@ export function RetryButton({ taskId, label = "Retry", quiet = false }: { taskId
         e.stopPropagation(); // don't open the task panel
         startTransition(async () => {
           const res = await retryTask(taskId);
-          if (!res.ok) (quiet ? toast.info : toast.error)(quiet ? "Not restarted" : "Couldn't retry", { description: res.error });
-          else toast.success("Restarted — the bot is back on it");
+          if (!res.ok) (quiet ? toast.info : toast.error)(quiet ? "未重新启动" : "重试失败", { description: res.error });
+          else toast.success("已重新启动，Bot 正在继续处理");
           void refreshOffice();
         });
       }}
       className={cn("fn-pill mt-2 px-2.5 py-0.5 text-[11.5px]", quiet ? "border-ink/25 text-ink-muted" : "border-[#b5473f]/60 text-[#b5473f]")}
     >
-      <RotateCcw className="size-3" /> {pending ? "Restarting…" : label}
+      <RotateCcw className="size-3" /> {pending ? "正在重新启动…" : label}
     </button>
   );
 }
 
 /** A code run's pull request and test result (Engineering). */
 function CodeBadge({ code }: { code: NonNullable<Task["code"]> }) {
-  const tests = code.prState === "merged" ? null : code.tests === "passed" ? "tests ✓" : code.tests === "failed" ? "tests ✗" : null;
+  const tests = code.prState === "merged" ? null : code.tests === "passed" ? "测试通过 ✓" : code.tests === "failed" ? "测试失败 ✗" : null;
   const text =
     code.status === "running"
-      ? `coding in ${code.repo}…`
+      ? `正在 ${code.repo} 中编写代码…`
       : code.status === "failed"
-        ? `code run failed · ${code.repo}`
+        ? `代码运行失败 · ${code.repo}`
         : code.status === "no_changes"
-          ? `no changes · ${code.repo}`
-          : `PR #${code.prNumber}${code.prState === "merged" ? " merged" : code.prState === "closed" ? " closed" : ""} · ${code.repo}`;
+          ? `没有代码变更 · ${code.repo}`
+          : `PR #${code.prNumber}${code.prState === "merged" ? " 已合并" : code.prState === "closed" ? " 已关闭" : ""} · ${code.repo}`;
   const className = cn(
     "mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[11px]",
     code.prState === "merged"
@@ -201,7 +201,7 @@ function TaskCard({
           onOpen();
         }
       }}
-      aria-label={onOpen ? `Open task: ${task.title}` : undefined}
+      aria-label={onOpen ? `打开任务：${task.title}` : undefined}
       className={cn(
         "rounded-[12px] border-[1.5px] border-ink/70 bg-field p-3 transition-shadow outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
         task.status === "waiting_on_me" && "bg-honey",
@@ -223,14 +223,14 @@ function TaskCard({
       )}
       {task.code && <CodeBadge code={task.code} />}
       {task.status === "failed" && !dragging && <RetryButton taskId={task.id} />}
-      {task.status === "doing" && !dragging && <RetryButton taskId={task.id} label="Stuck? Restart" quiet />}
+      {task.status === "doing" && !dragging && <RetryButton taskId={task.id} label="卡住了？重新开始" quiet />}
       <div className="mt-2 flex flex-wrap gap-1">
         <Badge variant="outline" className="border-ink/30 font-mono text-[10.5px] text-ink">
-          via {task.source}
+          来源：{sourceLabel(task.source)}
         </Badge>
         {delegatedBy && (
           <Badge variant="outline" className="border-ink/30 font-mono text-[10.5px] text-ink">
-            from {delegatedBy.name}
+            来自 {delegatedBy.name}
           </Badge>
         )}
       </div>

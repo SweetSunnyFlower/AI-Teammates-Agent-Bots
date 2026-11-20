@@ -10,7 +10,7 @@ export default function RouteError({ error, retry }: { error: unknown; retry: ()
   }, [error]);
   return (
     <main className="lawn-bg grid min-h-dvh place-items-center p-4">
-      <ErrorCard title="Something went wrong" error={error} onRetry={retry} homeHref="/workspace" />
+      <ErrorCard title="出了点问题" error={error} onRetry={retry} homeHref="/workspace" />
     </main>
   );
 }

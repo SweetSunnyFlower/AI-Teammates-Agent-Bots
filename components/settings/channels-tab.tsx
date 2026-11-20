@@ -35,7 +35,7 @@ export function ChannelsTab() {
   if (isPending) {
     return (
       <div className="flex flex-col gap-4 px-6 py-5" aria-busy="true">
-        <LoadingLabel>Loading channels…</LoadingLabel>
+        <LoadingLabel>正在加载渠道…</LoadingLabel>
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-28" />
           <Skeleton className="h-3 w-full" />
@@ -54,20 +54,19 @@ export function ChannelsTab() {
       </div>
     );
   }
-  if (error || !data) return <p className="p-6 text-[13px] text-[#b5473f]">{error?.message ?? "Couldn't load channels."}</p>;
+  if (error || !data) return <p className="p-6 text-[13px] text-[#b5473f]">{error?.message ?? "无法加载渠道。"}</p>;
 
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-6 py-5">
       <div>
-        <h3 className="text-[17px] font-extrabold">Channels</h3>
+        <h3 className="text-[17px] font-extrabold">渠道</h3>
         <p className="text-[13px] text-ink-muted">
-          Talk to your bots from your phone. Messages go to your Head bot — start with @ and a bot&apos;s name to talk to that bot. Approvals and
-          questions arrive with buttons, and reports on tasks you sent come back there.
+          可以直接在手机上联系 Bot。普通消息会发送给总控 Bot；以 @ 加上 Bot 名称开头，可以和指定 Bot 对话。审批、问题和任务报告都会回到这里。
         </p>
       </div>
       {!data.stateReady && (
         <SetupNote>
-          Add <Code>DATABASE_URL</Code> (your database connection string) to <Code>.env.local</Code> and restart — channels keep their state in Postgres.
+          请将数据库连接字符串 <Code>DATABASE_URL</Code> 添加到 <Code>.env.local</Code> 并重启服务，渠道状态保存在 PostgreSQL 中。
         </SetupNote>
       )}
       <TelegramCard
@@ -98,16 +97,16 @@ function TelegramCard({
   const connect = () =>
     startTransition(async () => {
       const res = await createTelegramLink(workspaceId);
-      if (!res.ok) return void toast.error("Couldn't create the link", { description: res.error });
+      if (!res.ok) return void toast.error("创建关联链接失败", { description: res.error });
       window.open(res.url, "_blank", "noopener");
       onLinkStarted();
-      toast("Press Start in Telegram", { description: "This page updates once it's linked (the link works for 15 minutes)." });
+      toast("请在 Telegram 中点击“开始”", { description: "关联成功后页面会自动更新，链接 15 分钟内有效。" });
     });
   const unlink = () =>
     startTransition(async () => {
       const res = await unlinkChannel(workspaceId, "telegram");
-      if (!res.ok) return void toast.error("Couldn't unlink Telegram", { description: res.error });
-      toast.success("Telegram unlinked");
+      if (!res.ok) return void toast.error("解除 Telegram 关联失败", { description: res.error });
+      toast.success("Telegram 已解除关联");
       onChanged();
     });
 
@@ -115,20 +114,20 @@ function TelegramCard({
     <ChannelCard
       icon={<Send className="size-5" />}
       name="Telegram"
-      linked={telegram.linked ? `Linked${telegram.linked.username ? ` as ${telegram.linked.username}` : ""}${telegram.botUsername ? ` · @${telegram.botUsername}` : ""}` : null}
+      linked={telegram.linked ? `已关联${telegram.linked.username ? `：${telegram.linked.username}` : ""}${telegram.botUsername ? ` · @${telegram.botUsername}` : ""}` : null}
     >
       {!telegram.configured ? (
         <SetupNote>
-          Not set up on the server yet. Add <Code>TELEGRAM_BOT_TOKEN</Code>, <Code>TELEGRAM_BOT_USERNAME</Code> and{" "}
-          <Code>TELEGRAM_WEBHOOK_SECRET_TOKEN</Code> to <Code>.env.local</Code>, then run <Code>npm run telegram:webhook</Code>.
+          服务端尚未配置 Telegram。请将 <Code>TELEGRAM_BOT_TOKEN</Code>、<Code>TELEGRAM_BOT_USERNAME</Code> 和{" "}
+          <Code>TELEGRAM_WEBHOOK_SECRET_TOKEN</Code> 添加到 <Code>.env.local</Code>，再运行 <Code>npm run telegram:webhook</Code>。
         </SetupNote>
       ) : telegram.linked ? (
         <button type="button" disabled={pending} onClick={unlink} className="fn-pill text-[#b5473f]">
-          <Unplug className="size-3.5" /> Unlink
+          <Unplug className="size-3.5" /> 解除关联
         </button>
       ) : (
         <button type="button" disabled={pending} onClick={connect} className="fn-pill border-ink bg-ink text-panel hover:bg-ink/85">
-          {pending ? <Loader2 className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />} Connect Telegram
+          {pending ? <Loader2 className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />} 连接 Telegram
         </button>
       )}
     </ChannelCard>
@@ -141,29 +140,29 @@ function SlackCard({ status, workspaceId, onChanged }: { status: ChannelStatus; 
   const unlink = () =>
     startTransition(async () => {
       const res = await unlinkChannel(workspaceId, "slack");
-      if (!res.ok) return void toast.error("Couldn't unlink Slack", { description: res.error });
-      toast.success("Slack unlinked", { description: "You can also remove the Dotty app in Slack." });
+      if (!res.ok) return void toast.error("解除 Slack 关联失败", { description: res.error });
+      toast.success("Slack 已解除关联", { description: "你也可以在 Slack 中移除 Dotty 应用。" });
       onChanged();
     });
 
   return (
-    <ChannelCard icon={<MessageCircle className="size-5" />} name="Slack" linked={slack.linked ? `Linked to ${slack.linked.teamName ?? "your Slack workspace"}` : null}>
+    <ChannelCard icon={<MessageCircle className="size-5" />} name="Slack" linked={slack.linked ? `已关联到 ${slack.linked.teamName ?? "你的 Slack 工作区"}` : null}>
       {!slack.configured ? (
         <SetupNote>
-          Not set up on the server yet. Create the Slack app with <Code>npm run slack:manifest</Code>, then add <Code>SLACK_CLIENT_ID</Code>,{" "}
-          <Code>SLACK_CLIENT_SECRET</Code>, <Code>SLACK_SIGNING_SECRET</Code> and <Code>SLACK_ENCRYPTION_KEY</Code> to <Code>.env.local</Code>.
+          服务端尚未配置 Slack。请运行 <Code>npm run slack:manifest</Code> 创建应用，然后将 <Code>SLACK_CLIENT_ID</Code>、{" "}
+          <Code>SLACK_CLIENT_SECRET</Code>、<Code>SLACK_SIGNING_SECRET</Code> 和 <Code>SLACK_ENCRYPTION_KEY</Code> 添加到 <Code>.env.local</Code>。
         </SetupNote>
       ) : !status.publicUrl ? (
         <SetupNote>
-          Slack needs a public https address: set <Code>CHAT_PUBLIC_URL</Code> (your ngrok URL locally) and restart.
+          Slack 需要公开的 HTTPS 地址。请设置 <Code>CHAT_PUBLIC_URL</Code>（本地可使用 ngrok 地址）并重启服务。
         </SetupNote>
       ) : slack.linked ? (
         <button type="button" disabled={pending} onClick={unlink} className="fn-pill text-[#b5473f]">
-          <Unplug className="size-3.5" /> Unlink
+          <Unplug className="size-3.5" /> 解除关联
         </button>
       ) : (
         <a href={`/api/slack/install?workspace=${workspaceId}`} className="fn-pill border-ink bg-ink text-panel hover:bg-ink/85">
-          <ExternalLink className="size-3.5" /> Add to Slack
+          <ExternalLink className="size-3.5" /> 添加到 Slack
         </a>
       )}
     </ChannelCard>
@@ -177,7 +176,7 @@ function ChannelCard({ icon, name, linked, children }: { icon: React.ReactNode; 
         <span className="grid size-10 place-items-center rounded-[10px] border border-hairline bg-white">{icon}</span>
         <div className="min-w-0">
           <p className="text-[15px] font-extrabold">{name}</p>
-          <p className={cn("font-mono text-[12px]", linked ? "text-status-working" : "text-ink-muted")}>{linked ?? "not linked"}</p>
+          <p className={cn("font-mono text-[12px]", linked ? "text-status-working" : "text-ink-muted")}>{linked ?? "未关联"}</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>

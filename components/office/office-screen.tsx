@@ -45,9 +45,9 @@ function OfficeLayout() {
     if (!canEdit) return;
     void queryClient.invalidateQueries({ queryKey: ["channels"] });
     openSettings("channels");
-    if (slack === "connected") toast.success("Slack connected", { description: "Dotty sent you a DM in Slack — message it there." });
-    else if (slack === "cancelled") toast("Slack install cancelled");
-    else if (slack) toast.error("Couldn't connect Slack", { description: slack === "no-public-url" ? "Set CHAT_PUBLIC_URL (your ngrok URL locally) and restart." : "Try again from Settings → Channels." });
+    if (slack === "connected") toast.success("Slack 已连接", { description: "Dotty 已向你的 Slack 发送私信，可以直接在那里聊天。" });
+    else if (slack === "cancelled") toast("已取消 Slack 安装");
+    else if (slack) toast.error("连接 Slack 失败", { description: slack === "no-public-url" ? "请设置 CHAT_PUBLIC_URL（本地可使用 ngrok 地址）并重启服务。" : "请前往“设置 → 渠道”重试。" });
   }, [canEdit, openSettings, queryClient]);
 
   // Back from Composio's Connect Link: reopen Connectors, confirm, and tidy the URL.
@@ -70,13 +70,13 @@ function OfficeLayout() {
     void queryClient.invalidateQueries({ queryKey: ["github"] });
     void queryClient.invalidateQueries({ queryKey: ["connected-apps"] });
     openSettings("connectors");
-    if (github === "connected") toast.success("GitHub connected", { description: "Bots with GitHub access can now read your repos, issues and pull requests." });
-    else if (github === "requested") toast("Waiting for approval", { description: "An organization owner has to approve Dotty's GitHub App first." });
-    else if (github === "cancelled") toast("GitHub connection cancelled");
-    else if (github === "not-configured") toast.error("GitHub isn't available yet");
-    else if (github) toast.error("Couldn't connect GitHub", { description: "Try again from Settings → Connectors." });
-    if (connected && status !== "failed") toast.success(`${connected} connected`, { description: "Your bots can now read from it." });
-    else if (connected) toast.error(`Couldn't connect ${connected}`, { description: "Try again from Settings → Connectors." });
+    if (github === "connected") toast.success("GitHub 已连接", { description: "获得 GitHub 权限的 Bot 现在可以读取仓库、Issue 和 Pull Request。" });
+    else if (github === "requested") toast("等待管理员批准", { description: "组织所有者需要先批准 Dotty 的 GitHub App。" });
+    else if (github === "cancelled") toast("已取消 GitHub 连接");
+    else if (github === "not-configured") toast.error("GitHub 尚未配置");
+    else if (github) toast.error("连接 GitHub 失败", { description: "请前往“设置 → 连接器”重试。" });
+    if (connected && status !== "failed") toast.success(`${connected} 已连接`, { description: "你的 Bot 现在可以从中读取内容。" });
+    else if (connected) toast.error(`连接 ${connected} 失败`, { description: "请前往“设置 → 连接器”重试。" });
   }, [canEdit, openSettings, queryClient]);
 
   // Deep links from the Boards page: #waiting, #routines, #add-bot.
@@ -92,7 +92,7 @@ function OfficeLayout() {
     <main className="lawn-bg relative flex min-h-dvh flex-col gap-3 p-3 lg:block lg:h-dvh lg:overflow-hidden lg:p-0">
       {/* Scene layer: full-bleed on desktop, a tall block on small screens */}
       <div className="relative order-2 lg:order-none h-[68vh] overflow-hidden rounded-[14px] lg:absolute lg:inset-0 lg:h-auto lg:rounded-none">
-        <PanelBoundary label="The 3D office">
+        <PanelBoundary label="3D 办公室">
           <OfficeStage />
         </PanelBoundary>
       </div>
@@ -113,25 +113,25 @@ function OfficeLayout() {
         />
         <div className="contents lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[290px_minmax(0,1fr)_340px] lg:gap-4">
           <div className="pointer-events-auto order-3 lg:order-none lg:min-h-0 lg:overflow-hidden">
-            <PanelBoundary label="This panel">
+            <PanelBoundary label="这个面板">
               <LeftColumn />
             </PanelBoundary>
           </div>
           <div className="hidden lg:block" aria-hidden />
           <aside className="pointer-events-auto order-4 lg:order-none flex min-h-[560px] flex-col lg:min-h-0">
-            <PanelBoundary label="This panel">
+            <PanelBoundary label="这个面板">
               <RightColumn />
             </PanelBoundary>
           </aside>
         </div>
       </div>
-      <PanelBoundary label="Boards" className="fixed inset-x-0 bottom-4 z-50 grid place-items-center">
+      <PanelBoundary label="任务看板" className="fixed inset-x-0 bottom-4 z-50 grid place-items-center">
         <BoardDialog />
       </PanelBoundary>
-      <PanelBoundary label="Settings" className="fixed inset-x-0 bottom-4 z-50 grid place-items-center">
+      <PanelBoundary label="设置" className="fixed inset-x-0 bottom-4 z-50 grid place-items-center">
         <SettingsDialog />
       </PanelBoundary>
-      <PanelBoundary label="That dialog" className="fixed inset-x-0 bottom-4 z-50 grid place-items-center">
+      <PanelBoundary label="这个对话框" className="fixed inset-x-0 bottom-4 z-50 grid place-items-center">
         <TeamDialogs />
       </PanelBoundary>
       <RealtimeSync workspaceId={snapshot.workspace.id} enabled={canEdit} />
@@ -146,7 +146,7 @@ function OfficeLayout() {
 export function OfficeScreenSkeleton() {
   return (
     <main aria-busy="true" className="lawn-bg relative flex min-h-dvh flex-col gap-3 p-3 lg:h-dvh lg:overflow-hidden lg:p-4">
-      <LoadingLabel>Opening the office…</LoadingLabel>
+      <LoadingLabel>正在打开办公室…</LoadingLabel>
       <div className="flex flex-wrap items-center gap-3">
         <div className="fn-sticker h-12 w-[190px] gap-2 px-3">
           <Skeleton className="size-7 rounded-[8px]" />
@@ -185,7 +185,7 @@ export function OfficeScreenSkeleton() {
           ))}
         </div>
         <div className="order-1 grid h-[68vh] place-items-center lg:order-none lg:h-auto">
-          <p className="rounded-full bg-panel/85 px-3 py-1 font-mono text-[13px] text-ink">opening the office…</p>
+          <p className="rounded-full bg-panel/85 px-3 py-1 font-mono text-[13px] text-ink">正在打开办公室…</p>
         </div>
         <div className="order-3 flex flex-col gap-3 lg:order-none lg:min-h-0">
           <div className="fn-panel flex flex-col gap-3 p-4 lg:flex-1">

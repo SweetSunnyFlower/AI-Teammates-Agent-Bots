@@ -73,5 +73,5 @@ export function floorTint(departments: Department[], departmentId: string) {
 }
 
 export function floorTag(d: Department) {
-  return `${d.floorIndex}F · ${d.name.toLowerCase()}`;
+  return `${d.floorIndex}F · ${d.name}`;
 }

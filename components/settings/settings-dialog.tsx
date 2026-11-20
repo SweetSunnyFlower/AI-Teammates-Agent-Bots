@@ -16,9 +16,9 @@ import { WorkspaceTab } from "./workspace-tab";
 import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 
 const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Plug }> = [
-  { id: "workspace", label: "Workspace", icon: Building2 },
-  { id: "connectors", label: "Connectors", icon: Plug },
-  { id: "channels", label: "Channels", icon: MessagesSquare },
+  { id: "workspace", label: "工作空间", icon: Building2 },
+  { id: "connectors", label: "连接器", icon: Plug },
+  { id: "channels", label: "渠道", icon: MessagesSquare },
 ];
 
 /**
@@ -66,12 +66,12 @@ export function SettingsDialog() {
         >
           <header className="flex shrink-0 items-start justify-between gap-3 border-b border-hairline px-6 pt-5 pb-4">
             <div>
-              <p className="font-mono text-[12px] text-ink-muted">workspace settings</p>
+              <p className="font-mono text-[12px] text-ink-muted">工作空间设置</p>
               <h2 id="settings-title" className="text-[22px] leading-tight font-extrabold">
-                Settings
+                设置
               </h2>
             </div>
-            <button type="button" onClick={closeSettings} aria-label="Close settings" className="grid size-9 place-items-center rounded-[10px] text-ink-muted hover:bg-panel-sunken hover:text-ink">
+            <button type="button" onClick={closeSettings} aria-label="关闭设置" className="grid size-9 place-items-center rounded-[10px] text-ink-muted hover:bg-panel-sunken hover:text-ink">
               <X className="size-5" />
             </button>
           </header>
@@ -161,17 +161,16 @@ function Connectors() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-4 px-6 pt-5 pb-3">
         <div>
-          <h3 className="text-[17px] font-extrabold">Connectors</h3>
+          <h3 className="text-[17px] font-extrabold">连接器</h3>
           <p className="mt-1 text-[13px] leading-snug text-ink/75">
-            Connect the apps your bots can use — Gmail, Notion, GitHub and many more. Connections belong to this workspace, so every bot here can use them.
+            连接 Bot 可以使用的应用，例如 Gmail、Notion、GitHub 等。连接属于当前工作空间，获得授权的 Bot 都可以使用。
           </p>
         </div>
 
         <p className="flex items-start gap-2 rounded-[12px] border-2 border-ink/20 bg-ok-bg px-3 py-2 text-[12.5px] leading-snug">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />
           <span>
-            For now bots can only <b>read</b> from connected apps. Anything that sends, posts, edits or deletes stays blocked until approvals arrive — then it
-            will always ask you first.
+            Bot 从连接的应用读取内容时不会打扰你；任何发送、发布、修改或删除操作都会先等待你审批。
           </span>
         </p>
 
@@ -182,8 +181,8 @@ function Connectors() {
           <InputGroupInput
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search apps — gmail, notion, github, slack…"
-            aria-label="Search apps"
+            placeholder="搜索应用，例如 Gmail、Notion、GitHub、Slack…"
+            aria-label="搜索应用"
             className="text-[14px]"
           />
         </InputGroup>
@@ -202,7 +201,7 @@ function Connectors() {
           </p>
         ) : isPending ? (
           <div aria-busy="true">
-            <LoadingLabel>Loading apps…</LoadingLabel>
+            <LoadingLabel>正在加载应用…</LoadingLabel>
             <ul className="grid gap-2 sm:grid-cols-2" aria-hidden>
               {Array.from({ length: 8 }, (_, i) => (
                 <li key={i} className="flex items-center gap-3 rounded-[12px] border-2 border-ink/15 bg-field p-3">
@@ -217,7 +216,7 @@ function Connectors() {
             </ul>
           </div>
         ) : items.length === 0 ? (
-          <p className="font-mono text-[12.5px] text-ink-muted">no apps match “{search}”.</p>
+          <p className="font-mono text-[12.5px] text-ink-muted">没有匹配“{search}”的应用。</p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2">
             {items.map((item) => (
@@ -229,7 +228,7 @@ function Connectors() {
         {hasNextPage && !error && (
           <div className="flex justify-center pt-3">
             <button type="button" onClick={() => void fetchNextPage()} disabled={isFetchingNextPage} className="fn-pill">
-              {isFetchingNextPage ? <Loader2 className="size-3.5 animate-spin" /> : null} Load more apps
+              {isFetchingNextPage ? <Loader2 className="size-3.5 animate-spin" /> : null} 加载更多应用
             </button>
           </div>
         )}
@@ -245,15 +244,15 @@ function ConnectorRow({ item, workspaceId, onDisconnected }: { item: ConnectorIt
   const connect = () =>
     startTransition(async () => {
       const res = await connectToolkit(workspaceId, item.slug);
-      if (!res.ok) return void toast.error(`Couldn't connect ${item.name}`, { description: res.error });
+      if (!res.ok) return void toast.error(`连接 ${item.name} 失败`, { description: res.error });
       window.location.assign(res.redirectUrl); // Composio's sign-in page; it returns here when done
     });
 
   const disconnect = () =>
     startTransition(async () => {
       const res = await disconnectToolkit(workspaceId, item.slug);
-      if (!res.ok) return void toast.error(`Couldn't disconnect ${item.name}`, { description: res.error });
-      toast.success(`${item.name} disconnected`);
+      if (!res.ok) return void toast.error(`断开 ${item.name} 失败`, { description: res.error });
+      toast.success(`${item.name} 已断开`);
       setConfirm(false);
       onDisconnected();
     });
@@ -273,12 +272,12 @@ function ConnectorRow({ item, workspaceId, onDisconnected }: { item: ConnectorIt
         <span className={cn("flex items-center gap-1 font-mono text-[11.5px]", item.connected ? "text-[#2e8b3e]" : "text-ink-muted")}>
           {item.connected ? (
             <>
-              <Check className="size-3" strokeWidth={3} /> connected
+              <Check className="size-3" strokeWidth={3} /> 已连接
             </>
           ) : item.noAuth ? (
-            "no sign-in needed"
+            "无需登录"
           ) : (
-            "not connected"
+            "未连接"
           )}
         </span>
       </span>
@@ -286,20 +285,20 @@ function ConnectorRow({ item, workspaceId, onDisconnected }: { item: ConnectorIt
         confirm ? (
           <span className="flex shrink-0 gap-1">
             <button type="button" onClick={disconnect} disabled={pending} className="fn-pill border-[#b5473f] bg-[#dd6d62] px-2.5 text-white">
-              {pending ? <Loader2 className="size-3.5 animate-spin" /> : "Disconnect"}
+              {pending ? <Loader2 className="size-3.5 animate-spin" /> : "断开连接"}
             </button>
             <button type="button" onClick={() => setConfirm(false)} className="fn-pill px-2.5">
-              Keep
+              保留
             </button>
           </span>
         ) : (
-          <button type="button" onClick={() => setConfirm(true)} className="fn-pill shrink-0 px-2.5" aria-label={`Disconnect ${item.name}`}>
+          <button type="button" onClick={() => setConfirm(true)} className="fn-pill shrink-0 px-2.5" aria-label={`断开 ${item.name}`}>
             <Unplug className="size-3.5" />
           </button>
         )
       ) : item.noAuth ? null : (
         <button type="button" onClick={connect} disabled={pending} className="fn-sticker h-8 shrink-0 bg-[#1d6ff4] px-3 text-[13px] text-white">
-          {pending ? <Loader2 className="size-3.5 animate-spin" /> : null} Connect
+          {pending ? <Loader2 className="size-3.5 animate-spin" /> : null} 连接
         </button>
       )}
     </li>

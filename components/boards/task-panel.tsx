@@ -6,6 +6,7 @@ import { ArrowUpRight, CornerLeftUp, MessageSquare, X } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { loadTaskThread, type TaskDetail, type ThreadItem, type TaskThreadResult } from "@/app/(routes)/workspace/task-actions";
 import { BotAvatar } from "@/components/office/bot-avatar";
+import { sourceLabel } from "@/lib/office/status";
 import { useOffice } from "@/components/office/office-provider";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,12 +17,12 @@ import { useBoardUrl } from "./use-board-url";
 import { LoadingLabel, Skeleton, SkeletonLines } from "@/components/ui/skeleton";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  backlog: { label: "Backlog", className: "bg-panel-sunken" },
-  doing: { label: "Doing", className: "bg-[#7f9f6f]/25" },
-  waiting_on_me: { label: "Waiting on me", className: "bg-honey" },
-  done: { label: "Done", className: "bg-[#5c8fd6]/25" },
-  failed: { label: "Failed", className: "bg-danger-bg" },
-  cancelled: { label: "Cancelled", className: "bg-panel-sunken" },
+  backlog: { label: "待处理", className: "bg-panel-sunken" },
+  doing: { label: "进行中", className: "bg-[#7f9f6f]/25" },
+  waiting_on_me: { label: "待我处理", className: "bg-honey" },
+  done: { label: "已完成", className: "bg-[#5c8fd6]/25" },
+  failed: { label: "失败", className: "bg-danger-bg" },
+  cancelled: { label: "已取消", className: "bg-panel-sunken" },
 };
 
 /**
@@ -53,17 +54,17 @@ export function TaskPanel({ taskId, onClose, onSelectTask }: { taskId: string; o
   const loading = !data;
 
   return (
-    <aside className="flex min-h-0 w-full flex-col rounded-[14px] border-2 border-ink bg-panel shadow-[0_4px_0_0_var(--lip)] lg:w-[460px] lg:shrink-0" aria-label="Task details">
+    <aside className="flex min-h-0 w-full flex-col rounded-[14px] border-2 border-ink bg-panel shadow-[0_4px_0_0_var(--lip)] lg:w-[460px] lg:shrink-0" aria-label="任务详情">
       <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-2.5">
-        <span className="font-mono text-[12px] text-ink-muted">task</span>
-        <button type="button" onClick={onClose} aria-label="Close task" className="grid size-8 place-items-center rounded-[8px] text-ink-muted hover:bg-panel-sunken hover:text-ink">
+        <span className="font-mono text-[12px] text-ink-muted">任务</span>
+        <button type="button" onClick={onClose} aria-label="关闭任务" className="grid size-8 place-items-center rounded-[8px] text-ink-muted hover:bg-panel-sunken hover:text-ink">
           <X className="size-4" />
         </button>
       </div>
 
       {loading ? (
         <div className="flex flex-col gap-5 p-4" aria-busy="true">
-          <LoadingLabel>Loading the task…</LoadingLabel>
+          <LoadingLabel>正在加载任务…</LoadingLabel>
           <div className="flex flex-col gap-2">
             <Skeleton className="h-5 w-3/4" />
             <div className="flex gap-2">
@@ -86,18 +87,18 @@ export function TaskPanel({ taskId, onClose, onSelectTask }: { taskId: string; o
 
             {data.parent && (
               <button type="button" onClick={() => onSelectTask(data.parent!.id)} className="flex items-center gap-1.5 text-left text-[12.5px] text-ink/75 hover:text-ink">
-                <CornerLeftUp className="size-3.5 shrink-0" /> Part of <span className="font-semibold underline underline-offset-2">{data.parent.title}</span>
+                <CornerLeftUp className="size-3.5 shrink-0" /> 属于 <span className="font-semibold underline underline-offset-2">{data.parent.title}</span>
               </button>
             )}
 
             {data.task.body && (
-              <Section title="details">
+              <Section title="详情">
                 <Streamdown className="text-[13.5px] leading-relaxed text-ink">{data.task.body}</Streamdown>
               </Section>
             )}
 
             {data.subtasks.length > 0 && (
-              <Section title={`subtasks · ${data.subtasks.length}`}>
+              <Section title={`子任务 · ${data.subtasks.length}`}>
                 <ul className="flex flex-col gap-1">
                   {data.subtasks.map((s) => {
                     const bot = s.assigneeBotId ? botById.get(s.assigneeBotId) : undefined;
@@ -121,7 +122,7 @@ export function TaskPanel({ taskId, onClose, onSelectTask }: { taskId: string; o
             )}
 
             {(data.task.result?.summary || data.task.result?.error) && (
-              <Section title={data.task.result.error ? "why it failed" : "result"}>
+              <Section title={data.task.result.error ? "失败原因" : "结果"}>
                 {data.task.result.error ? (
                   <p className="rounded-[10px] bg-danger-bg px-3 py-2 text-[13px]">{data.task.result.error}</p>
                 ) : (
@@ -131,7 +132,7 @@ export function TaskPanel({ taskId, onClose, onSelectTask }: { taskId: string; o
               </Section>
             )}
 
-            <Section title="thread · everything the bots did">
+            <Section title="任务动态 · Bot 的全部操作">
               <Thread items={data.thread} rootTask={data.task} subtasks={data.subtasks} bots={botById} />
             </Section>
 
@@ -143,9 +144,9 @@ export function TaskPanel({ taskId, onClose, onSelectTask }: { taskId: string; o
                   selectBot(data.task.assigneeBotId!, "chat");
                 }}
                 className="fn-pill w-fit"
-                title="Opens the bot's chat in the office"
+                title="在办公室中打开这个 Bot 的聊天"
               >
-                <MessageSquare className="size-3.5" /> Chat with {botById.get(data.task.assigneeBotId)!.name}
+                <MessageSquare className="size-3.5" /> 与 {botById.get(data.task.assigneeBotId)!.name} 聊天
               </button>
             )}
           </div>
@@ -165,7 +166,7 @@ function Header({ task, bots }: { task: TaskDetail; bots: Map<string, Bot> }) {
         <StatusChip status={task.status} />
       </div>
       <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-        <dt className="font-mono text-[12px] text-ink-muted">assignee</dt>
+        <dt className="font-mono text-[12px] text-ink-muted">负责人</dt>
         <dd className="flex items-center gap-1.5 font-semibold">
           {assignee ? (
             <>
@@ -175,11 +176,11 @@ function Header({ task, bots }: { task: TaskDetail; bots: Map<string, Bot> }) {
             "—"
           )}
         </dd>
-        <dt className="font-mono text-[12px] text-ink-muted">from</dt>
-        <dd>{from ? from.name : task.source === "web" ? "You" : task.source}</dd>
-        <dt className="font-mono text-[12px] text-ink-muted">created</dt>
+        <dt className="font-mono text-[12px] text-ink-muted">来源</dt>
+        <dd>{from ? from.name : sourceLabel(task.source)}</dd>
+        <dt className="font-mono text-[12px] text-ink-muted">创建时间</dt>
         <dd>{when(task.createdAt)}</dd>
-        <dt className="font-mono text-[12px] text-ink-muted">updated</dt>
+        <dt className="font-mono text-[12px] text-ink-muted">更新时间</dt>
         <dd>{when(task.updatedAt)}</dd>
       </dl>
     </div>
@@ -187,7 +188,7 @@ function Header({ task, bots }: { task: TaskDetail; bots: Map<string, Bot> }) {
 }
 
 function Thread({ items, rootTask, subtasks, bots }: { items: ThreadItem[]; rootTask: TaskDetail; subtasks: TaskDetail[]; bots: Map<string, Bot> }) {
-  if (!items.length) return <p className="font-mono text-[12.5px] text-ink-muted">nothing yet — it hasn&apos;t started.</p>;
+  if (!items.length) return <p className="font-mono text-[12.5px] text-ink-muted">还没有动态，任务尚未开始。</p>;
   const titleOf = (id: string | null) => (id === rootTask.id ? null : subtasks.find((s) => s.id === id)?.title ?? null);
   return (
     <ol className="flex flex-col gap-3">
@@ -200,8 +201,8 @@ function Thread({ items, rootTask, subtasks, bots }: { items: ThreadItem[]; root
               <Marker className={cn("text-[12.5px]", item.type === "run_failed" ? "text-[#b5473f]" : "text-ink-muted")}>
                 <MarkerIcon className="size-5">{bot ? <BotAvatar bot={bot} size={20} /> : null}</MarkerIcon>
                 <MarkerContent>
-                  <b className="text-ink">{bot?.name ?? "A bot"}</b> {item.text}
-                  {sub && <span className="text-ink-muted"> · on “{sub}”</span>}
+                  <b className="text-ink">{bot?.name ?? "某个 Bot"}</b> {item.text}
+                  {sub && <span className="text-ink-muted"> · 在“{sub}”中</span>}
                   <span className="ml-1.5 font-mono text-[11px] text-ink-muted">{time(item.at)}</span>
                 </MarkerContent>
               </Marker>

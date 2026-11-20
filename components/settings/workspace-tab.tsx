@@ -44,7 +44,7 @@ export function WorkspaceTab() {
   if (isPending) {
     return (
       <div className="flex flex-col gap-6 px-6 py-5" aria-busy="true">
-        <LoadingLabel>Loading workspace…</LoadingLabel>
+        <LoadingLabel>正在加载工作空间…</LoadingLabel>
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-3 w-2/3" />
@@ -65,7 +65,7 @@ export function WorkspaceTab() {
       </div>
     );
   }
-  if (error || !data) return <p className="p-6 text-[13px] text-[#b5473f]">{error?.message ?? "Couldn't load the workspace."}</p>;
+  if (error || !data) return <p className="p-6 text-[13px] text-[#b5473f]">{error?.message ?? "无法加载工作空间。"}</p>;
   return <WorkspaceForm key={workspaceId} workspaceId={workspaceId} settings={data} />;
 }
 
@@ -94,9 +94,9 @@ function WorkspaceForm({ workspaceId, settings }: { workspaceId: string; setting
     e.preventDefault();
     startTransition(async () => {
       const res = await saveWorkspaceSettings(workspaceId, form);
-      if (!res.ok) return void toast.error("Couldn't save", { description: res.error });
+      if (!res.ok) return void toast.error("保存失败", { description: res.error });
       setSaved(form);
-      toast.success("Workspace saved");
+      toast.success("工作空间已保存");
       void queryClient.invalidateQueries({ queryKey: ["workspace-settings", workspaceId] });
       await refreshOffice();
     });
@@ -106,27 +106,27 @@ function WorkspaceForm({ workspaceId, settings }: { workspaceId: string; setting
   return (
     <div className="flex flex-col gap-6 px-6 py-5">
       <div>
-        <h3 className="text-[17px] font-extrabold">Workspace</h3>
-        <p className="text-[13px] text-ink-muted">Name, daily limits and your timezone. Limits reset at midnight UTC.</p>
+        <h3 className="text-[17px] font-extrabold">工作空间</h3>
+        <p className="text-[13px] text-ink-muted">设置名称、每日额度和时区。每日额度在 UTC 午夜重置。</p>
       </div>
 
       <form onSubmit={save} className="flex flex-col gap-6">
         <section className="grid grid-cols-[88px_minmax(0,1fr)] gap-3">
           <label className="flex flex-col gap-1.5">
-            <span className={labelClass}>icon</span>
-            <Input value={form.icon} onChange={set("icon")} maxLength={16} aria-label="Workspace icon" className={cn(inputClass, "text-center text-[18px]")} />
+            <span className={labelClass}>图标</span>
+            <Input value={form.icon} onChange={set("icon")} maxLength={16} aria-label="工作空间图标" className={cn(inputClass, "text-center text-[18px]")} />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className={labelClass}>name</span>
+            <span className={labelClass}>名称</span>
             <Input value={form.name} onChange={set("name")} maxLength={60} className={inputClass} />
           </label>
         </section>
 
         <section className="flex flex-col gap-3">
-          <h4 className="text-[14px] font-bold">Daily limits</h4>
+          <h4 className="text-[14px] font-bold">每日额度</h4>
           <Limit
-            label="spend cap"
-            hint="Bots' background work: tasks they run and routines. When it's reached, bots rest until tomorrow."
+            label="费用上限"
+            hint="Bot 后台任务和例行任务的总花费。达到上限后，Bot 会休息到第二天。"
             prefix="$"
             value={form.dailySpendCap}
             onChange={set("dailySpendCap")}
@@ -135,8 +135,8 @@ function WorkspaceForm({ workspaceId, settings }: { workspaceId: string; setting
             usedLabel={money(today.spentCents)}
           />
           <Limit
-            label="engineering cap"
-            hint={`Coding in the sandbox, separate from the spend cap. Each code run also stops at ${money(settings.perRunCapCents)}.`}
+            label="工程上限"
+            hint={`沙箱代码运行费用，单独计算。每次代码运行最多使用 ${money(settings.perRunCapCents)}。`}
             prefix="$"
             value={form.dailyEngineeringCap}
             onChange={set("dailyEngineeringCap")}
@@ -145,35 +145,35 @@ function WorkspaceForm({ workspaceId, settings }: { workspaceId: string; setting
             usedLabel={money(today.engineeringCents)}
           />
           <Limit
-            label="task cap"
-            hint="New tasks per day, including the ones bots hand to each other and routine runs."
+            label="任务上限"
+            hint="每天可创建的任务数，包括 Bot 互相分派和例行任务产生的任务。"
             value={form.dailyTaskCap}
             onChange={set("dailyTaskCap")}
             used={today.tasks}
             cap={Number(form.dailyTaskCap)}
-            usedLabel={`${today.tasks} task${today.tasks === 1 ? "" : "s"}`}
+            usedLabel={`${today.tasks} 个任务`}
             step={1}
           />
         </section>
 
         <label className="flex flex-col gap-1.5">
-          <span className={labelClass}>your timezone</span>
+          <span className={labelClass}>你的时区</span>
           <Input value={form.timezone} onChange={set("timezone")} list="workspace-tz-list" className={cn(inputClass, "max-w-[320px]")} />
           <datalist id="workspace-tz-list">
             {zones.map((z) => (
               <option key={z} value={z} />
             ))}
           </datalist>
-          <span className="text-[12.5px] text-ink-muted">Used for new routines and the times bots mention.</span>
+          <span className="text-[12.5px] text-ink-muted">用于新建例行任务和 Bot 提到的具体时间。</span>
         </label>
 
         <div className="flex items-center gap-2">
           <button type="submit" disabled={!dirty || pending} className="fn-pill border-ink bg-ink px-4 text-panel hover:bg-ink/85 disabled:opacity-50">
-            {pending ? <Loader2 className="size-3.5 animate-spin" /> : null} Save changes
+            {pending ? <Loader2 className="size-3.5 animate-spin" /> : null} 保存修改
           </button>
           {dirty && !pending ? (
             <button type="button" onClick={() => setForm(saved)} className="fn-pill px-3">
-              Undo
+              撤销
             </button>
           ) : null}
         </div>
@@ -222,7 +222,7 @@ function Limit({
           <span
             className="h-2 flex-1 overflow-hidden rounded-full bg-ink/10"
             role="meter"
-            aria-label={`${label} used today`}
+            aria-label={`${label}今日已用`}
             aria-valuemin={0}
             aria-valuemax={Math.max(cap, 0)}
             aria-valuenow={used}
@@ -230,7 +230,7 @@ function Limit({
             <span className={cn("block h-full rounded-full", full ? "bg-[#dd6d62]" : "bg-ink/70")} style={{ width: `${ratio * 100}%` }} />
           </span>
           <span className={cn("shrink-0 font-mono text-[11.5px]", full ? "text-[#b5473f]" : "text-ink-muted")}>
-            {usedLabel} today{full ? " · reached" : ""}
+            今日 {usedLabel}{full ? " · 已达上限" : ""}
           </span>
         </div>
       </div>
@@ -246,8 +246,8 @@ function DangerZone({ workspaceId, name }: { workspaceId: string; name: string }
   const remove = () =>
     startTransition(async () => {
       const res = await deleteWorkspace(workspaceId, typed);
-      if (!res.ok) return void toast.error("Couldn't delete", { description: res.error });
-      toast.success(`Deleted ${name}`);
+      if (!res.ok) return void toast.error("删除失败", { description: res.error });
+      toast.success(`${name} 已删除`);
       // /workspace picks another workspace (or the setup page).
       router.replace("/workspace");
     });
@@ -256,12 +256,12 @@ function DangerZone({ workspaceId, name }: { workspaceId: string; name: string }
     <section className="flex flex-col gap-2 rounded-[12px] border-2 border-[#dd6d62]/60 p-3">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h4 className="text-[14px] font-bold">Delete workspace</h4>
-          <p className="text-[12.5px] text-ink/75">Removes its bots, tasks, chats, routines and connections. This can&apos;t be undone.</p>
+          <h4 className="text-[14px] font-bold">删除工作空间</h4>
+          <p className="text-[12.5px] text-ink/75">会删除其中的 Bot、任务、聊天、例行任务和连接，且无法恢复。</p>
         </div>
         {!open ? (
           <button type="button" onClick={() => setOpen(true)} className="fn-pill shrink-0 px-3 text-[#b5473f]">
-            <Trash2 className="size-3.5" /> Delete…
+            <Trash2 className="size-3.5" /> 删除…
           </button>
         ) : null}
       </div>
@@ -270,13 +270,13 @@ function DangerZone({ workspaceId, name }: { workspaceId: string; name: string }
           <Input
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            placeholder={`Type "${name}" to confirm`}
-            aria-label="Workspace name to confirm"
+            placeholder={`输入“${name}”以确认`}
+            aria-label="输入工作空间名称确认"
             className={cn(inputClass, "max-w-[280px] flex-1")}
             autoFocus
           />
           <button type="button" onClick={remove} disabled={pending || typed.trim() !== name} className="fn-pill border-[#b5473f] bg-[#dd6d62] px-3 text-white disabled:opacity-50">
-            {pending ? <Loader2 className="size-3.5 animate-spin" /> : null} Delete forever
+            {pending ? <Loader2 className="size-3.5 animate-spin" /> : null} 永久删除
           </button>
           <button
             type="button"
@@ -286,7 +286,7 @@ function DangerZone({ workspaceId, name }: { workspaceId: string; name: string }
             }}
             className="fn-pill px-3"
           >
-            Keep
+            保留
           </button>
         </div>
       ) : null}

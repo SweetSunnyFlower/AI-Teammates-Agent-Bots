@@ -10,11 +10,11 @@ import type { Routine, TaskStatus } from "@/lib/office/types";
 import { cn } from "@/lib/utils";
 
 const LAST_RUN: Record<TaskStatus, string> = {
-  backlog: "starting",
-  doing: "running now",
-  waiting_on_me: "waiting on you",
-  done: "done",
-  failed: "failed",
+  backlog: "正在启动",
+  doing: "正在运行",
+  waiting_on_me: "等待你处理",
+  done: "已完成",
+  failed: "失败",
 };
 
 /** One routine: name, bot and schedule (click to edit), next run, last run, and an on/off switch. */
@@ -38,7 +38,7 @@ export function RoutineItem({ routine, showBot = true, className }: { routine: R
       const res = await setRoutineEnabled(routine.id, checked);
       if (!res.ok) {
         setOn(!checked);
-        toast.error(`Couldn't turn ${checked ? "on" : "off"} ${routine.name}`, { description: res.error });
+        toast.error(`无法${checked ? "启用" : "停用"} ${routine.name}`, { description: res.error });
       }
       void refreshOffice();
     });
@@ -50,7 +50,7 @@ export function RoutineItem({ routine, showBot = true, className }: { routine: R
         type="button"
         disabled={!canEdit}
         onClick={() => openEditor({ type: "routine", routineId: routine.id })}
-        title={canEdit ? "Edit routine" : undefined}
+        title={canEdit ? "编辑例行任务" : undefined}
         className="min-w-0 flex-1 rounded-[8px] text-left enabled:hover:bg-panel-sunken"
       >
         <span className="block truncate text-[14px] font-bold text-ink">{routine.name}</span>
@@ -60,21 +60,21 @@ export function RoutineItem({ routine, showBot = true, className }: { routine: R
         </span>
         {routine.lastRun && (
           <span className={cn("block truncate font-mono text-[11px]", routine.lastRun.status === "failed" ? "text-[#b5473f]" : "text-ink-muted")}>
-            last run: {LAST_RUN[routine.lastRun.status]}
-            {routine.lastRun.status === "done" || routine.lastRun.status === "failed" ? ` · ${routine.lastRun.ago} ago` : ""}
+            上次运行：{LAST_RUN[routine.lastRun.status]}
+            {routine.lastRun.status === "done" || routine.lastRun.status === "failed" ? ` · ${routine.lastRun.ago}前` : ""}
           </span>
         )}
       </button>
       <span className="flex shrink-0 flex-col items-end gap-1.5">
         <Badge variant="outline" className="border-ink/40 bg-chip-sky font-mono text-[11px] text-ink">
-          {on ? (routine.enabled ? routine.nextRunIn : "scheduling…") : "paused"}
+          {on ? (routine.enabled ? routine.nextRunIn : "正在安排…") : "已暂停"}
         </Badge>
         <Switch
           size="sm"
           checked={on}
           disabled={pending}
           onCheckedChange={toggle}
-          aria-label={`${on ? "Turn off" : "Turn on"} ${routine.name}`}
+          aria-label={`${on ? "停用" : "启用"} ${routine.name}`}
           className="data-checked:bg-status-working"
         />
       </span>

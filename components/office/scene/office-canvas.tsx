@@ -90,7 +90,7 @@ export default function OfficeCanvas() {
             dpr={[1, 1.5]}
             gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
             className="absolute! inset-0"
-            aria-label="3D office building"
+            aria-label="3D 办公室建筑"
             // Ready once the first frame is on screen.
             onCreated={() => window.requestAnimationFrame(() => window.requestAnimationFrame(() => setStatus("ready")))}
           >
@@ -139,18 +139,18 @@ function CanvasStatus({ status, onRetry }: { status: "loading" | "rebuilding" | 
     <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
       {status === "failed" ? (
         <div role="alert" className="fn-panel pointer-events-auto flex max-w-75 flex-col items-center gap-2 px-5 py-4 text-center">
-          <p className="text-[15px] font-bold text-ink">The 3D view stopped</p>
+          <p className="text-[15px] font-bold text-ink">3D 视图已停止</p>
           <p className="text-[13px] leading-snug text-ink/75">
-            Your browser dropped the 3D graphics (this can happen after switching apps or sleep). Your bots keep working.
+            浏览器暂时丢失了 3D 图形上下文，切换应用或电脑休眠后可能会发生。Bot 仍会继续工作。
           </p>
           <button type="button" onClick={onRetry} className="fn-sticker mt-1 h-9 gap-1.5 px-3 text-[13.5px]">
-            <RotateCw className="size-3.5" /> Reload 3D
+            <RotateCw className="size-3.5" /> 重新加载 3D
           </button>
         </div>
       ) : (
         <p role="status" className="fn-pill flex items-center gap-2 bg-panel/90 px-3 py-1.5 font-mono text-[12.5px] text-ink">
           <Loader2 className="size-3.5 animate-spin" />
-          {status === "loading" ? "building the office…" : "rebuilding the office…"}
+          {status === "loading" ? "正在搭建办公室…" : "正在重建办公室…"}
         </p>
       )}
     </div>

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function errorDetail(error: unknown) {
   if (process.env.NODE_ENV === "production") {
     const digest = error && typeof error === "object" && "digest" in error ? String((error as { digest?: unknown }).digest ?? "") : "";
-    return digest ? `ref ${digest}` : null;
+    return digest ? `错误编号 ${digest}` : null;
   }
   return error instanceof Error ? error.message : String(error);
 }
@@ -42,17 +42,17 @@ export function ErrorCard({
       )}
     >
       <p className={cn("font-extrabold", compact ? "text-[15px]" : "text-[20px]")}>{title}</p>
-      <p className="text-[13px] text-ink/75">{body ?? "Something went wrong here. Try again — if it keeps happening, reload the page."}</p>
+      <p className="text-[13px] text-ink/75">{body ?? "这里出了点问题，请重试；如果一直失败，请刷新页面。"}</p>
       {detail ? <p className="truncate font-mono text-[11.5px] text-ink-muted">{detail}</p> : null}
       <div className="mt-1 flex flex-wrap gap-2">
         {onRetry ? (
           <button type="button" onClick={onRetry} className="fn-pill border-ink bg-ink px-3 text-panel hover:bg-ink/85">
-            <RotateCcw className="size-3.5" /> Try again
+            <RotateCcw className="size-3.5" /> 重试
           </button>
         ) : null}
         {homeHref ? (
           <Link href={homeHref} className="fn-pill px-3">
-            Back to your office
+            返回办公室
           </Link>
         ) : null}
       </div>

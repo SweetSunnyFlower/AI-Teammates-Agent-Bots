@@ -45,7 +45,7 @@ export function OfficeStage() {
   return (
     <div className="relative h-full min-h-[420px] w-full overflow-hidden">
       {webgl === false ? (
-        <StageMessage text="3D isn't available in this browser — the panels show everything the office does." />
+        <StageMessage text="当前浏览器无法显示 3D 场景，左右面板仍会展示办公室的全部动态。" />
       ) : webgl ? (
         <>
           <OfficeCanvas />
@@ -72,14 +72,14 @@ function ElevatorEdges() {
       {above > 0 && (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center lg:top-[84px]">
           <button type="button" className={chip} onClick={() => moveElevator(1)}>
-            <ChevronUp className="size-4" strokeWidth={3} /> {above} more floor{above === 1 ? "" : "s"} above
+            <ChevronUp className="size-4" strokeWidth={3} /> 上方还有 {above} 层
           </button>
         </div>
       )}
       {below > 0 && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[140px] z-10 flex justify-center">
           <button type="button" className={chip} onClick={() => moveElevator(-1)}>
-            <ChevronDown className="size-4" strokeWidth={3} /> {below} more floor{below === 1 ? "" : "s"} below
+            <ChevronDown className="size-4" strokeWidth={3} /> 下方还有 {below} 层
           </button>
         </div>
       )}
@@ -93,14 +93,14 @@ function ElevatorButtons() {
   const lowest = elevator + 1;
   const highest = Math.min(elevator + VISIBLE_FLOORS, floors.length);
   return (
-    <span className="flex items-center gap-1" role="group" aria-label="Elevator">
-      <button type="button" className="fn-pill size-[30px] justify-center px-0" onClick={() => moveElevator(-1)} disabled={elevator === 0} aria-label="Ride down one floor">
+    <span className="flex items-center gap-1" role="group" aria-label="楼层电梯">
+      <button type="button" className="fn-pill size-[30px] justify-center px-0" onClick={() => moveElevator(-1)} disabled={elevator === 0} aria-label="向下一层">
         <ChevronDown className="size-4" strokeWidth={2.5} />
       </button>
       <span className="fn-pill pointer-events-none min-w-[74px] justify-center" aria-live="polite">
         {lowest}F–{highest}F
       </span>
-      <button type="button" className="fn-pill size-[30px] justify-center px-0" onClick={() => moveElevator(1)} disabled={elevator >= maxElevator} aria-label="Ride up one floor">
+      <button type="button" className="fn-pill size-[30px] justify-center px-0" onClick={() => moveElevator(1)} disabled={elevator >= maxElevator} aria-label="向上一层">
         <ChevronUp className="size-4" strokeWidth={2.5} />
       </button>
     </span>
@@ -111,14 +111,14 @@ function ElevatorButtons() {
 function StageLoading() {
   return (
     <div className="absolute inset-0 grid place-items-center" aria-busy="true">
-      <LoadingLabel>Setting up the office…</LoadingLabel>
+      <LoadingLabel>正在布置办公室…</LoadingLabel>
       <div className="flex flex-col items-center gap-3">
         <div className="flex flex-col items-center gap-1.5" aria-hidden>
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-12 w-[220px] rounded-[10px] bg-panel/45" style={{ animationDelay: `${i * 150}ms` }} />
           ))}
         </div>
-        <p className="rounded-full bg-panel/80 px-3 py-1 font-mono text-[12.5px] text-ink">setting up the office…</p>
+        <p className="rounded-full bg-panel/80 px-3 py-1 font-mono text-[12.5px] text-ink">正在布置办公室…</p>
       </div>
     </div>
   );
@@ -144,33 +144,33 @@ function ViewControls() {
           className="fn-pill"
           data-active={elevator === 0 && focusedFloorId === null && !touring}
           onClick={goLobby}
-          title="Back to the ground floor and the starting angle"
+          title="回到大厅和初始视角"
         >
-          lobby
+          大厅
         </button>
         <button type="button" className="fn-pill" data-active={touring} onClick={toggleTour} aria-pressed={touring}>
-          tour
+          巡览
         </button>
         <button type="button" className="fn-pill" data-active={cleanView} onClick={toggleCleanView} aria-pressed={cleanView}>
-          clean view
+          简洁视图
         </button>
         <Tooltip>
-          <TooltipTrigger className="fn-pill size-[30px] justify-center px-0" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">
+          <TooltipTrigger className="fn-pill size-[30px] justify-center px-0" onClick={() => zoomBy(1 / 1.25)} aria-label="缩小">
             <Minus className="size-3.5" />
           </TooltipTrigger>
-          <TooltipContent>Zoom out</TooltipContent>
+          <TooltipContent>缩小</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger className="fn-pill size-[30px] justify-center px-0" onClick={() => zoomBy(1.25)} aria-label="Zoom in">
+          <TooltipTrigger className="fn-pill size-[30px] justify-center px-0" onClick={() => zoomBy(1.25)} aria-label="放大">
             <Plus className="size-3.5" />
           </TooltipTrigger>
-          <TooltipContent>Zoom in</TooltipContent>
+          <TooltipContent>放大</TooltipContent>
         </Tooltip>
       </div>
       <p className="rounded-full bg-panel/80 px-2.5 py-0.5 font-mono text-[11.5px] text-ink">
         {maxElevator > 0
-          ? "click ▲▼ to ride · scroll to zoom · drag to rotate · click a bot"
-          : "drag to rotate · right-drag to pan · scroll to zoom · click a bot"}
+          ? "点击 ▲▼ 切换楼层 · 滚轮缩放 · 拖动旋转 · 点击 Bot"
+          : "拖动旋转 · 右键拖动平移 · 滚轮缩放 · 点击 Bot"}
       </p>
     </div>
   );

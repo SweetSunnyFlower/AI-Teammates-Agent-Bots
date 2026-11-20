@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { OfficeScreen, OfficeScreenSkeleton } from "@/components/office/office-screen";
 import { loadOffice } from "@/lib/office/load";
 
-export const metadata: Metadata = { title: "Office · Dotty" };
+export const metadata: Metadata = { title: "办公室 · Dotty" };
 
 // `params` is request-time data under Cache Components, so it is read inside <Suspense>.
 export default function WorkspacePage({ params }: PageProps<"/workspace/[workspaceId]">) {

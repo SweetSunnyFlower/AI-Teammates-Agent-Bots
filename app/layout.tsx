@@ -21,14 +21,14 @@ const courierPrime = Courier_Prime({
 });
 
 export const metadata: Metadata = {
-  title: "Dotty",
-  description: "Run a team of AI bots from a tiny 3D office.",
+  title: "Dotty — 3D 办公室里的 AI 团队",
+  description: "在一个迷你 3D 办公室里运行你的 AI Bot 团队。",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="zh-CN"
       suppressHydrationWarning
       className={cn("h-full antialiased font-sans", nunitoSans.variable, courierPrime.variable)}
     >

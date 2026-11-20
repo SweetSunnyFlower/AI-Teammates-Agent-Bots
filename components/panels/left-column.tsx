@@ -67,7 +67,7 @@ function FloorsPanel(accordion: AccordionProps) {
       const res = await reorderDepartments(snapshot.workspace.id, bottomUp);
       if (!res.ok) {
         setError(res.error);
-        toast.error("Couldn't reorder floors", { description: res.error });
+        toast.error("无法调整楼层顺序", { description: res.error });
       }
       void refreshOffice();
       setOrder(null);
@@ -77,17 +77,17 @@ function FloorsPanel(accordion: AccordionProps) {
   return (
     <Panel
       {...accordion}
-      title="floors"
+      title="楼层"
       dotColor="#8e7cc3"
       action={
         canEdit ? (
           <button type="button" className="fn-pill" onClick={() => openEditor({ type: "department" })} disabled={floors.length >= 20}>
-            <Plus className="size-3.5" /> floor
+            <Plus className="size-3.5" /> 楼层
           </button>
         ) : undefined
       }
     >
-      {shown.length === 0 && <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">no floors yet — add one to give bots a place to work.</p>}
+      {shown.length === 0 && <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">还没有楼层，先添加一层给 Bot 办公。</p>}
       <ul className={cn("flex flex-col gap-0.5", pending && "opacity-70")}>
         {shown.map((dept) => {
           const bots = botsByFloor.get(dept.id) ?? [];
@@ -100,7 +100,7 @@ function FloorsPanel(accordion: AccordionProps) {
                 type="button"
                 onClick={() => focusFloor(active ? null : dept.id)}
                 aria-pressed={active}
-                title="Ride the elevator to this floor"
+                title="前往这个楼层"
                 className={cn(
                   "flex w-full items-center gap-3 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-panel-sunken",
                   active && "bg-panel-sunken",
@@ -118,7 +118,7 @@ function FloorsPanel(accordion: AccordionProps) {
                     {bots.length ? (
                       bots.map((b) => <StatusDot key={b.id} color={STATUS_META[b.status].color} className="size-2" />)
                     ) : (
-                      <span className="font-mono text-[11px] leading-none text-ink-muted">no bots yet</span>
+                      <span className="font-mono text-[11px] leading-none text-ink-muted">暂无 Bot</span>
                     )}
                   </span>
                 </span>
@@ -130,18 +130,18 @@ function FloorsPanel(accordion: AccordionProps) {
                 <span className="absolute top-1/2 right-1.5 flex -translate-y-1/2 gap-0.5 opacity-0 transition-opacity group-hover/floor:opacity-100 group-focus-within/floor:opacity-100">
                   {dept.kind !== "head" && (
                     <>
-                      <IconButton label={`Move ${dept.name} up`} disabled={pending || mi <= 0} onClick={() => move(dept.id, 1)}>
+                      <IconButton label={`将 ${dept.name} 上移`} disabled={pending || mi <= 0} onClick={() => move(dept.id, 1)}>
                         <ArrowUp className="size-3.5" />
                       </IconButton>
-                      <IconButton label={`Move ${dept.name} down`} disabled={pending || mi === movable.length - 1} onClick={() => move(dept.id, -1)}>
+                      <IconButton label={`将 ${dept.name} 下移`} disabled={pending || mi === movable.length - 1} onClick={() => move(dept.id, -1)}>
                         <ArrowDown className="size-3.5" />
                       </IconButton>
                     </>
                   )}
-                  <IconButton label={`Add a bot to ${dept.name}`} onClick={() => openEditor({ type: "bot", departmentId: dept.id })}>
+                  <IconButton label={`向 ${dept.name} 添加 Bot`} onClick={() => openEditor({ type: "bot", departmentId: dept.id })}>
                     <UserPlus className="size-3.5" />
                   </IconButton>
-                  <IconButton label={`Edit ${dept.name}`} onClick={() => openEditor({ type: "department", departmentId: dept.id })}>
+                  <IconButton label={`编辑 ${dept.name}`} onClick={() => openEditor({ type: "department", departmentId: dept.id })}>
                     <Pencil className="size-3.5" />
                   </IconButton>
                 </span>
@@ -174,9 +174,9 @@ function WaitingPanel(accordion: AccordionProps) {
   const { snapshot, botById } = useOffice();
   const items = snapshot.inbox;
   return (
-    <Panel {...accordion} title="waiting on me" dotColor={STATUS_META.waiting.color} count={items.length} revealKey="waiting">
+    <Panel {...accordion} title="待我处理" dotColor={STATUS_META.waiting.color} count={items.length} revealKey="waiting">
       {items.length === 0 ? (
-        <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">nothing needs you right now.</p>
+        <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">目前没有需要你处理的事项。</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => {
@@ -197,9 +197,9 @@ function WaitingPanel(accordion: AccordionProps) {
 function FinishedPanel(accordion: AccordionProps) {
   const { snapshot, botById, openReply } = useOffice();
   return (
-    <Panel {...accordion} title="finished" dotColor={STATUS_META.working.color} count={snapshot.finished.length}>
+    <Panel {...accordion} title="已完成" dotColor={STATUS_META.working.color} count={snapshot.finished.length}>
       {snapshot.finished.length === 0 && (
-        <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">finished work shows up here.</p>
+        <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">完成的工作会显示在这里。</p>
       )}
       <ul className="flex flex-col">
         {snapshot.finished.map((f) => {
@@ -210,7 +210,7 @@ function FinishedPanel(accordion: AccordionProps) {
               <button
                 type="button"
                 onClick={() => openReply(bot.id, f.id)}
-                title="Read the report"
+                title="查看报告"
                 className="flex w-full gap-2.5 rounded-[10px] px-1.5 py-1.5 text-left hover:bg-panel-sunken"
               >
                 <BotAvatar bot={{ ...bot, status: "working" }} size={26} className="mt-0.5 shrink-0" />
@@ -235,20 +235,20 @@ function RoutinesPanel(accordion: AccordionProps) {
   return (
     <Panel
       {...accordion}
-      title="routines"
+      title="例行任务"
       dotColor="#5c8fd6"
       count={snapshot.routines.length}
       revealKey="routines"
       action={
         canEdit && snapshot.bots.length > 0 ? (
           <button type="button" className="fn-pill" onClick={() => openEditor({ type: "routine" })} disabled={snapshot.routines.length >= 50}>
-            <Plus className="size-3.5" /> routine
+            <Plus className="size-3.5" /> 例行任务
           </button>
         ) : undefined
       }
     >
       {snapshot.routines.length === 0 && (
-        <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">no routines yet — bots only run when asked.</p>
+        <p className="px-1 py-2 font-mono text-[12.5px] text-ink-muted">还没有例行任务，Bot 只会在收到任务时运行。</p>
       )}
       <ul className="flex flex-col gap-2">
         {snapshot.routines.map((r) => (

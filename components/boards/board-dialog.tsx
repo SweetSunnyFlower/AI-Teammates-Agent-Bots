@@ -45,20 +45,20 @@ export function BoardDialog() {
   return (
     <Activity mode={open ? "visible" : "hidden"} name="board">
     <section
-      aria-label="Boards"
+      aria-label="任务看板"
       className="animate-in fade-in slide-in-from-top-2 fixed inset-x-3 top-[76px] bottom-3 z-30 flex flex-col gap-3 rounded-[18px] border-2 border-ink bg-panel/95 p-3 shadow-[0_5px_0_0_var(--lip)] backdrop-blur-sm duration-200 lg:inset-x-4 lg:top-[80px] lg:bottom-4 lg:p-4"
     >
       <header className="flex items-center gap-3 px-1">
         <div className="min-w-0">
-          <h2 className="text-[22px] leading-none font-extrabold text-ink">Boards</h2>
+          <h2 className="text-[22px] leading-none font-extrabold text-ink">任务看板</h2>
           <p className="mt-1 font-mono text-[12.5px] text-ink-muted">
             {total === 0
-              ? "no tasks yet — ask the Head (the box under the office) and its plan shows up here"
-              : `${total} task${total === 1 ? "" : "s"} across all floors · drag a card to move it · click to open`}
+              ? "还没有任务。在办公室底部给总控 Bot 分配工作，它规划的任务会显示在这里。"
+              : `共 ${total} 个任务 · 拖动卡片改变状态 · 点击卡片查看详情`}
           </p>
         </div>
-        <button type="button" onClick={closeBoard} className="fn-sticker ml-auto h-10 px-3 text-[14px]" aria-label="Close board">
-          <X className="size-4" /> Close
+        <button type="button" onClick={closeBoard} className="fn-sticker ml-auto h-10 px-3 text-[14px]" aria-label="关闭任务看板">
+          <X className="size-4" /> 关闭
         </button>
       </header>
 

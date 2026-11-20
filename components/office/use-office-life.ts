@@ -24,15 +24,15 @@ export interface BotBubble {
 type Place = { floorId: string; x: number; z: number; shown: boolean };
 
 const SMALL_TALK: Array<[string, string]> = [
-  ["Coffee? ☕", "Always 😄"],
-  ["How's it going?", "Busy day, good day 💪"],
-  ["Nice work earlier!", "Thanks! 🙌"],
-  ["Lunch later?", "Count me in 🍜"],
-  ["Did you see the board?", "Looking good 👀"],
-  ["Stretch break?", "Good idea 🙆"],
+  ["喝咖啡吗？☕", "随时 😄"],
+  ["最近怎么样？", "忙但很充实 💪"],
+  ["刚才做得不错！", "谢谢！🙌"],
+  ["晚点一起吃午饭？", "算我一个 🍜"],
+  ["你看任务看板了吗？", "看起来不错 👀"],
+  ["休息一下？", "好主意 🙆"],
 ];
-const THANKS = ["Nice work! 🙌", "Thanks! 👏", "Great job ✨", "Perfect, thanks!"];
-const WANDER_LINES = ["☕", "🌿", "Stretching…", "🎵", "Quick break"];
+const THANKS = ["做得不错！🙌", "谢谢！👏", "干得漂亮 ✨", "太好了，谢谢！"];
+const WANDER_LINES = ["☕", "🌿", "伸个懒腰…", "🎵", "休息一下"];
 
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -153,34 +153,34 @@ export function useOfficeLife({
       const boss = task?.delegatedByBotId && task.delegatedByBotId !== bot.id ? snapshot.bots.find((b) => b.id === task.delegatedByBotId) : undefined;
 
       if (a.type === "run_started") {
-        if (boss) visit(boss.id, bot.id, `${bot.name}, can you take “${title}”?`, "On it 👍", ["info", "start"]);
+        if (boss) visit(boss.id, bot.id, `${bot.name}，你能接手“${title}”吗？`, "交给我 👍", ["info", "start"]);
         else {
           if (isAway(bot.id)) walkHome(bot.id, 500);
-          say(bot.id, `On it — ${title}`, "start");
+          say(bot.id, `收到，开始处理：${title}`, "start");
         }
       } else if (a.type === "run_finished") {
-        toast.success(`${bot.name} finished`, {
+        toast.success(`${bot.name} 已完成`, {
           description: title,
-          action: a.taskId ? { label: "Read reply", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
+          action: a.taskId ? { label: "查看回复", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
         });
-        if (boss) visit(bot.id, boss.id, `Done ✓ ${title}`, pick(THANKS), ["done", "info"]);
-        else say(bot.id, `Done ✓ ${title}`, "done");
+        if (boss) visit(bot.id, boss.id, `已完成 ✓ ${title}`, pick(THANKS), ["done", "info"]);
+        else say(bot.id, `已完成 ✓ ${title}`, "done");
       } else if (a.type === "run_failed") {
-        say(bot.id, `Stuck — ${title}`, "fail");
-        toast.error(`${bot.name} couldn't finish`, {
+        say(bot.id, `卡住了：${title}`, "fail");
+        toast.error(`${bot.name} 未能完成`, {
           description: title,
-          action: a.taskId ? { label: "See why", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
+          action: a.taskId ? { label: "查看原因", onClick: () => openReply(bot.id, a.taskId!) } : undefined,
         });
       } else if (a.type === "inbox_requested") {
         const what = a.text.replace(/^(Waiting for your OK|Has a question): /, "");
         if (isAway(bot.id)) walkHome(bot.id, 500);
-        say(bot.id, a.text.startsWith("Has a question") ? "Question for you 🙋" : `Need your OK 🙋 ${what}`, "ask");
-        toast(`${bot.name} needs you`, {
+        say(bot.id, a.text.startsWith("Has a question") ? "有问题想问你 🙋" : `需要你确认 🙋 ${what}`, "ask");
+        toast(`${bot.name} 需要你处理`, {
           description: what,
           duration: 10000,
-          action: { label: "Review", onClick: () => revealSection("waiting") },
+          action: { label: "查看", onClick: () => revealSection("waiting") },
         });
-      } else if (a.type === "inbox_approved") say(bot.id, "Thanks! On it 🚀", "start");
+      } else if (a.type === "inbox_approved") say(bot.id, "谢谢，马上处理！🚀", "start");
       else if (a.type === "tool" && a.text.startsWith("used ")) say(bot.id, a.text.replace(/^used /, "🛠 "), "info", 3500);
     }
   }, [snapshot.activity, snapshot.bots, snapshot.tasks, openReply, revealSection, say, visit]);

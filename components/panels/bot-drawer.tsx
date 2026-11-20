@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Pencil, Plus, X } from "lucide-react";
 import { floorColors, floorTag } from "@/lib/office/floors";
-import { STATUS_META } from "@/lib/office/status";
+import { localizeStatusDetail, STATUS_META } from "@/lib/office/status";
 import { GATED_TOOLS } from "@/lib/office/tools";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { useOffice, type DrawerTab } from "@/components/office/office-provider";
@@ -27,6 +27,12 @@ import { InboxCard } from "@/components/inbox/inbox-card";
 import { RoutineItem } from "@/components/routines/routine-item";
 
 const TABS: DrawerTab[] = ["chat", "activity", "routines", "setup"];
+const TAB_LABELS: Record<DrawerTab, string> = {
+  chat: "聊天",
+  activity: "动态",
+  routines: "例行任务",
+  setup: "设置",
+};
 
 /** Bot detail drawer; replaces the Whole office column while a bot is selected. */
 export function BotDrawer({ botId }: { botId: string }) {
@@ -35,18 +41,19 @@ export function BotDrawer({ botId }: { botId: string }) {
   if (!bot) return null;
   const dept = departmentById.get(bot.departmentId);
   const meta = STATUS_META[bot.status];
+  const statusDetail = localizeStatusDetail(bot.statusDetail, bot.status);
   const chip = dept ? floorColors([...departmentById.values()], dept.id).chip : "#eee";
 
   return (
-    <section className="fn-panel flex min-h-0 flex-1 flex-col" aria-label={`${bot.name} details`}>
+    <section className="fn-panel flex min-h-0 flex-1 flex-col" aria-label={`${bot.name} 详情`}>
       <div className="flex items-center justify-between px-3 pt-3">
         <button type="button" onClick={() => selectBot(null)} className="fn-pill px-2.5 py-1 text-[12px]">
-          <ArrowLeft className="size-3.5" /> whole office
+          <ArrowLeft className="size-3.5" /> 整个办公室
         </button>
         <button
           type="button"
           onClick={() => selectBot(null)}
-          aria-label="Close"
+          aria-label="关闭"
           className="grid size-7 place-items-center rounded-md text-ink-muted hover:bg-panel-sunken hover:text-ink"
         >
           <X className="size-4" />
@@ -59,20 +66,20 @@ export function BotDrawer({ botId }: { botId: string }) {
         </span>
         <div className="min-w-0">
           <h2 className="truncate text-[22px] leading-tight font-extrabold text-ink">{bot.name}</h2>
-          {dept && <p className="font-mono text-[12px] text-ink-muted">{floorTag(dept)} · {bot.role}</p>}
-          <BotStatus status={bot.status} label={bot.status === "waiting" ? "waiting on you" : meta.label} className="mt-1.5" />
+          {dept && <p className="font-mono text-[12px] text-ink-muted">{floorTag(dept)} · {bot.role === "head" ? "总控 Bot" : bot.role === "lead" ? "主管 Bot" : "执行 Bot"}</p>}
+          <BotStatus status={bot.status} label={bot.status === "waiting" ? "等待你处理" : meta.label} className="mt-1.5" />
         </div>
       </header>
       {/* Only when it says more than the status pill already does (e.g. what it's working on). */}
-      {bot.statusDetail && !["resting", "working", "waiting", "error"].includes(bot.statusDetail.trim().toLowerCase()) && (
-        <p className="mx-4 rounded-[10px] bg-panel-sunken px-3 py-2 text-[13px] leading-snug text-ink/85">{bot.statusDetail}</p>
+      {statusDetail && statusDetail !== meta.label && (
+        <p className="mx-4 rounded-[10px] bg-panel-sunken px-3 py-2 text-[13px] leading-snug text-ink/85">{statusDetail}</p>
       )}
 
       <Tabs value={drawerTab} onValueChange={(v) => setDrawerTab(v as DrawerTab)} className="mt-3 min-h-0 flex-1 gap-0">
         <TabsList variant="line" className="w-full justify-start border-b border-hairline px-3">
           {TABS.map((t) => (
             <TabsTrigger key={t} value={t} className="flex-none px-2.5 font-mono text-[13px] capitalize">
-              {t}
+              {TAB_LABELS[t]}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -94,7 +101,7 @@ export function BotDrawer({ botId }: { botId: string }) {
           <ScrollArea className="h-full">
             <ul className="flex flex-col gap-3 p-4">
               {snapshot.routines.filter((r) => r.botId === bot.id).length === 0 && (
-                <li className="font-mono text-[12.5px] text-ink-muted">no routines yet — {bot.name} only works when asked.</li>
+                <li className="font-mono text-[12.5px] text-ink-muted">还没有例行任务，{bot.name} 只会在收到任务时工作。</li>
               )}
               {snapshot.routines
                 .filter((r) => r.botId === bot.id)
@@ -106,7 +113,7 @@ export function BotDrawer({ botId }: { botId: string }) {
               {canEdit && (
                 <li>
                   <button type="button" className="fn-pill" onClick={() => openEditor({ type: "routine", botId: bot.id })}>
-                    <Plus className="size-3.5" /> Add a routine for {bot.name}
+                    <Plus className="size-3.5" /> 为 {bot.name} 添加例行任务
                   </button>
                 </li>
               )}
@@ -119,16 +126,16 @@ export function BotDrawer({ botId }: { botId: string }) {
             <div className="flex flex-col gap-3 p-4 text-[13px]">
               {canEdit && (
                 <button type="button" className="fn-sticker h-10 justify-center" onClick={() => openEditor({ type: "bot", botId: bot.id })}>
-                  <Pencil className="size-4" /> Edit bot
+                  <Pencil className="size-4" /> 编辑 Bot
                 </button>
               )}
               <div>
-                <p className="fn-label mb-1">what this bot does</p>
+                <p className="fn-label mb-1">这个 Bot 负责什么</p>
                 <p className="leading-snug text-ink">{bot.instructions}</p>
               </div>
               <Separator className="bg-hairline" />
               <div>
-                <p className="fn-label mb-1.5">tools</p>
+                <p className="fn-label mb-1.5">工具</p>
                 <div className="flex flex-wrap gap-1.5">
                   {bot.tools.map((t) => (
                     <Badge
@@ -137,7 +144,7 @@ export function BotDrawer({ botId }: { botId: string }) {
                       className={GATED_TOOLS.has(t) ? "border-status-waiting/70 bg-honey font-mono text-[11px] text-ink" : "border-ink/30 font-mono text-[11px] text-ink"}
                     >
                       {t}
-                      {GATED_TOOLS.has(t) && " · needs approval"}
+                      {GATED_TOOLS.has(t) && " · 需要审批"}
                     </Badge>
                   ))}
                 </div>
@@ -173,11 +180,11 @@ function BotTimeline({ botId }: { botId: string }) {
 
   const items = [
     ...entries.map((a) => ({ id: a.id, time: a.time, title: a.text, description: undefined as string | undefined })),
-    ...finished.map((f) => ({ id: f.id, time: f.ago, title: "finished", description: f.summary })),
+    ...finished.map((f) => ({ id: f.id, time: f.ago, title: "已完成", description: f.summary })),
   ];
 
   if (items.length === 0) {
-    return <p className="font-mono text-[12.5px] text-ink-muted">no activity yet today.</p>;
+    return <p className="font-mono text-[12.5px] text-ink-muted">今天还没有动态。</p>;
   }
 
   return (

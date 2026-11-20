@@ -23,10 +23,10 @@ import { BotStatusIndicator } from "./bot-status";
 import type { RevealSection } from "./office-provider";
 
 const SUMMARY: Array<[BotStatus, string]> = [
-  ["working", "Working"],
-  ["waiting", "Waiting"],
-  ["error", "Error"],
-  ["resting", "Resting"],
+  ["working", "工作中"],
+  ["waiting", "等待中"],
+  ["error", "出错"],
+  ["resting", "休息中"],
 ];
 
 /**
@@ -83,7 +83,7 @@ export function TopBar({
     <header className={cn("flex flex-wrap items-center gap-3", className)}>
       <WorkspaceSwitcher current={workspace} workspaces={workspaces} />
 
-      <div className="fn-sticker h-12 gap-4 px-4 font-semibold" role="status" aria-label="Bot status counts">
+      <div className="fn-sticker h-12 gap-4 px-4 font-semibold" role="status" aria-label="Bot 状态统计">
         {SUMMARY.map(([s, label]) => (
           <span key={s} className={cn("flex items-center gap-1.5", counts[s] === 0 && "opacity-55")}>
             <BotStatusIndicator status={s} active={counts[s] > 0} className="size-2.5" />
@@ -94,12 +94,12 @@ export function TopBar({
         ))}
       </div>
 
-      <nav className="ml-auto flex flex-wrap items-center gap-2.5" aria-label="Office actions">
+      <nav className="ml-auto flex flex-wrap items-center gap-2.5" aria-label="办公室操作">
         {revealButton(
           "waiting",
           <>
             <Bell className="size-4.5" />
-            Waiting on me
+            待我处理
             {waitingCount > 0 && (
               <span className="grid h-6 min-w-6 place-items-center rounded-full border-2 border-ink bg-[#dd6d62] px-1 text-[12px] text-white">
                 {waitingCount}
@@ -113,54 +113,54 @@ export function TopBar({
           boardButton
         ) : active === "boards" ? (
           <Link href={officeHref} className="fn-sticker">
-            <Building2 className="size-4.5" /> Office
+            <Building2 className="size-4.5" /> 办公室
           </Link>
         ) : (
           <Link href={`${officeHref}?board=1`} className="fn-sticker">
-            <LayoutGrid className="size-4.5" /> Boards
+            <LayoutGrid className="size-4.5" /> 任务看板
           </Link>
         )}
 
         {revealButton(
           "routines",
           <>
-            <Repeat className="size-4.5" /> Routines
+            <Repeat className="size-4.5" /> 例行任务
           </>,
         )}
 
         {onAddBot ? (
           <button type="button" className="fn-sticker bg-[#1d6ff4] text-white" onClick={onAddBot}>
-            <Plus className="size-4.5" strokeWidth={3} /> Bot
+            <Plus className="size-4.5" strokeWidth={3} /> 添加 Bot
           </button>
         ) : workspace.id !== "demo" ? (
           <Link href={`${officeHref}#add-bot`} className="fn-sticker bg-[#1d6ff4] text-white">
-            <Plus className="size-4.5" strokeWidth={3} /> Bot
+            <Plus className="size-4.5" strokeWidth={3} /> 添加 Bot
           </Link>
         ) : (
           <Tooltip>
-            <TooltipTrigger className="fn-sticker bg-[#1d6ff4] text-white opacity-70" aria-label="Add a bot">
-              <Plus className="size-4.5" strokeWidth={3} /> Bot
+            <TooltipTrigger className="fn-sticker bg-[#1d6ff4] text-white opacity-70" aria-label="添加 Bot">
+              <Plus className="size-4.5" strokeWidth={3} /> 添加 Bot
             </TooltipTrigger>
-            <TooltipContent>Sign in to add bots — this is the demo office</TooltipContent>
+            <TooltipContent>登录后才能添加 Bot，这里是演示办公室</TooltipContent>
           </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger
             className="fn-sticker w-11 justify-center bg-[#fede8c] px-0 text-[#2b2620]"
-            aria-label="Settings"
+            aria-label="设置"
             onClick={onOpenSettings}
             disabled={!onOpenSettings}
           >
             <Settings className="size-5" />
           </TooltipTrigger>
-          <TooltipContent>{onOpenSettings ? "Settings & connectors" : "Sign in to change settings"}</TooltipContent>
+          <TooltipContent>{onOpenSettings ? "设置与连接器" : "登录后才能修改设置"}</TooltipContent>
         </Tooltip>
         <ThemeToggle />
         <Tooltip>
-          <TooltipTrigger type="button" onClick={() => void signOut()} className="fn-sticker w-11 justify-center px-0" aria-label="Sign out">
+          <TooltipTrigger type="button" onClick={() => void signOut()} className="fn-sticker w-11 justify-center px-0" aria-label="退出登录">
             <LogOut className="size-5" />
           </TooltipTrigger>
-          <TooltipContent>Sign out</TooltipContent>
+          <TooltipContent>退出登录</TooltipContent>
         </Tooltip>
       </nav>
     </header>
@@ -171,7 +171,7 @@ export function TopBar({
 function WorkspaceSwitcher({ current, workspaces }: { current: Workspace; workspaces: Workspace[] }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="fn-sticker h-12 gap-2.5 pl-1.5 text-[18px]" aria-label={`Workspace: ${current.name}. Switch workspace`}>
+      <DropdownMenuTrigger className="fn-sticker h-12 gap-2.5 pl-1.5 text-[18px]" aria-label={`工作空间：${current.name}。切换工作空间`}>
         <WorkspaceIcon icon={current.icon} />
         <span className="max-w-[220px] truncate">{current.name}</span>
         <ChevronDown className="size-4" />
@@ -182,7 +182,7 @@ function WorkspaceSwitcher({ current, workspaces }: { current: Workspace; worksp
         className="w-[280px] rounded-[14px] border-2 border-ink bg-panel p-1.5 text-ink shadow-[0_4px_0_0_var(--lip)] ring-0"
       >
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="px-2 font-mono text-[12px] text-ink-muted">your workspaces</DropdownMenuLabel>
+          <DropdownMenuLabel className="px-2 font-mono text-[12px] text-ink-muted">你的工作空间</DropdownMenuLabel>
           {workspaces.map((w) => (
             <DropdownMenuItem
               key={w.id}
@@ -200,7 +200,7 @@ function WorkspaceSwitcher({ current, workspaces }: { current: Workspace; worksp
           render={<Link href="/workspace/new" />}
           className="justify-center gap-2 rounded-[10px] border-2 border-ink bg-[#1d6ff4] px-2 py-2 text-[14px] font-bold text-white shadow-[0_2px_0_0_var(--lip)] focus:bg-[#1a62d8] focus:text-white"
         >
-          <Plus className="size-4" strokeWidth={3} /> Create workspace
+          <Plus className="size-4" strokeWidth={3} /> 创建工作空间
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

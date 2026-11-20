@@ -16,7 +16,7 @@ export function useConnectedApps(workspaceId: string, enabled = true) {
     queryFn: async ({ signal }): Promise<ConnectedApps> => {
       const res = await fetch(`/api/office/${workspaceId}/apps`, { cache: "no-store", signal });
       const body = (await res.json().catch(() => null)) as ConnectedApps | null;
-      return body ?? { apps: [], error: "Couldn't load your apps." };
+      return body ?? { apps: [], error: "无法加载应用列表。" };
     },
     enabled,
     staleTime: 60_000,

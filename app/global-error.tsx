@@ -11,7 +11,7 @@ export default function GlobalError({
   retry: () => void;
 }) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body
         style={{
           margin: 0,
@@ -23,7 +23,7 @@ export default function GlobalError({
           color: "#2b2620",
         }}
       >
-        <title>Something went wrong · Dotty</title>
+        <title>出了点问题 · Dotty</title>
         <div
           style={{
             maxWidth: 420,
@@ -36,10 +36,10 @@ export default function GlobalError({
           }}
         >
           <p style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>
-            Dotty couldn&apos;t load
+            Dotty 暂时无法加载
           </p>
           <p style={{ margin: "8px 0 16px", fontSize: 14, opacity: 0.75 }}>
-            Something went wrong on our side. Try again in a moment.
+            服务端出现了问题，请稍后重试。
           </p>
           <button
             type="button"
@@ -55,7 +55,7 @@ export default function GlobalError({
               cursor: "pointer",
             }}
           >
-            Try again
+            重试
           </button>
         </div>
       </body>

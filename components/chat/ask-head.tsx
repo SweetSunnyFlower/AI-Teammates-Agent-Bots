@@ -46,14 +46,14 @@ export function AskHead() {
         }}
         rows={1}
         maxLength={4000}
-        placeholder={`Ask ${head.name} to…`}
-        aria-label={`Ask ${head.name} (Enter to send, Shift+Enter for a new line)`}
+        placeholder={`让 ${head.name} 帮你做…`}
+        aria-label={`向 ${head.name} 提问（Enter 发送，Shift+Enter 换行）`}
         className="field-sizing-content scrollbar-thin max-h-48 whitespace-pre-wrap min-h-[34px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14.5px] leading-5 text-ink outline-none placeholder:text-ink-muted"
       />
       <button
         type="submit"
         disabled={!text.trim()}
-        aria-label="Send to the Head"
+        aria-label="发送给总控 Bot"
         className="grid size-9 shrink-0 place-items-center rounded-full border-2 border-ink bg-[#1d6ff4] text-white disabled:opacity-40"
       >
         <ArrowUp className="size-4" strokeWidth={3} />

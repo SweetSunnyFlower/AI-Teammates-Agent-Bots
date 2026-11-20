@@ -314,17 +314,17 @@ export function OfficeProvider({
           ? {
               ...b,
               status: decision === "approve" ? "working" : "resting",
-              statusDetail: decision === "approve" ? `Approved: ${item.title}` : "Resting",
-              lastActive: "now",
+              statusDetail: decision === "approve" ? `已批准：${item.title}` : "休息中",
+              lastActive: "刚刚",
             }
           : b,
       ),
       activity: [
         {
           id: `local-${item.id}`,
-          time: "now",
+          time: "刚刚",
           botId: item.botId,
-          text: decision === "approve" ? `got your approval for “${item.title}”` : `was told to skip “${item.title}”`,
+          text: decision === "approve" ? `已获得你对“${item.title}”的批准` : `用户跳过“${item.title}”`,
         },
         ...s.activity,
       ],
