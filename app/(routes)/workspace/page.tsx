@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { OfficeScreenSkeleton } from "@/components/office/office-screen";
 import { getCurrentUser, LAST_WORKSPACE_COOKIE, listMyWorkspaces } from "@/lib/office/load";
 import { DEFAULT_WORKSPACE_ID } from "@/lib/office/mock-data";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { hasDatabaseEnv } from "@/lib/db/env";
 
 /**
  * Entry point after sign-in: new users (no workspace yet) go to create one; everyone else
@@ -19,7 +19,7 @@ export default function WorkspaceIndexPage() {
 }
 
 async function PickWorkspace(): Promise<never> {
-  if (!hasSupabaseEnv) redirect(`/workspace/${DEFAULT_WORKSPACE_ID}`);
+  if (!hasDatabaseEnv) redirect(`/workspace/${DEFAULT_WORKSPACE_ID}`);
 
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login?next=/workspace");

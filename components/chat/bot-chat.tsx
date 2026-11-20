@@ -2,14 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Chat, useChat } from "@ai-sdk/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
 import { ArrowUp, ClipboardList, NotebookPen, RotateCcw, Search, Square, SquarePen } from "lucide-react";
 import { describeAppTool, isAppTool } from "@/lib/integrations/tool-labels";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import { loadThread, startNewChat, type ThreadMessage } from "@/app/(routes)/workspace/chat-actions";
-import { subscribeLive } from "@/lib/supabase/realtime";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { InboxCard } from "@/components/inbox/inbox-card";
 import { useOffice } from "@/components/office/office-provider";
@@ -30,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import type { Bot } from "@/lib/office/types";
 import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
+import { mergeThreadMessages } from "@/lib/chat/merge-thread";
 
 /** Words the bot "says" while it works on a reply (shimmering, like Claude's). */
 const THINKING_WORDS = ["Whirring", "Thinking", "Ideating", "Unraveling", "Pondering", "Tinkering", "Noodling", "Percolating", "Scheming", "Brewing"];
@@ -65,7 +65,6 @@ export function BotChat({ bot }: { bot: Bot }) {
   /** The bot whose earlier messages the user chose to see (switching bots or "New chat" hides them again). */
   const [showAllFor, setShowAllFor] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const queryClient = useQueryClient();
 
   // The saved thread, cached: switching tabs or bots and coming back shows it instantly.
   const thread = useQuery({
@@ -92,30 +91,13 @@ export function BotChat({ bot }: { bot: Bot }) {
     if (!thread.data || status === "submitted" || status === "streaming") return;
     if ((seededAt.get(bot.id) ?? -1) >= thread.dataUpdatedAt) return;
     seededAt.set(bot.id, thread.dataUpdatedAt);
-    setMessages(thread.data);
+    setMessages((current) => {
+      const next = mergeThreadMessages(current, thread.data!);
+      return next.length === current.length && next.every((message, index) => message === current[index])
+        ? current
+        : next;
+    });
   }, [thread.data, thread.dataUpdatedAt, status, bot.id, setMessages]);
-
-  // Live thread: run reports (and messages from other tabs) appear without a reload.
-  useEffect(() => {
-    if (!canEdit) return;
-    return subscribeLive(
-      `thread:${bot.id}`,
-      (channel) =>
-        channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `bot_id=eq.${bot.id}` }, (payload) => {
-          const row = payload.new as { id: string; ui_id: string | null; role: ThreadMessage["role"]; kind: string; parts: ThreadMessage["parts"]; created_at: string };
-          const id = row.ui_id ?? row.id;
-          setMessages((current) =>
-            current.some((m) => m.id === id)
-              ? current
-              : [...current, { id, role: row.role, parts: row.kind === "divider" ? [] : row.parts, metadata: { createdAt: row.created_at, divider: row.kind === "divider" || undefined } }],
-          );
-        }),
-      // Reconnected after a drop: fetch anything we missed.
-      (rejoined) => {
-        if (rejoined) void queryClient.invalidateQueries({ queryKey: ["thread", bot.id] });
-      },
-    );
-  }, [bot.id, canEdit, setMessages, queryClient]);
 
   // Like Claude: only the current conversation (below the last "New chat") is on screen, and at
   // most its last VISIBLE_LIMIT messages. Everything older is one click away.
@@ -136,7 +118,10 @@ export function BotChat({ bot }: { bot: Bot }) {
     if (!loaded || !focusMessage || focusMessage.botId !== bot.id) return;
     const index = messages.findLastIndex((m) => m.id.startsWith(focusMessage.prefix));
     if (index === -1) return; // not arrived yet — this runs again when messages update
-    if (index < visibleStart) return void setShowAllFor(bot.id); // in the hidden part: show it, then scroll
+    if (index < visibleStart) {
+      const frame = window.requestAnimationFrame(() => setShowAllFor(bot.id));
+      return () => window.cancelAnimationFrame(frame);
+    }
     const target = messages[index];
     let clear: number | undefined;
     const frame = window.requestAnimationFrame(() => {

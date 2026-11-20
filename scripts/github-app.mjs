@@ -140,8 +140,8 @@ const server = createServer(async (req, res) => {
     console.log(`\n✔ Created the GitHub App "${app.name}" (https://github.com/apps/${app.slug}).`);
     console.log(`  Saved GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_APP_PRIVATE_KEY, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and GITHUB_WEBHOOK_SECRET to ${ENV_FILE}.`);
     console.log(webhookBase ? `  Webhook: ${webhookBase}/api/webhooks/github` : "  No webhook (set CHAT_PUBLIC_URL to your ngrok URL and re-run with --force to add one — optional for now).");
-    console.log("  Next: restart `npm run dev` and `npm run trigger:dev`, then Dotty → Settings → Connectors → GitHub → Connect.");
-    console.log("  Production: run this again with --url=https://your-domain and put those values in Vercel and Trigger.dev.\n");
+    console.log("  Next: restart `npm run dev` and `npm run worker:dev`, then Dotty → Settings → Connectors → GitHub → Connect.");
+    console.log("  Production: run this again with --url=https://your-domain and put those values in .env.local.\n");
   } catch (error) {
     res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" }).end(page("Something went wrong", "See the terminal."));
     console.error(`\n✖ Couldn't finish creating the app: ${error instanceof Error ? error.message : error}\n`);

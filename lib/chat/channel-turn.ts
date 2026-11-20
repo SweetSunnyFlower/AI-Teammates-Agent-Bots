@@ -1,8 +1,8 @@
 import { convertToModelMessages, generateText, isStepCount, validateUIMessages, type UIMessage } from "ai";
-import { gatewayModelFor, hasAiGateway } from "@/lib/ai/models";
+import { deepSeekModelFor, hasDeepSeek } from "@/lib/ai/models";
 import { appToolsFor } from "@/lib/integrations/composio";
 import { startTaskRun } from "@/lib/runs/start";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import { buildChatTools, buildInstructions, loadChatContext } from "./bot-context";
 import { chatSideTools } from "./side-tools";
 import { rateLimit } from "@/lib/ratelimit";
@@ -23,14 +23,14 @@ export interface TurnResult {
 }
 
 export async function runChannelTurn(input: { workspaceId: string; text: string; via: "telegram" | "slack" }): Promise<TurnResult> {
-  if (!hasAiGateway()) return { botName: "Dotty", isHead: true, reply: "Chat needs an AI Gateway key — add AI_GATEWAY_API_KEY to the server's environment." };
+  if (!hasDeepSeek()) return { botName: "Dotty", isHead: true, reply: "Chat needs a DeepSeek key — add DEEPSEEK_API_KEY to the server's environment." };
   const limit = await rateLimit("chat", `ws:${input.workspaceId}`);
   if (!limit.ok) return { botName: "Dotty", isHead: true, reply: `You're sending messages quickly — try again in ${limit.retryAfter}s.` };
   const db = createAdminClient();
 
   const { data: roster } = await db.from("bots").select("id, name, role").eq("workspace_id", input.workspaceId);
   const bots = roster ?? [];
-  const head = bots.find((b) => b.role === "head");
+  const head = bots.find((b: any) => b.role === "head");
   const routed = routeMessage(input.text, bots);
   const botId = routed.botId ?? head?.id;
   if (!botId) return { botName: "Dotty", isHead: true, reply: "This workspace has no bots yet." };
@@ -76,7 +76,7 @@ export async function runChannelTurn(input: { workspaceId: string; text: string;
     ...chatSideTools(chat, appTools, timezone),
   });
 
-  const history = (rows ?? []).reverse().map((r) => ({ id: r.ui_id ?? crypto.randomUUID(), role: r.role, parts: r.parts }) as UIMessage);
+  const history = (rows ?? []).reverse().map((r: any) => ({ id: r.ui_id ?? crypto.randomUUID(), role: r.role, parts: r.parts }) as UIMessage);
   let messages: UIMessage[];
   try {
     messages = await validateUIMessages({ messages: [...history, userMessage], tools });
@@ -97,7 +97,7 @@ export async function runChannelTurn(input: { workspaceId: string; text: string;
   let reply: string;
   try {
     const result = await generateText({
-      model: gatewayModelFor(bot.model),
+      model: deepSeekModelFor(bot.model),
       instructions: [
         buildInstructions(chat, timezone, { mine: appTools.apps, connected: appTools.connected }),
         "",
@@ -143,7 +143,7 @@ export function routeMessage(text: string, bots: Array<{ id: string; name: strin
   const after = trimmed.slice(1).toLowerCase();
   const match = [...bots]
     .sort((a, b) => b.name.length - a.name.length)
-    .find((b) => after.startsWith(b.name.toLowerCase()) && /^[\s,:]|^$/.test(after.slice(b.name.length)));
+    .find((b: any) => after.startsWith(b.name.toLowerCase()) && /^[\s,:]|^$/.test(after.slice(b.name.length)));
   if (!match) return { botId: null, text: trimmed };
   return { botId: match.id, text: trimmed.slice(1 + match.name.length).replace(/^[\s,:]+/, "") };
 }

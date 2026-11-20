@@ -2,7 +2,7 @@ import { readyChatBot, slackAdapter } from "@/lib/chat/bot";
 import { hasSlack } from "@/lib/chat/env";
 import { saveLink } from "@/lib/chat/links";
 import { exchangeSlackCode, verifyInstallState } from "@/lib/chat/slack-oauth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import { limitByIp } from "@/lib/ratelimit";
 
 /**

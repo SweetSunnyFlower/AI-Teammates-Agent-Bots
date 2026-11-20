@@ -1,7 +1,6 @@
-import { tasks } from "@trigger.dev/sdk";
-import type { botRun } from "@/trigger/bot-run";
+import { enqueue, hasQueue } from "@/lib/jobs/queue";
 
-export const hasTrigger = () => Boolean(process.env.TRIGGER_SECRET_KEY);
+export const hasTrigger = () => hasQueue();
 
 /**
  * Start (or restart) the background run for a task. Type-only import of the task keeps the
@@ -13,14 +12,9 @@ export const hasTrigger = () => Boolean(process.env.TRIGGER_SECRET_KEY);
  */
 export async function startTaskRun(task: { id: string; workspaceId: string; assigneeBotId: string }, attempt?: string) {
   if (!hasTrigger()) return null;
-  const handle = await tasks.trigger<typeof botRun>(
-    "bot-run",
-    { taskId: task.id },
-    {
-      concurrencyKey: task.assigneeBotId,
-      idempotencyKey: attempt ? `task-${task.id}-${attempt}` : `task-${task.id}`,
-      tags: [`workspace:${task.workspaceId}`, `task:${task.id}`],
-    },
-  );
-  return handle.id;
+  return enqueue("bot-run", { taskId: task.id }, {
+    concurrencyKey: task.assigneeBotId,
+    idempotencyKey: attempt ? `task-${task.id}-${attempt}` : `task-${task.id}`,
+    tags: [`workspace:${task.workspaceId}`, `task:${task.id}`],
+  });
 }

@@ -1,0 +1,16 @@
+use_default_settings: true
+
+general:
+  instance_name: "Dotty Research"
+  contact_url: "http://localhost:8080/"
+
+server:
+  secret_key: "replace-with-openssl-rand-hex-32"
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json

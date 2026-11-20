@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DbClient } from "@/lib/db/client";
 import { fieldErrors } from "@/lib/office/schemas";
 import { MAX_ROUTINES, routineSchema, type RoutineInput } from "./schema";
 import { nextRunAt } from "./schedule";
@@ -12,7 +12,7 @@ export const nextRunFor = (enabled: boolean, cron: string, timezone: string) =>
  * by approving the Head's proposal (service role; the caller has verified the workspace).
  */
 export async function createRoutine(
-  db: SupabaseClient,
+  db: DbClient,
   workspaceId: string,
   input: RoutineInput,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string; fieldErrors?: Record<string, string> }> {

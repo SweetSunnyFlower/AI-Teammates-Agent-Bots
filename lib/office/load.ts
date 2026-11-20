@@ -1,5 +1,5 @@
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 import { getOfficeSnapshot as getMockSnapshot } from "./mock-data";
 import type { PreviewCall, PrPreview } from "@/lib/approvals/describe";
 import type { AccessPreview } from "@/lib/integrations/app-access";
@@ -32,14 +32,13 @@ export function isWorkspaceId(id: string) {
   return UUID_RE.test(id);
 }
 
-/** Signed-in user's id + a short handle, or null. Uses getClaims() (verified JWT). */
+/** Signed-in user's id + a short handle, or null. */
 export async function getCurrentUser() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
-  if (!claims?.sub) return null;
-  const email = typeof claims.email === "string" ? claims.email : "";
-  return { id: claims.sub, email, handle: email ? `@${email.split("@")[0]}` : "@you" };
+  const { getSession } = await import("@/lib/auth/session");
+  const session = await getSession();
+  if (!session?.user?.id) return null;
+  const email = session.user.email ?? "";
+  return { id: session.user.id, email, handle: email ? `@${email.split("@")[0]}` : "@you" };
 }
 
 /** All workspaces the signed-in user owns, oldest first. RLS limits rows to the owner. */
@@ -47,12 +46,12 @@ export async function listMyWorkspaces(handle = "@you"): Promise<Workspace[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("workspaces").select("id, name, icon").order("created_at", { ascending: true });
   if (error) throw new Error(`Could not load workspaces: ${error.message}`);
-  return (data ?? []).map((w) => ({ id: w.id, name: w.name, icon: w.icon, ownerHandle: handle }));
+  return (data ?? []).map((w: any) => ({ id: w.id, name: w.name, icon: w.icon, ownerHandle: handle }));
 }
 
 /** Everything the office screen needs for one workspace; null if it doesn't exist or isn't yours. */
 export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | null> {
-  if (!hasSupabaseEnv) return getMockSnapshot(workspaceId);
+  if (!hasDatabaseEnv) return getMockSnapshot(workspaceId);
   if (!isWorkspaceId(workspaceId)) return null;
 
   const user = await getCurrentUser();
@@ -125,7 +124,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
   const timeZone = profile.data?.timezone ?? "UTC";
   const clock = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone });
 
-  const mappedTasks: Task[] = (tasks.data ?? []).flatMap((t) =>
+  const mappedTasks: Task[] = (tasks.data ?? []).flatMap((t: any) =>
     t.assignee_bot_id
       ? [
           {
@@ -148,7 +147,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
     workspace,
     workspaces,
     departments: (departments.data ?? []).map(
-      (d): Department => ({
+      (d: any): Department => ({
         id: d.id,
         name: d.name,
         kind: d.kind as DepartmentKind,
@@ -158,7 +157,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       }),
     ),
     bots: (bots.data ?? []).map(
-      (b): Bot => ({
+      (b: any): Bot => ({
         id: b.id,
         departmentId: b.department_id,
         role: b.role as BotRole,
@@ -174,7 +173,7 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
         model: b.model,
       }),
     ),
-    inbox: (inbox.data ?? []).flatMap((i): InboxItem[] =>
+    inbox: (inbox.data ?? []).flatMap((i: any): InboxItem[] =>
       i.bot_id
         ? [
             {
@@ -194,11 +193,11 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
         : [],
     ),
     finished: mappedTasks
-      .filter((t) => t.status === "done")
+      .filter((t: any) => t.status === "done")
       .slice(0, 6)
       .map((t): FinishedItem => ({ id: t.id, botId: t.assigneeBotId, summary: t.title, ago: `${t.updated} ago` })),
     routines: (routines.data ?? []).map(
-      (r): Routine => ({
+      (r: any): Routine => ({
         id: r.id,
         botId: r.bot_id,
         name: r.name,
@@ -210,13 +209,13 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
         prompt: r.prompt,
         // The most recently updated task this routine created.
         lastRun: (() => {
-          const runs = (tasks.data ?? []).filter((t) => t.routine_id === r.id);
-          const last = runs.sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+          const runs = (tasks.data ?? []).filter((t: any) => t.routine_id === r.id);
+          const last = runs.sort((a: any, b: any) => b.updated_at.localeCompare(a.updated_at))[0];
           return last ? { taskId: last.id, status: last.status as TaskStatus, ago: ago(last.updated_at, now) } : undefined;
         })(),
       }),
     ),
-    activity: (activity.data ?? []).flatMap((a): ActivityEntry[] =>
+    activity: (activity.data ?? []).flatMap((a: any): ActivityEntry[] =>
       a.bot_id
         ? [{ id: a.id, botId: a.bot_id, time: clock.format(new Date(a.created_at)), text: a.summary, type: a.type, taskId: a.task_id ?? undefined }]
         : [],

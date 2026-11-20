@@ -10,9 +10,9 @@ import {
   skipQuestionCore,
   type DecideContext,
 } from "@/lib/inbox/decide";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/admin";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 /**
  * Deciding "Waiting on me" items from the web. Users can't update inbox items themselves (RLS:
@@ -26,7 +26,7 @@ const uuid = z.string().uuid();
 
 /** The item's workspace, if the signed-in user can see the item (RLS). */
 async function webContext(itemId: string): Promise<DecideContext | { error: string }> {
-  if (!hasSupabaseEnv || !uuid.safeParse(itemId).success) return { error: "Unknown item." };
+  if (!hasDatabaseEnv || !uuid.safeParse(itemId).success) return { error: "Unknown item." };
   const supabase = await createClient();
   const { data: item } = await supabase.from("inbox_items").select("workspace_id").eq("id", itemId).maybeSingle();
   if (!item) return { error: "That item doesn't exist or isn't yours." };

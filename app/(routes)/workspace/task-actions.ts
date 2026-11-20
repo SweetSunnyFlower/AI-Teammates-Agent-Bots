@@ -1,8 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 const uuid = z.string().uuid();
 const MAX_TREE_DEPTH = 3;
@@ -67,7 +67,7 @@ const toDetail = (t: TaskRow): TaskDetail => ({
  * handed off, finished…) and every bot's report, oldest first. RLS limits it to the owner.
  */
 export async function loadTaskThread(taskId: string): Promise<TaskThreadResult> {
-  if (!hasSupabaseEnv) return { ok: false, error: "Supabase isn't configured yet." };
+  if (!hasDatabaseEnv) return { ok: false, error: "Database isn't configured yet." };
   if (!uuid.safeParse(taskId).success) return { ok: false, error: "Unknown task." };
   const supabase = await createClient();
 
@@ -83,7 +83,7 @@ export async function loadTaskThread(taskId: string): Promise<TaskThreadResult> 
     tree.push(...next);
     frontier = next.map((c) => c.id);
   }
-  const ids = tree.map((t) => t.id);
+  const ids = tree.map((t: any) => t.id);
 
   const [activity, reports, parent] = await Promise.all([
     supabase.from("activity").select("id, bot_id, task_id, type, summary, created_at").in("task_id", ids).order("created_at", { ascending: true }).limit(300),
@@ -98,9 +98,9 @@ export async function loadTaskThread(taskId: string): Promise<TaskThreadResult> 
 
   const thread: ThreadItem[] = [
     ...(activity.data ?? []).map(
-      (a): ThreadItem => ({ kind: "activity", id: a.id, at: a.created_at, botId: a.bot_id, taskId: a.task_id, type: a.type, text: a.summary }),
+      (a: any): ThreadItem => ({ kind: "activity", id: a.id, at: a.created_at, botId: a.bot_id, taskId: a.task_id, type: a.type, text: a.summary }),
     ),
-    ...(reports.data ?? []).map((m): ThreadItem => {
+    ...(reports.data ?? []).map((m: any): ThreadItem => {
       const parts = (m.parts ?? []) as Array<{ type: string; text?: string }>;
       return {
         kind: "report",
@@ -126,7 +126,7 @@ const MOVABLE = z.enum(["backlog", "doing", "waiting_on_me", "done"]);
 
 /** Dragging a card to another column changes the task's status. */
 export async function setTaskStatus(taskId: string, status: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!hasSupabaseEnv) return { ok: false, error: "Supabase isn't configured yet." };
+  if (!hasDatabaseEnv) return { ok: false, error: "Database isn't configured yet." };
   const parsed = z.object({ taskId: uuid, status: MOVABLE }).safeParse({ taskId, status });
   if (!parsed.success) return { ok: false, error: "That move isn't allowed." };
   const supabase = await createClient();

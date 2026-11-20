@@ -1,4 +1,4 @@
-import { wait } from "@trigger.dev/sdk";
+import { wait } from "@/lib/jobs/wait";
 import { z } from "zod";
 import { applyEdits, isEditableAction } from "@/lib/approvals/describe";
 import { hasApp, type AccessPreview } from "@/lib/integrations/app-access";
@@ -6,7 +6,7 @@ import { connectedToolkits, GITHUB, hasComposio } from "@/lib/integrations/compo
 import { hasTrigger, startTaskRun } from "@/lib/runs/start";
 import type { RoutineProposalInput } from "@/lib/routines/propose";
 import { createRoutine } from "@/lib/routines/store";
-import type { createAdminClient } from "@/lib/supabase/admin";
+import type { createAdminClient } from "@/lib/db/admin";
 
 /**
  * Deciding "Waiting on me" items — the one implementation behind the web buttons and the Telegram
@@ -249,6 +249,6 @@ export async function declineAppAccessCore(ctx: DecideContext, itemId: string): 
 }
 
 function friendly(message: string) {
-  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach Supabase — check your connection and try again.";
+  if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the database — check your connection and try again.";
   return message;
 }

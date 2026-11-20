@@ -4,14 +4,14 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { readyChatBot, slackAdapter } from "@/lib/chat/bot";
 import { chatPublicUrl, hasChatState, hasSlack, hasTelegram, telegramBotUsername } from "@/lib/chat/env";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/admin";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 /** Settings → Channels: link Telegram / Slack to this workspace, see the status, unlink. */
 
 export interface ChannelStatus {
-  /** Server has SUPABASE_DB_URL (the chat state store). */
+  /** Server has DATABASE_URL (the chat state store). */
   stateReady: boolean;
   /** Server has an https public URL (CHAT_PUBLIC_URL / NEXT_PUBLIC_SITE_URL) for webhooks and Slack OAuth. */
   publicUrl: boolean;
@@ -24,7 +24,7 @@ const uuid = z.string().uuid();
 
 /** The signed-in user's client, if they own the workspace (RLS). */
 async function owned(workspaceId: string) {
-  if (!hasSupabaseEnv || !uuid.safeParse(workspaceId).success) return null;
+  if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return null;
   const supabase = await createClient();
   const { data } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   return data ? supabase : null;
@@ -39,7 +39,7 @@ export async function getChannels(workspaceId: string): Promise<Result<{ status:
     .eq("workspace_id", workspaceId)
     .eq("status", "active")
     .in("provider", ["telegram", "slack"]);
-  const meta = (p: string) => (rows ?? []).find((r) => r.provider === p)?.meta as Record<string, string> | undefined;
+  const meta = (p: string) => (rows ?? []).find((r: any) => r.provider === p)?.meta as Record<string, string> | undefined;
   const tg = meta("telegram");
   const sl = meta("slack");
   return {

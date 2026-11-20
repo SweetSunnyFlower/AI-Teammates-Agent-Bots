@@ -1,4 +1,4 @@
-import type { createAdminClient } from "@/lib/supabase/admin";
+import type { createAdminClient } from "@/lib/db/admin";
 
 /**
  * Engineering spend (D20): each code run may spend at most PER_RUN_CAP_CENTS, and all code runs
@@ -26,7 +26,7 @@ export async function engineeringBudget(db: Db, workspaceId: string) {
   ]);
   const dailyCap = ws?.daily_engineering_cap_cents ?? 1000;
   const spent = (runs ?? []).reduce(
-    (sum, r) => sum + Number(r.cost_cents ?? 0),
+    (sum: number, r: any) => sum + Number(r.cost_cents ?? 0),
     0,
   );
   return {

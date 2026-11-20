@@ -5,9 +5,8 @@ import { toolsForRole, TOOL_KEYS } from "./tools";
 
 export const AVATAR_SHAPES = ["sphere", "cube", "capsule", "cylinder", "cone", "diamond"] as const;
 export const BOT_MODELS = [
-  { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — balanced (default)" },
-  { value: "claude-haiku-5-5", label: "Haiku 5.5 — fast & cheap" },
-  { value: "claude-opus-5-5", label: "Opus 5.5 — most capable" },
+  { value: "deepseek-chat", label: "DeepSeek Chat — fast & balanced (default)" },
+  { value: "deepseek-reasoner", label: "DeepSeek Reasoner — deeper reasoning" },
 ] as const;
 export const FLOOR_STYLES = [
   { value: "custom", label: "Lounge — couch & plants" },

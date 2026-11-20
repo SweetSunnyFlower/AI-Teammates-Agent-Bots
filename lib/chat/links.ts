@@ -1,4 +1,4 @@
-import type { createAdminClient } from "@/lib/supabase/admin";
+import type { createAdminClient } from "@/lib/db/admin";
 
 /**
  * Who may talk to Dotty from Telegram / Slack: a `connections` row links one Telegram account or

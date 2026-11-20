@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { hasSlack } from "@/lib/chat/env";
 import { signInstallState, slackAuthorizeUrl } from "@/lib/chat/slack-oauth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { limitByIp } from "@/lib/ratelimit";
+import { getCurrentUserId } from "@/lib/auth/session";
 
 /** "Add to Slack": only the workspace's owner (signed in) can start it. */
 export async function GET(request: Request) {
@@ -14,10 +15,9 @@ export async function GET(request: Request) {
   if (!z.string().uuid().safeParse(workspaceId).success) return new Response("Unknown workspace.", { status: 400 });
   if (!hasSlack()) return back("not-configured");
 
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
+  const userId = await getCurrentUserId();
   if (!userId) return Response.redirect(new URL("/", url.origin), 302);
+  const supabase = await createClient();
   const { data: workspace } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   if (!workspace) return new Response("Unknown workspace.", { status: 404 });
 

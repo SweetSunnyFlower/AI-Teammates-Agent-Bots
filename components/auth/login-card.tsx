@@ -1,9 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-import { ArrowRight, Loader2, MailCheck, TriangleAlert } from "lucide-react";
-import { sendMagicLink, signInWithGoogle, type MagicLinkState } from "@/app/(routes)/auth/actions";
+import { useState, type FormEvent } from "react";
+import { ArrowRight, Loader2, LockKeyhole, TriangleAlert } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
 import { BotAvatar } from "@/components/office/bot-avatar";
 import { Input } from "@/components/ui/input";
 import type { Bot } from "@/lib/office/types";
@@ -15,9 +14,34 @@ const GREETERS: Array<Pick<Bot, "name" | "status" | "avatar">> = [
   { name: "Builder", status: "working", avatar: { shape: "capsule", color: "#7fb5a0" } },
 ];
 
-/** Sign in / sign up: Google or a passwordless magic link (new emails create an account). */
 export function LoginCard({ next, error, envReady }: { next: string; error?: string; envReady: boolean }) {
-  const [state, formAction] = useActionState<MagicLinkState, FormData>(sendMagicLink, { status: "idle" });
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(error ?? null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!envReady) return;
+    setPending(true);
+    setMessage(null);
+
+    const data = new FormData(event.currentTarget);
+    const email = String(data.get("email") ?? "").trim().toLowerCase();
+    const password = String(data.get("password") ?? "");
+    const name = String(data.get("name") ?? "").trim() || email.split("@")[0] || "Owner";
+
+    const result =
+      mode === "signup"
+        ? await authClient.signUp.email({ email, password, name })
+        : await authClient.signIn.email({ email, password });
+
+    if (result.error) {
+      setMessage(result.error.message ?? "Couldn't sign you in.");
+      setPending(false);
+      return;
+    }
+    window.location.assign(next);
+  }
 
   return (
     <div className="w-full max-w-[420px]">
@@ -38,101 +62,56 @@ export function LoginCard({ next, error, envReady }: { next: string; error?: str
           </div>
         </div>
         <p className="mt-3 text-[14px] leading-relaxed text-ink/80">
-          Your team of AI bots is waiting in the office. New here? Signing in creates your account.
+          {mode === "signin" ? "Sign in to open your office." : "Create the owner account for this self-hosted office."}
         </p>
 
         {!envReady && (
           <Notice tone="warn">
-            Supabase keys are missing. Add them to <code className="font-mono">.env.local</code> and restart the dev server.
+            Database auth is not configured. Add <code className="font-mono">DATABASE_URL</code> and{" "}
+            <code className="font-mono">BETTER_AUTH_SECRET</code> to <code className="font-mono">.env.local</code>.
           </Notice>
         )}
-        {error && <Notice tone="error">{error}</Notice>}
+        {message && <Notice tone="error">{message}</Notice>}
 
-        {state.status === "sent" ? (
-          <div className="mt-5 rounded-[14px] border-2 border-ink bg-ok-bg p-4 text-center">
-            <MailCheck className="mx-auto size-7 text-[#2e8b3e]" />
-            <p className="mt-2 text-[16px] font-extrabold text-ink">Check your inbox</p>
-            <p className="mt-1 text-[13.5px] text-ink/80">
-              We sent a sign-in link to <b>{state.email}</b>. It expires in 1 hour.
-            </p>
-            <form action={formAction} className="mt-3">
-              <input type="hidden" name="email" value={state.email} />
-              <input type="hidden" name="next" value={next} />
-              <ResendButton />
-            </form>
-          </div>
-        ) : (
-          <>
-            <form action={signInWithGoogle} className="mt-5">
-              <input type="hidden" name="next" value={next} />
-              <GoogleButton disabled={!envReady} />
-            </form>
+        <div className="mt-5 grid grid-cols-2 gap-1 rounded-[12px] border-2 border-ink bg-field p-1">
+          <button
+            type="button"
+            onClick={() => setMode("signin")}
+            className={`rounded-[8px] px-3 py-2 text-[13px] font-bold ${mode === "signin" ? "bg-chip-sky text-ink" : "text-ink/60"}`}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("signup")}
+            className={`rounded-[8px] px-3 py-2 text-[13px] font-bold ${mode === "signup" ? "bg-chip-sky text-ink" : "text-ink/60"}`}
+          >
+            Create account
+          </button>
+        </div>
 
-            <div className="my-4 flex items-center gap-3 font-mono text-[12px] text-ink-muted">
-              <span className="h-px flex-1 bg-hairline" /> or use email <span className="h-px flex-1 bg-hairline" />
-            </div>
-
-            <form action={formAction} className="flex flex-col gap-2.5">
-              <input type="hidden" name="next" value={next} />
-              <label htmlFor="email" className="font-mono text-[12.5px] text-ink-muted">
-                email
-              </label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@example.com"
-                defaultValue={state.status === "error" ? state.email : undefined}
-                disabled={!envReady}
-                aria-invalid={state.status === "error"}
-                className="h-11 rounded-[12px] border-2 border-ink/80 bg-field px-3 text-[15px]"
-              />
-              {state.status === "error" && (
-                <p className="text-[13px] text-[#b5473f]" role="alert">
-                  {state.message}
-                </p>
-              )}
-              <MagicLinkButton disabled={!envReady} />
-            </form>
-          </>
-        )}
+        <form onSubmit={submit} className="mt-4 flex flex-col gap-2.5">
+          {mode === "signup" && (
+            <>
+              <label htmlFor="name" className="font-mono text-[12.5px] text-ink-muted">name</label>
+              <Input id="name" name="name" autoComplete="name" placeholder="Your name" disabled={!envReady || pending} className="h-11 rounded-[12px] border-2 border-ink/80 bg-field px-3 text-[15px]" />
+            </>
+          )}
+          <label htmlFor="email" className="font-mono text-[12.5px] text-ink-muted">email</label>
+          <Input id="email" name="email" type="email" autoComplete="email" required placeholder="you@example.com" disabled={!envReady || pending} className="h-11 rounded-[12px] border-2 border-ink/80 bg-field px-3 text-[15px]" />
+          <label htmlFor="password" className="font-mono text-[12.5px] text-ink-muted">password</label>
+          <Input id="password" name="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} required placeholder="At least 8 characters" disabled={!envReady || pending} className="h-11 rounded-[12px] border-2 border-ink/80 bg-field px-3 text-[15px]" />
+          <button type="submit" disabled={!envReady || pending} className="fn-sticker mt-1 h-12 w-full justify-center bg-[#1d6ff4] text-white">
+            {pending ? <Loader2 className="size-4.5 animate-spin" /> : mode === "signin" ? <LockKeyhole className="size-4.5" /> : <ArrowRight className="size-4.5" />}
+            {pending ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+          </button>
+        </form>
 
         <p className="mt-5 text-center font-mono text-[11.5px] text-ink-muted">
           bots never send, pay, publish, delete or merge without your ok.
         </p>
       </section>
     </div>
-  );
-}
-
-function MagicLinkButton({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={disabled || pending} className="fn-sticker h-12 w-full justify-center bg-[#1d6ff4] text-white">
-      {pending ? <Loader2 className="size-4.5 animate-spin" /> : <ArrowRight className="size-4.5" />}
-      {pending ? "Sending link…" : "Email me a sign-in link"}
-    </button>
-  );
-}
-
-function ResendButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending} className="fn-pill">
-      {pending ? "Sending…" : "Send it again"}
-    </button>
-  );
-}
-
-function GoogleButton({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={disabled || pending} className="fn-sticker h-12 w-full justify-center bg-white">
-      {pending ? <Loader2 className="size-4.5 animate-spin" /> : <GoogleMark />}
-      Continue with Google
-    </button>
   );
 }
 
@@ -149,16 +128,5 @@ function Notice({ tone, children }: { tone: "warn" | "error"; children: React.Re
       <TriangleAlert className="mt-0.5 size-4 shrink-0" />
       <span>{children}</span>
     </p>
-  );
-}
-
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 48 48" className="size-5" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
-    </svg>
   );
 }

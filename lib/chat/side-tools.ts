@@ -1,6 +1,6 @@
 import { planAccessRequest, type BotApps } from "@/lib/integrations/composio";
 import { proposeRoutine } from "@/lib/routines/propose";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import type { ChatContext, ToolOptions } from "./bot-context";
 import { notifyInboxItem } from "./notify";
 

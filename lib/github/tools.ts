@@ -2,7 +2,7 @@ import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { PrPreview } from "@/lib/approvals/describe";
 import type { ApprovalHandler } from "@/lib/integrations/composio";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import { gh, GitHubError, GitHubSetupError, installationRepos, installationToken, parseRepo, READ } from "./app";
 
 /**

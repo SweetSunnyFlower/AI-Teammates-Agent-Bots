@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { PER_RUN_CAP_CENTS } from "@/lib/code/spend";
 import { isValidTimeZone } from "@/lib/routines/schedule";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
+import { getCurrentUserId } from "@/lib/auth/session";
 
 /** Settings → Workspace: name and icon, the daily caps (with today's usage), timezone, delete. */
 
@@ -26,11 +27,10 @@ type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 const uuid = z.string().uuid();
 
 async function session(workspaceId: string) {
-  if (!hasSupabaseEnv || !uuid.safeParse(workspaceId).success) return null;
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
-  return userId ? { supabase, userId } : null;
+  if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  return { supabase: await createClient(), userId };
 }
 
 const sum = (rows: Array<{ cost_cents: number | string | null }> | null) =>

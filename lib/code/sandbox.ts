@@ -1,44 +1,33 @@
-import { Box, type Runtime } from "@upstash/box";
+import { execFile } from "node:child_process";
+import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { ChangedFile } from "@/lib/github/commit";
 
 /**
- * The coding sandbox (D20): an Upstash Box with the repo cloned in, driven by our own AI SDK loop
- * through these tools. SERVER ONLY (UPSTASH_BOX_API_KEY).
+ * The coding sandbox (D20): a rootless Podman container with the repo cloned on the host.
+ * SERVER ONLY (local podman binary).
  *
- * Safety: the box gets no Dotty secrets. GitHub access is a read-only token for the one repo,
- * injected as a header by Box's proxy (it never enters the container). Outbound traffic is limited
- * to GitHub and package registries. Commits and pull requests are made outside the box.
+ * Safety: the host clones with a read-only GitHub token; the token never enters the container.
+ * The container has no network, a read-only root filesystem, a writable /tmp and only the
+ * per-run workspace mounted at /workspace. Commits and pull requests are made on the host.
  */
 
-export const hasBox = () => Boolean(process.env.UPSTASH_BOX_API_KEY);
+export type Runtime = "node" | "python" | "golang" | "rust" | "ruby";
 
-export const REPO_DIR = "/workspace/home/repo";
+export interface Sandbox {
+  name: string;
+  workspaceDir: string;
+  runtime: Runtime;
+  image: string;
+  delete: () => Promise<void>;
+}
 
-/** Package registries the agent may install from (plus GitHub for the clone). */
-const ALLOWED_DOMAINS = [
-  "github.com",
-  "codeload.github.com",
-  "objects.githubusercontent.com",
-  "raw.githubusercontent.com",
-  "registry.npmjs.org",
-  "registry.yarnpkg.com",
-  "repo.yarnpkg.com",
-  "nodejs.org",
-  "pypi.org",
-  "files.pythonhosted.org",
-  "proxy.golang.org",
-  "sum.golang.org",
-  "storage.googleapis.com",
-  "crates.io",
-  "index.crates.io",
-  "static.crates.io",
-  "static.rust-lang.org",
-  "rubygems.org",
-  "index.rubygems.org",
-  "deb.debian.org",
-];
+export const hasBox = () => process.env.PODMAN_ENABLED !== "false";
+
+export const REPO_DIR = "/workspace/repo";
 
 /** Build/dependency folders kept out of commits even when the repo doesn't ignore them. */
 const LOCAL_EXCLUDES = [
@@ -81,23 +70,23 @@ export async function createSandbox(input: {
   repo: string;
   readToken: string;
 }) {
-  const basic = Buffer.from(`x-access-token:${input.readToken}`).toString(
-    "base64",
-  );
-  return Box.create({
+  const workspaceDir = await mkdtemp(path.join(process.env.DOTTY_SANDBOX_ROOT || tmpdir(), "dotty-code-"));
+  const image =
+    process.env[`PODMAN_${input.runtime.toUpperCase()}_IMAGE`] ||
+    `localhost/dotty-sandbox-${input.runtime}:latest`;
+  const sandbox: Sandbox = {
     name: input.name,
+    workspaceDir,
     runtime: input.runtime,
-    size: "small",
-    labels: ["dotty"],
-    git: { userName: "Dotty", userEmail: "dotty@users.noreply.github.com" },
-    attachHeaders: { "github.com": { Authorization: `Basic ${basic}` } },
-    networkPolicy: { mode: "custom", allowedDomains: ALLOWED_DOMAINS },
-    // Commands are wrapped in `timeout`; give the request a little longer than the longest one.
-    timeout: 16 * 60_000,
-  });
+    image,
+    delete: async () => {
+      await rm(workspaceDir, { recursive: true, force: true });
+    },
+  };
+  // The token stays on the host for the clone; it is deliberately not passed to Podman.
+  Object.defineProperty(sandbox, "__readToken", { value: input.readToken, enumerable: false });
+  return sandbox;
 }
-
-export type Sandbox = Awaited<ReturnType<typeof createSandbox>>;
 
 /** Run a shell command in the repo; output is stdout+stderr, trimmed to fit the model's context. */
 export async function run(
@@ -106,12 +95,53 @@ export async function run(
   timeoutSeconds = 300,
   cwd = REPO_DIR,
 ) {
-  const res = await box.exec.command(
-    `cd ${sh(cwd)} && timeout ${Math.round(timeoutSeconds)} bash -lc ${sh(command)} 2>&1`,
-  );
-  const exit = res.exitCode ?? (res.status === "completed" ? 0 : 1);
-  const output = res.stdout || res.result || "";
-  return { exit, output, timedOut: exit === 124 };
+  const args = [
+    "run",
+    "--rm",
+    `--network=${process.env.PODMAN_SANDBOX_NETWORK || "none"}`,
+    "--read-only",
+    "--tmpfs",
+    "/tmp:rw,size=512m",
+    "--memory=768m",
+    "--cpus=1",
+    "--pids-limit=256",
+    "--security-opt=no-new-privileges",
+    "--cap-drop=ALL",
+    "--volume",
+    `${box.workspaceDir}:/workspace:rw,Z`,
+    "--env",
+    "HOME=/tmp/home",
+    "--workdir",
+    cwd,
+    box.image,
+    "timeout",
+    String(Math.round(timeoutSeconds)),
+    "bash",
+    "-lc",
+    `mkdir -p /tmp/home && ${command}`,
+  ];
+  return new Promise<{ exit: number; output: string; timedOut: boolean }>((resolve) => {
+    execFile(
+      process.env.PODMAN_BIN || "podman",
+      args,
+      {
+        env: {
+          ...process.env,
+          HOME: process.env.DOTTY_SANDBOX_HOME || process.env.HOME,
+        },
+        maxBuffer: 500_000,
+        timeout: (Math.round(timeoutSeconds) + 30) * 1000,
+      },
+      (error, stdout, stderr) => {
+        const exit = error && "code" in error && typeof error.code === "number" ? error.code : error ? 1 : 0;
+        resolve({
+          exit,
+          output: `${stdout}${stderr}`.trim(),
+          timedOut: exit === 124,
+        });
+      },
+    );
+  });
 }
 
 /** Keep the start and (mostly) the end of long output. */
@@ -129,22 +159,37 @@ export async function cloneRepo(
   ref: string,
 ) {
   const url = `https://github.com/${owner}/${repo}.git`;
-  const clone = await run(
-    box,
-    `git clone --depth 50 --branch ${sh(ref)} ${sh(url)} ${sh(REPO_DIR)}`,
-    600,
-    "/workspace/home",
-  );
-  if (clone.exit !== 0)
-    throw new Error(
-      `Couldn't clone ${owner}/${repo}@${ref}: ${clipOutput(clone.output, 600)}`,
+  const token = (box as Sandbox & { __readToken?: string }).__readToken;
+  if (!token) throw new Error("The sandbox clone token is missing.");
+  const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
+  const repoHostDir = path.join(box.workspaceDir, "repo");
+  await new Promise<void>((resolve, reject) => {
+    execFile(
+      "git",
+      ["clone", "--depth", "50", "--branch", ref, url, repoHostDir],
+      {
+        timeout: 600_000,
+        env: {
+          ...process.env,
+          GIT_CONFIG_COUNT: "1",
+          GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
+          GIT_CONFIG_VALUE_0: `Authorization: Basic ${basic}`,
+        },
+      },
+      (error, _stdout, stderr) => {
+        if (error) reject(new Error(`Couldn't clone ${owner}/${repo}@${ref}: ${clipOutput(stderr || error.message, 600)}`));
+        else resolve();
+      },
     );
-  await run(
-    box,
-    `printf '%s\\n' ${LOCAL_EXCLUDES.map(sh).join(" ")} >> .git/info/exclude`,
-  );
-  const head = await run(box, "git rev-parse HEAD");
-  const sha = head.output.trim();
+  });
+  await appendFile(path.join(repoHostDir, ".git", "info", "exclude"), `\n${LOCAL_EXCLUDES.join("\n")}\n`);
+  await mkdir(path.join(repoHostDir, ".git"), { recursive: true });
+  const sha = await new Promise<string>((resolve, reject) => {
+    execFile("git", ["rev-parse", "HEAD"], { cwd: repoHostDir }, (error, stdout) => {
+      if (error) reject(error);
+      else resolve(stdout.trim());
+    });
+  });
   if (!/^[0-9a-f]{40}$/.test(sha))
     throw new Error("Couldn't read the cloned commit.");
   return sha;
@@ -166,6 +211,20 @@ function repoPath(path: string) {
     throw new Error(`Use a path inside the repository (got "${path}").`);
   }
   return clean;
+}
+
+function repoHostPath(box: Sandbox, file: string) {
+  return path.join(box.workspaceDir, "repo", ...file.split("/"));
+}
+
+async function readRepoFile(box: Sandbox, file: string, encoding: BufferEncoding = "utf8") {
+  return readFile(repoHostPath(box, file), { encoding });
+}
+
+async function writeRepoFile(box: Sandbox, file: string, content: string) {
+  const target = repoHostPath(box, file);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, content, "utf8");
 }
 
 export interface FinishReport {
@@ -265,7 +324,7 @@ export function sandboxTools(
       execute: ({ path, startLine, lineCount }) =>
         guard(async () => {
           const file = repoPath(path);
-          const text = await box.files.read(`${REPO_DIR}/${file}`);
+          const text = await readRepoFile(box, file);
           const lines = text.split("\n");
           const slice = lines.slice(startLine - 1, startLine - 1 + lineCount);
           return {
@@ -293,12 +352,7 @@ export function sandboxTools(
       execute: ({ path, content }) =>
         guard(async () => {
           const file = repoPath(path);
-          const dir = file.includes("/")
-            ? file.slice(0, file.lastIndexOf("/"))
-            : "";
-          if (dir)
-            await box.files.mkdir(`${REPO_DIR}/${dir}`, { parents: true });
-          await box.files.write({ path: `${REPO_DIR}/${file}`, content });
+          await writeRepoFile(box, file, content);
           return { ok: true, path: file, bytes: Buffer.byteLength(content) };
         }),
     }),
@@ -315,7 +369,7 @@ export function sandboxTools(
       execute: ({ path, oldText, newText, replaceAll }) =>
         guard(async () => {
           const file = repoPath(path);
-          const text = await box.files.read(`${REPO_DIR}/${file}`);
+          const text = await readRepoFile(box, file);
           const count = text.split(oldText).length - 1;
           if (count === 0)
             return {
@@ -331,7 +385,7 @@ export function sandboxTools(
           const next = replaceAll
             ? text.split(oldText).join(newText)
             : text.replace(oldText, () => newText);
-          await box.files.write({ path: `${REPO_DIR}/${file}`, content: next });
+          await writeRepoFile(box, file, next);
           return { ok: true, path: file, replaced: replaceAll ? count : 1 };
         }),
     }),
@@ -421,9 +475,7 @@ export async function collectChanges(box: Sandbox) {
       skipped.push(`${path} (too large)`);
       continue;
     }
-    const content = await box.files.read(`${REPO_DIR}/${path}`, {
-      encoding: "base64",
-    });
+    const content = await readRepoFile(box, path, "base64");
     files.push({
       path,
       mode: mode === "100755" ? "100755" : "100644",

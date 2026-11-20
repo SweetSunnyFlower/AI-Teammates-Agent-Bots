@@ -67,7 +67,7 @@ export function ChannelsTab() {
       </div>
       {!data.stateReady && (
         <SetupNote>
-          Add <Code>SUPABASE_DB_URL</Code> (your database connection string) to <Code>.env.local</Code> and restart — channels keep their state in Supabase.
+          Add <Code>DATABASE_URL</Code> (your database connection string) to <Code>.env.local</Code> and restart — channels keep their state in Postgres.
         </SetupNote>
       )}
       <TelegramCard

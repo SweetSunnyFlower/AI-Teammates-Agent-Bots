@@ -2,8 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { WORKSPACE_ICONS } from "@/lib/office/workspace-icons";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
+import { getCurrentUserId } from "@/lib/auth/session";
 
 export type CreateWorkspaceState = { error?: string; name?: string; icon?: string };
 
@@ -17,13 +18,12 @@ export async function createWorkspace(_prev: CreateWorkspaceState, formData: For
   const icon = WORKSPACE_ICONS.includes(iconRaw) ? iconRaw : WORKSPACE_ICONS[0];
   const timezone = String(formData.get("timezone") ?? "").slice(0, 64);
 
-  if (!hasSupabaseEnv) return { error: "Supabase isn't configured yet — add your keys to .env.local.", name, icon };
+  if (!hasDatabaseEnv) return { error: "Database isn't configured yet — add DATABASE_URL to .env.local.", name, icon };
   if (name.length < 1 || name.length > 60) return { error: "Give your workspace a name (up to 60 characters).", name, icon };
 
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
+  const userId = await getCurrentUserId();
   if (!userId) redirect("/auth/login?next=/workspace/new");
+  const supabase = await createClient();
 
   // Remember the user's timezone for recaps and activity times (first run, or if it changed).
   if (timezone && isValidTimeZone(timezone)) {

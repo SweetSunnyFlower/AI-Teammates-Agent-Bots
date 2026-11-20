@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DbClient } from "@/lib/db/client";
 import { getInstallation, gh, githubAppSlug } from "./app";
 
 /**
@@ -128,7 +128,7 @@ export interface GitHubLink {
   status: "active" | "needs_reconnect";
 }
 
-type Db = SupabaseClient;
+type Db = DbClient;
 
 /** The workspace's GitHub installation (service role or the owner's client). */
 export async function githubLink(

@@ -138,12 +138,16 @@ export function OfficeProvider({
   children: ReactNode;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const snapshotSignature = useRef(JSON.stringify(initialSnapshot));
   // A new server snapshot (first render, or a page refresh) — adopt it (keep UI state).
   const [source, setSource] = useState(initialSnapshot);
   if (source !== initialSnapshot) {
     setSource(initialSnapshot);
     setSnapshot(initialSnapshot);
   }
+  useEffect(() => {
+    snapshotSignature.current = JSON.stringify(initialSnapshot);
+  }, [initialSnapshot]);
 
   /**
    * Live data without re-rendering the page: fetch the snapshot as JSON and swap it in. Calls
@@ -164,7 +168,14 @@ export function OfficeProvider({
         fetchAgain.current = false;
         try {
           const res = await fetch(`/api/office/${workspaceId}`, { cache: "no-store" });
-          if (res.ok) setSnapshot((await res.json()) as OfficeSnapshot);
+          if (res.ok) {
+            const next = (await res.json()) as OfficeSnapshot;
+            const signature = JSON.stringify(next);
+            if (signature !== snapshotSignature.current) {
+              snapshotSignature.current = signature;
+              setSnapshot(next);
+            }
+          }
         } catch {
           // Offline for a moment — the next event or poll catches up.
         }

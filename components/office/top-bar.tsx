@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell, Building2, Check, ChevronDown, LayoutGrid, LogOut, Plus, Repeat, Settings } from "lucide-react";
-import { signOut } from "@/app/(routes)/auth/actions";
+import { authClient } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { countByStatus } from "@/lib/office/status";
@@ -60,6 +61,12 @@ export function TopBar({
 }) {
   const counts = countByStatus(statuses);
   const officeHref = `/workspace/${workspace.id}`;
+  const router = useRouter();
+  const signOut = async () => {
+    await authClient.signOut();
+    router.push("/auth/login");
+    router.refresh();
+  };
 
   const revealButton = (section: RevealSection, children: ReactNode, extra?: string) =>
     onReveal ? (
@@ -149,14 +156,12 @@ export function TopBar({
           <TooltipContent>{onOpenSettings ? "Settings & connectors" : "Sign in to change settings"}</TooltipContent>
         </Tooltip>
         <ThemeToggle />
-        <form action={signOut}>
-          <Tooltip>
-            <TooltipTrigger type="submit" className="fn-sticker w-11 justify-center px-0" aria-label="Sign out">
-              <LogOut className="size-5" />
-            </TooltipTrigger>
-            <TooltipContent>Sign out</TooltipContent>
-          </Tooltip>
-        </form>
+        <Tooltip>
+          <TooltipTrigger type="button" onClick={() => void signOut()} className="fn-sticker w-11 justify-center px-0" aria-label="Sign out">
+            <LogOut className="size-5" />
+          </TooltipTrigger>
+          <TooltipContent>Sign out</TooltipContent>
+        </Tooltip>
       </nav>
     </header>
   );

@@ -5,7 +5,7 @@ import type { PrPreview } from "@/lib/approvals/describe";
 import { hasGitHubApp } from "@/lib/github/app";
 import { githubLink } from "@/lib/github/install";
 import { githubTools } from "@/lib/github/tools";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import { hasApp, type AccessPreview } from "./app-access";
 
 /**

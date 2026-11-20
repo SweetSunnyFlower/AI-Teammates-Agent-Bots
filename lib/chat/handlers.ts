@@ -10,7 +10,7 @@ import {
   type DecideResult,
 } from "@/lib/inbox/decide";
 import type { AccessPreview } from "@/lib/integrations/app-access";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import type { DottyChat, DottySlackAdapter, ThreadState } from "./bot";
 import { ACTION } from "./cards";
 import { runChannelTurn } from "./channel-turn";
@@ -96,8 +96,8 @@ async function help(event: SlashCommandEvent) {
   const link = await linkOf(event.adapter, event.user.userId);
   if (!link) return void (await event.channel.post(PRIVATE_NOTE));
   const { data: bots } = await createAdminClient().from("bots").select("name, role").eq("workspace_id", link.workspaceId).order("created_at");
-  const list = (bots ?? []).map((b) => `• ${b.name}${b.role === "head" ? " (Head — gets your messages by default)" : b.role === "lead" ? " (Lead)" : ""}`).join("\n");
-  await event.channel.post({ markdown: `Send a message to the Head bot, or start with @ and a name:\n\n${list}\n\nExample: @${bots?.find((b) => b.role !== "head")?.name ?? "Inbox Zero"} summarise my unread email` });
+  const list = (bots ?? []).map((b: any) => `• ${b.name}${b.role === "head" ? " (Head — gets your messages by default)" : b.role === "lead" ? " (Lead)" : ""}`).join("\n");
+  await event.channel.post({ markdown: `Send a message to the Head bot, or start with @ and a name:\n\n${list}\n\nExample: @${bots?.find((b: any) => b.role !== "head")?.name ?? "Inbox Zero"} summarise my unread email` });
 }
 
 // ─── Messages ─────────────────────────────────────────────────────────────────────────────────

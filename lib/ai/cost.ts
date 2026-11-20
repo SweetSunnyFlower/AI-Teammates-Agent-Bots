@@ -1,22 +1,24 @@
 import type { StepResult, ToolSet } from "ai";
 
-// Fallback price estimates (USD per 1M tokens) used only when AI Gateway doesn't report a cost.
-// Verify against your AI Gateway dashboard and adjust.
-const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
-  "anthropic/claude-sonnet-5.5": { input: 3, output: 15 },
-  "anthropic/claude-haiku-5.5": { input: 1, output: 5 },
-  "anthropic/claude-opus-5.5": { input: 5, output: 25 },
+// Fallback prices (USD per 1M tokens). Override them in the deployment if DeepSeek changes
+// pricing. The caps remain conservative even when the provider does not return a cost.
+const FALLBACK = {
+  "deepseek-chat": {
+    input: Number(process.env.DEEPSEEK_CHAT_INPUT_PER_MTOK ?? 0.28),
+    output: Number(process.env.DEEPSEEK_CHAT_OUTPUT_PER_MTOK ?? 0.42),
+  },
+  "deepseek-reasoner": {
+    input: Number(process.env.DEEPSEEK_REASONER_INPUT_PER_MTOK ?? 0.55),
+    output: Number(process.env.DEEPSEEK_REASONER_OUTPUT_PER_MTOK ?? 2.19),
+  },
 };
 
-/** Cost of one step in cents: AI Gateway's reported cost when present, else a token estimate. */
 export function stepCostCents(step: StepResult<ToolSet>, model: string) {
-  const gateway = step.providerMetadata?.gateway as
-    | { cost?: string | number }
-    | undefined;
-  const reported = gateway?.cost !== undefined ? Number(gateway.cost) : NaN;
+  const provider = step.providerMetadata?.deepseek as { cost?: string | number } | undefined;
+  const reported = provider?.cost !== undefined ? Number(provider.cost) : NaN;
   if (Number.isFinite(reported)) return reported * 100;
-  const price =
-    PRICE_PER_MTOK[model] ?? PRICE_PER_MTOK["anthropic/claude-sonnet-5.5"];
+
+  const price = FALLBACK[model as keyof typeof FALLBACK] ?? FALLBACK["deepseek-chat"];
   return (
     (((step.usage.inputTokens ?? 0) * price.input +
       (step.usage.outputTokens ?? 0) * price.output) /

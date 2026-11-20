@@ -1,0 +1,25 @@
+[Unit]
+Description=Dotty background worker (pg-boss)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dotty
+Group=dotty
+WorkingDirectory=/opt/dotty
+EnvironmentFile=/opt/dotty/.env.local
+Environment=NODE_ENV=production
+Environment=HOME=/home/dotty
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/bin/npm run worker:start
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/var/lib/dotty/sandboxes
+
+[Install]
+WantedBy=multi-user.target

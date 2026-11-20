@@ -1,23 +1,21 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { subscribeLive } from "@/lib/supabase/realtime";
+import { useQueryClient } from "@tanstack/react-query";
+import { parseDottyChange } from "@/lib/events/types";
 import { useOffice } from "./office-provider";
 
-const TABLES = ["bots", "tasks", "activity", "inbox_items", "code_runs"] as const;
-/** Safety-net refresh while bots are busy / when idle, in case a realtime event is missed. */
-const BUSY_POLL_MS = 5000;
-const IDLE_POLL_MS = 30000;
+/** SSE is primary; these are only fallbacks for a missed event or disconnected stream. */
+const BUSY_POLL_MS = 15000;
+const IDLE_POLL_MS = 60000;
 
 /**
- * Live office: listens to row changes for this workspace (as the signed-in user — RLS applies to
- * Realtime too) and fetches fresh office data as JSON (no page re-render), debounced so a burst
- * causes one fetch.
- * It also catches up after a reconnect, when the tab becomes visible again, and — as a safety net
- * for dropped events — polls gently (fast while any bot is busy, slow otherwise).
+ * Live office: polls fresh office data as JSON (no page re-render), faster while bots are busy.
+ * It also catches up whenever the tab becomes visible again.
  */
 export function RealtimeSync({ workspaceId, enabled = true }: { workspaceId: string; enabled?: boolean }) {
   const { snapshot, refreshOffice } = useOffice();
+  const queryClient = useQueryClient();
   const busy =
     snapshot.bots.some((b) => b.status === "working" || b.status === "waiting") ||
     snapshot.tasks.some((t) => t.status === "doing" || t.status === "backlog");
@@ -34,30 +32,31 @@ export function RealtimeSync({ workspaceId, enabled = true }: { workspaceId: str
       }, 400);
     };
 
-    const unsubscribe = subscribeLive(
-      `office:${workspaceId}`,
-      (channel) => {
-        for (const table of TABLES) {
-          channel = channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `workspace_id=eq.${workspaceId}` }, refresh);
-        }
-        return channel;
-      },
-      (rejoined) => {
-        if (rejoined) refresh();
-      },
-    );
-
     const onVisible = () => {
       if (document.visibilityState === "visible") refresh();
     };
+    const events = new EventSource(`/api/events?workspace=${encodeURIComponent(workspaceId)}`);
+    events.onopen = () => {
+      refresh();
+      void queryClient.invalidateQueries({ queryKey: ["thread"] });
+    };
+    events.addEventListener("change", (event) => {
+      const change = parseDottyChange((event as MessageEvent<string>).data);
+      if (!change || change.workspaceId !== workspaceId) return;
+      if (change.table === "messages") {
+        if (change.botId) void queryClient.invalidateQueries({ queryKey: ["thread", change.botId] });
+        return;
+      }
+      refresh();
+    });
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       window.clearTimeout(timer.current);
-      unsubscribe();
+      events.close();
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [workspaceId, enabled, refreshOffice]);
+  }, [enabled, queryClient, refreshOffice, workspaceId]);
 
   // Safety net: if realtime is quiet, refresh anyway every few seconds while work is going on.
   useEffect(() => {
@@ -67,9 +66,10 @@ export function RealtimeSync({ workspaceId, enabled = true }: { workspaceId: str
       if (document.visibilityState !== "visible" || Date.now() - lastRefresh.current < every) return;
       lastRefresh.current = Date.now();
       void refreshOffice();
+      void queryClient.invalidateQueries({ queryKey: ["thread"] });
     }, every);
     return () => window.clearInterval(poll);
-  }, [enabled, busy, refreshOffice]);
+  }, [enabled, busy, queryClient, refreshOffice]);
 
   return null;
 }

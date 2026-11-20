@@ -2,9 +2,11 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginCard } from "@/components/auth/login-card";
-import { hasSupabaseEnv, safeNext } from "@/lib/supabase/env";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { safeNext } from "@/lib/auth/safe-next";
 
 export const metadata: Metadata = { title: "Sign in · Dotty" };
+const envReady = hasDatabaseEnv && Boolean(process.env.BETTER_AUTH_SECRET);
 
 export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {
   return (
@@ -14,7 +16,7 @@ export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {
         ← Dotty
       </Link>
       {/* searchParams is request-time data under Cache Components → read it inside Suspense */}
-      <Suspense fallback={<LoginCard next="/workspace" envReady={hasSupabaseEnv} />}>
+      <Suspense fallback={<LoginCard next="/workspace" envReady={envReady} />}>
         <LoginFromParams searchParams={searchParams} />
       </Suspense>
     </main>
@@ -24,7 +26,7 @@ export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {
 async function LoginFromParams({ searchParams }: { searchParams: PageProps<"/auth/login">["searchParams"] }) {
   const params = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  return <LoginCard next={safeNext(one(params.next))} error={one(params.error)} envReady={hasSupabaseEnv} />;
+  return <LoginCard next={safeNext(one(params.next))} error={one(params.error)} envReady={envReady} />;
 }
 
 /** A few flat trees and a path so the sign-in page sits in the same garden as the office. */

@@ -118,9 +118,9 @@ async function telegramStatus() {
       : /404/.test(e)
         ? "404: wrong URL — it must be https://your-domain/api/webhooks/telegram on the live deployment."
         : /503/.test(e)
-          ? "503: the server says Telegram isn't configured — TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET_TOKEN, TELEGRAM_BOT_USERNAME\n  or SUPABASE_DB_URL is missing in Vercel Production. Add them and redeploy (env changes need a new deployment)."
+          ? "503: the server says Telegram isn't configured — TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET_TOKEN, TELEGRAM_BOT_USERNAME\n  or DATABASE_URL is missing. Add them and restart Dotty."
           : /500|502|504/.test(e)
-            ? "5xx: the app crashed handling the update — check Vercel logs for /api/webhooks/telegram. Most often SUPABASE_DB_URL\n  is the direct connection (IPv6, unreachable from Vercel): use the Supabase pooler string instead."
+            ? "5xx: the app crashed handling the update — check `journalctl -u dotty` and `journalctl -u dotty-worker`."
             : /429/.test(e)
               ? "429: rate limited by the app — wait a minute."
               : /SSL|certificate|resolve|connection/i.test(e)

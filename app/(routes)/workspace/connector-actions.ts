@@ -3,8 +3,8 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 import { composio, connectionsSession, hasComposio } from "@/lib/integrations/composio";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 export interface ConnectorItem {
   slug: string;
@@ -30,7 +30,7 @@ const NOT_CONFIGURED = "Composio isn't set up yet — add COMPOSIO_API_KEY to .e
 
 /** Only the workspace owner can see or change its connections (checked through RLS). */
 async function ownWorkspace(workspaceId: string) {
-  if (!hasSupabaseEnv || !uuid.safeParse(workspaceId).success) return false;
+  if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return false;
   const supabase = await createClient();
   const { data } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   return Boolean(data);

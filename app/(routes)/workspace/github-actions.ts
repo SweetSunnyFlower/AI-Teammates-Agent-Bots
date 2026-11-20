@@ -3,9 +3,9 @@
 import { z } from "zod";
 import { hasGitHubApp, installationRepos } from "@/lib/github/app";
 import { githubLink } from "@/lib/github/install";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/admin";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 /** Settings → Connectors → GitHub (Dotty's own GitHub App): status and unlink. */
 
@@ -28,7 +28,7 @@ type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 const uuid = z.string().uuid();
 
 async function owned(workspaceId: string) {
-  if (!hasSupabaseEnv || !uuid.safeParse(workspaceId).success) return null;
+  if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return null;
   const supabase = await createClient();
   const { data } = await supabase
     .from("workspaces")

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { hasGitHubApp } from "@/lib/github/app";
 import { connectedToolkits, hasComposio } from "@/lib/integrations/composio";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 /**
  * The apps connected to a workspace, for choosing a bot's apps. A plain GET (not a server action)
@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(_req: Request, ctx: RouteContext<"/api/office/[workspaceId]/apps">) {
   const { workspaceId } = await ctx.params;
   const headers = { "Cache-Control": "no-store" };
-  if (!hasSupabaseEnv || !z.string().uuid().safeParse(workspaceId).success) {
+  if (!hasDatabaseEnv || !z.string().uuid().safeParse(workspaceId).success) {
     return Response.json({ apps: [], error: "Unknown workspace." }, { status: 404, headers });
   }
   const supabase = await createClient();

@@ -8,7 +8,7 @@ import type { BotRole } from "./types";
 export interface ToolDef {
   key: string;
   label: string;
-  group: "Core";
+  group: "Core" | "Research";
   roles: BotRole[];
   gated: boolean;
 }
@@ -25,6 +25,10 @@ export const TOOL_CATALOG: ToolDef[] = [
   { key: "propose_bot", label: "Propose a new bot", group: "Core", roles: ["head"], gated: true },
   { key: "propose_department", label: "Propose a new floor", group: "Core", roles: ["head"], gated: true },
   { key: "propose_routine", label: "Propose a routine", group: "Core", roles: ["head"], gated: true },
+  { key: "web.search", label: "Search the web", group: "Research", roles: ALL, gated: false },
+  { key: "browser.extract", label: "Read a web page", group: "Research", roles: ALL, gated: false },
+  { key: "watch.add", label: "Add a price watch", group: "Research", roles: ALL, gated: false },
+  { key: "watch.check", label: "Check price watches", group: "Research", roles: ALL, gated: false },
 ];
 
 export const TOOL_KEYS = new Set(TOOL_CATALOG.map((t) => t.key));

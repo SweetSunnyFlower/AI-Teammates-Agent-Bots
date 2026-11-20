@@ -50,7 +50,7 @@ export function BotDialog({ botId, departmentId }: { botId?: string; departmentI
       instructions: bot?.instructions ?? "",
       tools: bot ? bot.tools.filter((t) => TOOL_KEYS.has(t)) : defaultToolsFor(role),
       apps: bot?.apps ?? defaultAppKeys(role),
-      model: bot?.model ?? "claude-sonnet-5-5",
+      model: bot?.model ?? "deepseek-chat",
     };
   });
   const [errors, setErrors] = useState<Record<string, string>>({});

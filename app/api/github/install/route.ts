@@ -6,8 +6,9 @@ import {
   installUrl,
   signInstallState,
 } from "@/lib/github/install";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { limitByIp } from "@/lib/ratelimit";
+import { getCurrentUserId } from "@/lib/auth/session";
 
 /**
  * "Connect GitHub": only the workspace's owner (signed in) can start it. The signed state rides
@@ -30,10 +31,9 @@ export async function GET(request: Request) {
     );
   if (!hasGitHubApp()) return back("not-configured");
 
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
+  const userId = await getCurrentUserId();
   if (!userId) return NextResponse.redirect(new URL("/", url.origin), 302);
+  const supabase = await createClient();
   const { data: workspace } = await supabase
     .from("workspaces")
     .select("id")

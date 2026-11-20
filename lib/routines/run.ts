@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DbClient } from "@/lib/db/client";
 import { fromCron } from "./schedule";
 
 /**
@@ -19,7 +19,7 @@ export interface RoutineRow {
 export type RoutineStart = { ok: true; taskId: string; started: boolean } | { ok: false; reason: string };
 
 export async function startRoutineRun(
-  db: SupabaseClient,
+  db: DbClient,
   r: RoutineRow,
   start: (task: { id: string; workspaceId: string; assigneeBotId: string }) => Promise<void>,
   now: Date = new Date(),

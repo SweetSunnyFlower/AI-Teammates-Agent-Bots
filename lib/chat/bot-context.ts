@@ -1,10 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DbClient } from "@/lib/db/client";
 import { hasApp } from "@/lib/integrations/app-access";
+import { researchTools } from "@/lib/research/tools";
 
 /** The user's client (chat, RLS applies) or the service-role client (background runs). */
-type Supabase = SupabaseClient;
+type Supabase = DbClient;
 
 export interface ChatBot {
   id: string;
@@ -91,20 +92,20 @@ export function buildInstructions(ctx: ChatContext, userTimezone: string, access
   const appsInHand = handsOn(bot);
   const floorOf = (id: string) => roster.floors.find((f) => f.id === id);
   const myFloor = floorOf(bot.department_id);
-  const nameOf = (id: string | null) => roster.bots.find((b) => b.id === id)?.name ?? "unassigned";
+  const nameOf = (id: string | null) => roster.bots.find((b: any) => b.id === id)?.name ?? "unassigned";
 
   const team = roster.floors
     .map((f) => {
       const members = roster.bots
-        .filter((b) => b.department_id === f.id)
-        .map((b) => `${b.name} (${b.role})${b.instructions ? ` — ${b.instructions.slice(0, 120)}` : ""}`)
+        .filter((b: any) => b.department_id === f.id)
+        .map((b: any) => `${b.name} (${b.role})${b.instructions ? ` — ${b.instructions.slice(0, 120)}` : ""}`)
         .join("; ");
       return `- ${f.floor_index}F ${f.name}${f.description ? ` (${f.description})` : ""}: ${members || "no bots yet"}`;
     })
     .join("\n");
 
   const tasks = ctx.openTasks.length
-    ? ctx.openTasks.map((t) => `- [${t.status}] ${t.title} → ${nameOf(t.assignee_bot_id)}`).join("\n")
+    ? ctx.openTasks.map((t: any) => `- [${t.status}] ${t.title} → ${nameOf(t.assignee_bot_id)}`).join("\n")
     : "- none";
 
   const roleLine =
@@ -157,9 +158,9 @@ export function buildInstructions(ctx: ChatContext, userTimezone: string, access
 function appLines(ctx: ChatContext, access: AppAccess) {
   const { bot, roster } = ctx;
   const others = access.connected
-    .filter((a) => !access.mine.includes(a.name))
-    .map((a) => {
-      const holders = roster.bots.filter((b) => b.id !== bot.id && hasApp(b.app_keys ?? [], a.slug)).map((b) => b.name);
+    .filter((a: any) => !access.mine.includes(a.name))
+    .map((a: any) => {
+      const holders = roster.bots.filter((b: any) => b.id !== bot.id && hasApp(b.app_keys ?? [], a.slug)).map((b: any) => b.name);
       return `${a.name} (${holders.length ? `${holders.join(", ")} can use it` : "no bot has it yet"})`;
     });
   const ask =
@@ -237,8 +238,8 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
         assignee: z.string().optional().describe("Exact name of the bot to assign (defaults to you)"),
       }),
       execute: async ({ title, details, assignee }) => {
-        const target = assignee ? roster.bots.find((b) => b.name.toLowerCase() === assignee.trim().toLowerCase()) : roster.bots.find((b) => b.id === bot.id);
-        if (!target) return { ok: false, error: `No bot named "${assignee}". Bots: ${roster.bots.map((b) => b.name).join(", ")}` };
+        const target = assignee ? roster.bots.find((b: any) => b.name.toLowerCase() === assignee.trim().toLowerCase()) : roster.bots.find((b: any) => b.id === bot.id);
+        if (!target) return { ok: false, error: `No bot named "${assignee}". Bots: ${roster.bots.map((b: any) => b.name).join(", ")}` };
         if (target.id !== bot.id && !canDelegate(bot)) return { ok: false, error: "You can only create tasks for yourself." };
 
         const since = new Date();
@@ -280,6 +281,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
         return { ok: true, taskId: data.id, title: title.trim(), assignee: target.name, started };
       },
     }),
+    ...researchTools(supabase, bot.workspace_id, bot.id, bot.tool_keys),
   };
 
   return {

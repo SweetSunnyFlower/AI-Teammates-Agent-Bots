@@ -2,8 +2,8 @@
 
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 /** A thread item: a chat message, or a "new chat" divider. */
 export type ThreadMessage = UIMessage<{ createdAt: string; divider?: boolean }>;
@@ -17,10 +17,10 @@ export async function loadThread(
 ): Promise<
   { ok: true; messages: ThreadMessage[] } | { ok: false; error: string }
 > {
-  if (!hasSupabaseEnv)
+  if (!hasDatabaseEnv)
     return {
       ok: false,
-      error: "Chat needs Supabase — add your keys to .env.local.",
+      error: "Chat needs a database — add DATABASE_URL to .env.local.",
     };
   if (!uuid.safeParse(botId).success)
     return { ok: false, error: "Unknown bot." };
@@ -34,7 +34,7 @@ export async function loadThread(
   if (error) return { ok: false, error: friendly(error.message) };
   return {
     ok: true,
-    messages: (data ?? []).reverse().map((m) => ({
+    messages: (data ?? []).reverse().map((m: any) => ({
       id: m.ui_id ?? m.id,
       role: m.role,
       parts: m.kind === "divider" ? [] : m.parts,
@@ -52,7 +52,7 @@ export async function startNewChat(
 ): Promise<
   { ok: true; divider: ThreadMessage } | { ok: false; error: string }
 > {
-  if (!hasSupabaseEnv || !uuid.safeParse(botId).success)
+  if (!hasDatabaseEnv || !uuid.safeParse(botId).success)
     return { ok: false, error: "Unknown bot." };
   const supabase = await createClient();
   const { data: bot } = await supabase
@@ -88,6 +88,6 @@ export async function startNewChat(
 
 function friendly(message: string) {
   if (/fetch failed|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message))
-    return "Couldn't reach Supabase — check your connection and try again.";
+    return "Couldn't reach the database — check your connection and try again.";
   return message;
 }

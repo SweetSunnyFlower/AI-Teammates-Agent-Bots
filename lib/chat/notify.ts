@@ -1,5 +1,5 @@
 import type { CardElement } from "chat";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import { readyChatBot, slackAdapter } from "./bot";
 import { inboxCard, type CardItem } from "./cards";
 import { hasSlack, hasTelegram } from "./env";

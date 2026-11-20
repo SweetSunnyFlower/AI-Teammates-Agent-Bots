@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DbClient } from "@/lib/db/client";
 import type { ApprovalPreview } from "@/lib/approvals/describe";
 import { routineSchema } from "./schema";
 import { describeCron, nextRunAt } from "./schedule";
@@ -28,7 +28,7 @@ export interface RoutineProposalInput {
 }
 
 export async function proposeRoutine(
-  db: SupabaseClient,
+  db: DbClient,
   ctx: {
     workspaceId: string;
     proposerId: string;

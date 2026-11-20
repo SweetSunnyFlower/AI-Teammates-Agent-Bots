@@ -6,8 +6,8 @@ import { hasTrigger, startTaskRun } from "@/lib/runs/start";
 import { startRoutineRun } from "@/lib/routines/run";
 import { routineSchema, type RoutineInput } from "@/lib/routines/schema";
 import { createRoutine, nextRunFor } from "@/lib/routines/store";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { hasDatabaseEnv } from "@/lib/db/env";
+import { createClient } from "@/lib/db/server";
 
 /**
  * Routines: a bot runs a prompt on a schedule. Everything here runs as the signed-in user (RLS
@@ -21,16 +21,13 @@ const uuid = z.string().uuid();
 const ROUTINE_COLUMNS = "id, workspace_id, bot_id, name, prompt, cron, timezone, enabled";
 
 async function client() {
-  if (!hasSupabaseEnv) throw new Error("Supabase isn't configured yet — add your keys to .env.local.");
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims?.sub) throw new Error("Your session expired — sign in again.");
-  return supabase;
+  if (!hasDatabaseEnv) throw new Error("Database isn't configured yet — add DATABASE_URL to .env.local.");
+  return createClient();
 }
 
 function friendly(message: string) {
-  if (/fetch failed|network|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach Supabase — check your connection and try again.";
-  if (message.includes("row-level security")) return "You don't have access to that workspace.";
+  if (/fetch failed|network|ENOTFOUND|EAI_AGAIN|ECONN/i.test(message)) return "Couldn't reach the database — check your connection and try again.";
+  if (message.includes("don't have access")) return "You don't have access to that workspace.";
   if (message.includes("foreign key")) return "That bot isn't in this workspace.";
   return message;
 }
@@ -105,7 +102,7 @@ export async function deleteRoutine(routineId: string): Promise<RoutineResult> {
 export async function runRoutineNow(routineId: string): Promise<RoutineResult> {
   return run(async () => {
     if (!uuid.safeParse(routineId).success) return { ok: false, error: "Unknown routine." };
-    if (!hasTrigger()) return { ok: false, error: "Background runs aren't set up yet — add the Trigger.dev keys to .env.local." };
+    if (!hasTrigger()) return { ok: false, error: "Background runs aren't set up yet — add DATABASE_URL and start the worker." };
     const supabase = await client();
     const { data: r } = await supabase.from("routines").select(ROUTINE_COLUMNS).eq("id", routineId).maybeSingle();
     if (!r) return { ok: false, error: "That routine doesn't exist any more." };

@@ -6,7 +6,7 @@ import {
   verifiedInstallation,
   verifyInstallState,
 } from "@/lib/github/install";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/db/admin";
 import { limitByIp } from "@/lib/ratelimit";
 
 /**

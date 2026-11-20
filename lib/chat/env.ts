@@ -2,7 +2,7 @@
  * Which chat channels are configured (SERVER ONLY — reads secrets' presence, never their values).
  * See .env.example → "Chat channels".
  */
-export const hasChatState = () => Boolean(process.env.SUPABASE_DB_URL);
+export const hasChatState = () => Boolean(process.env.DATABASE_URL);
 
 export const hasTelegram = () =>
   hasChatState() && Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN && process.env.TELEGRAM_BOT_USERNAME);

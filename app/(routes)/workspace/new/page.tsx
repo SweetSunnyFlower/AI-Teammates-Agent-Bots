@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { CreateWorkspaceCard } from "@/components/workspace/create-workspace-card";
 import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser, listMyWorkspaces } from "@/lib/office/load";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { hasDatabaseEnv } from "@/lib/db/env";
 
 export const metadata: Metadata = { title: "New workspace · Dotty" };
 
@@ -19,7 +19,7 @@ export default function NewWorkspacePage() {
 }
 
 async function NewWorkspace() {
-  if (!hasSupabaseEnv) redirect("/workspace");
+  if (!hasDatabaseEnv) redirect("/workspace");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login?next=/workspace/new");
 
