@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 将 Dotty 的用户界面、AI 行为、渠道消息和用户文档完整切换为简体中文。
 
@@ -34,7 +34,7 @@ pg-boss、Telegram/Slack Chat SDK。
 - Consumes: source files from `app/`, `components/`, `lib/`, and `jobs/`.
 - Produces: Node test assertions that fail while the UI and AI prompts remain English.
 
-- [ ] **Step 1: Write the failing localization contract**
+- [x] **Step 1: Write the failing localization contract**
 
 ```ts
 import assert from "node:assert/strict";
@@ -66,13 +66,13 @@ test("the office shell uses Chinese status and panel titles", () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing test**
+- [x] **Step 2: Run the failing test**
 
 Run: `node --import tsx --test --test-name-pattern='document language|Simplified Chinese|office shell' tests/localization.test.ts`
 
 Expected: FAIL until `lang="zh-CN"`, Chinese metadata, Chinese prompts and Chinese status labels exist.
 
-- [ ] **Step 3: Commit the regression contract after the implementation starts**
+- [x] **Step 3: Commit the regression contract after the implementation starts**
 
 ```bash
 git add tests/localization.test.ts
@@ -99,7 +99,7 @@ git commit -m "test: cover Chinese localization contract"
 - Consumes: root layout metadata and Next.js error boundaries.
 - Produces: Chinese document language, page titles, authentication flow and workspace creation.
 
-- [ ] **Step 1: Translate every visible string in these files**
+- [x] **Step 1: Translate every visible string in these files**
 
 Use these exact core replacements:
 
@@ -113,7 +113,7 @@ Translate labels such as `Welcome to Dotty`, `Sign in`, `Create account`, `name`
 `password`, `New workspace`, `preview`, loading and error text. Keep environment variable names,
 email addresses, passwords and technical error details unchanged inside code spans.
 
-- [ ] **Step 2: Run the focused checks**
+- [x] **Step 2: Run the focused checks**
 
 Run: `npx tsc --noEmit`
 
@@ -123,7 +123,7 @@ Run: `node --import tsx --test --test-name-pattern='document language' tests/loc
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app components tests/localization.test.ts
@@ -154,7 +154,7 @@ git commit -m "feat: localize global shell and onboarding"
 - Consumes: internal status values `working`, `waiting`, `resting`, `error`.
 - Produces: Chinese labels and copy while retaining internal status values.
 
-- [ ] **Step 1: Translate status labels and office copy**
+- [x] **Step 1: Translate status labels and office copy**
 
 Use these exact status labels:
 
@@ -170,7 +170,7 @@ Translate `Your Team`, `Live Activity`, `Whole office`, `Boards`, `Routines`, `S
 dialogues, validation messages and toast text. Replace visible role values with `总控 Bot`,
 `主管 Bot`, and `执行 Bot`.
 
-- [ ] **Step 2: Verify office and team behavior**
+- [x] **Step 2: Verify office and team behavior**
 
 Run: `npx tsc --noEmit`
 
@@ -180,7 +180,7 @@ Run: `node --import tsx --test --test-name-pattern='office shell' tests/localiza
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/office components/office components/panels components/team
@@ -211,7 +211,7 @@ git commit -m "feat: localize office and team management"
 - Consumes: Chinese status labels from Task 3 and existing action result shapes.
 - Produces: Chinese primary product workflows without changing action payloads.
 
-- [ ] **Step 1: Translate visible workflow strings**
+- [x] **Step 1: Translate visible workflow strings**
 
 Translate headings, tabs, buttons, placeholders, validation errors, approval summaries,
 question cards, task metadata, activity descriptions, settings labels, channel instructions,
@@ -235,7 +235,7 @@ Loading… → 加载中…
 Keep `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `SLACK_CLIENT_ID`, `npm run ...`, repository names and
 other technical examples unchanged.
 
-- [ ] **Step 2: Verify the workflows**
+- [x] **Step 2: Verify the workflows**
 
 Run: `npx tsc --noEmit`
 
@@ -245,7 +245,7 @@ Run: `npm test`
 
 Expected: all tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add components/chat components/boards components/inbox components/routines components/settings components/ui
@@ -285,7 +285,7 @@ git commit -m "feat: localize chat boards inbox and settings"
 - Consumes: existing `{ ok, error }` and thrown-error contracts.
 - Produces: the same contracts with Chinese messages intended for users and models.
 
-- [ ] **Step 1: Translate user and model-facing errors**
+- [x] **Step 1: Translate user and model-facing errors**
 
 Translate error and success messages returned to UI, server actions, AI tools and channel users.
 Keep technical identifiers, URLs, status codes and raw upstream error bodies. Use this pattern:
@@ -296,13 +296,13 @@ return { ok: false, error: "连接 GitHub 失败，请稍后重试。" };
 
 Do not translate internal logger calls or comments such as `logger.error("worker failed")`.
 
-- [ ] **Step 2: Run type and unit checks**
+- [x] **Step 2: Run type and unit checks**
 
 Run: `npx tsc --noEmit && npm test`
 
 Expected: exit 0 and all tests pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app lib
@@ -327,7 +327,7 @@ git commit -m "feat: localize server feedback and tool errors"
 - Consumes: model instructions, tool descriptions, task reports and channel card builders.
 - Produces: Chinese AI behaviour while retaining tool names and machine-readable values.
 
-- [ ] **Step 1: Add the language rule and translate prompts**
+- [x] **Step 1: Add the language rule and translate prompts**
 
 Add this exact rule to every top-level instruction builder:
 
@@ -339,7 +339,7 @@ Translate role instructions, tool `.describe()` strings, task prompts, approval 
 reasons, background reports, progress messages and Telegram/Slack buttons. Translate channel
 language from `The user is writing...` to Chinese while preserving the channel name.
 
-- [ ] **Step 2: Run the AI contract checks**
+- [x] **Step 2: Run the AI contract checks**
 
 Run: `node --import tsx --test --test-name-pattern='Simplified Chinese' tests/localization.test.ts`
 
@@ -349,7 +349,7 @@ Run: `npx tsc --noEmit`
 
 Expected: exit 0.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/chat jobs lib/runs
@@ -367,13 +367,13 @@ git commit -m "feat: localize AI prompts and channel messages"
 - Consumes: current self-hosted startup and deployment behavior.
 - Produces: Chinese installation, operation and troubleshooting documentation.
 
-- [ ] **Step 1: Translate documentation without changing commands**
+- [x] **Step 1: Translate documentation without changing commands**
 
 Translate headings, explanations, notes, expected output descriptions and troubleshooting text.
 Keep all command blocks byte-for-byte executable. Keep variable names, package names, image names,
 URLs and code identifiers unchanged.
 
-- [ ] **Step 2: Check Markdown and links**
+- [x] **Step 2: Check Markdown and links**
 
 Run: `git diff --check`
 
@@ -383,7 +383,7 @@ Run: `rg -n '^```' README.md deploy/README.md`
 
 Expected: every opened code fence has a matching close.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md deploy/README.md .env.example
@@ -399,7 +399,7 @@ git commit -m "docs: translate setup and deployment guides"
 - Consumes: all previous tasks.
 - Produces: a verified Chinese-only application and clean commit history.
 
-- [ ] **Step 1: Run automated verification**
+- [x] **Step 1: Run automated verification**
 
 Run: `npm test`
 
@@ -417,7 +417,7 @@ Stop the running dev server, run `npm run build`, then restart `npm run dev`.
 
 Expected: exit 0.
 
-- [ ] **Step 2: Scan for obvious visible English**
+- [x] **Step 2: Scan for obvious visible English**
 
 Run:
 
@@ -430,7 +430,7 @@ rg -n --glob '*.{tsx,ts}' \
 Expected: only internal identifiers, code comments, technical errors or intentionally English
 values remain.
 
-- [ ] **Step 3: Browser test**
+- [x] **Step 3: Browser test**
 
 Open `http://localhost:3000/workspace/5728f34a-7994-4b6e-95d7-01548d04545c` and verify:
 
@@ -441,7 +441,7 @@ Open `http://localhost:3000/workspace/5728f34a-7994-4b6e-95d7-01548d04545c` and 
 - A Chinese chat request receives a Chinese reply.
 - A request explicitly asking for English receives an English reply.
 
-- [ ] **Step 4: Commit final fixes**
+- [x] **Step 4: Commit final fixes**
 
 ```bash
 git add -A

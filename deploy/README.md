@@ -1,16 +1,16 @@
-# Dotty self-hosted deployment
+# Dotty 自托管部署
 
-Target: one Linux server running Next.js, the pg-boss worker, Postgres (external or local),
-SearXNG, and rootless Podman. Caddy terminates HTTPS.
+目标：在一台 Linux 服务器上运行 Next.js、pg-boss worker、PostgreSQL（本机或远程）、
+SearXNG 和 rootless Podman，由 Caddy 负责 HTTPS。
 
-## 1. System prerequisites
+## 1. 系统要求
 
-- Node.js 22.12+
-- PostgreSQL 13+
+- Node.js 22.12 或更高版本
+- PostgreSQL 13 或更高版本
 - Caddy 2
-- rootless Podman with a dedicated `dotty` user
+- rootless Podman，并使用专用 `dotty` 用户
 
-Create the service user and directories:
+创建服务用户与目录：
 
 ```bash
 useradd --create-home --shell /bin/bash dotty
@@ -19,34 +19,34 @@ install -d -o dotty -g dotty /var/lib/dotty/sandboxes
 loginctl enable-linger dotty
 ```
 
-## 2. Database
+## 2. 数据库
 
-Create a database and user, then run the migrations:
+先创建数据库、所有者和兼容角色，再执行迁移：
 
 ```bash
-sudo -u postgres createuser -P dotty
+sudo -u postgres createuser --createdb --createrole -P dotty
 sudo -u postgres createdb -O dotty dotty
+sudo -u postgres psql -d dotty -c "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;"
 cd /opt/dotty
 npm run db:migrate
 ```
 
-The database owner must be able to create the compatibility roles used by the historical
-migrations (`anon`, `authenticated`, `service_role`). If the database is managed and role creation
-is disabled, remove the grant/policy blocks from the migrations before applying them; the app
-enforces ownership in `lib/db/client.ts`.
+`service_role` 需要 `BYPASSRLS`，因此需要 PostgreSQL 管理员预先创建。已经存在的角色可以跳过。
+如果托管服务商禁止创建这些兼容角色，请换用允许创建角色的 PostgreSQL 服务，或由管理员提前
+创建 `anon`、`authenticated` 和 `service_role`。
 
-## 3. App
+## 3. 应用
 
 ```bash
 cp .env.example .env.local
-# Fill DATABASE_URL, BETTER_AUTH_SECRET, DEEPSEEK_API_KEY and NEXT_PUBLIC_SITE_URL.
+# 填写 DATABASE_URL、BETTER_AUTH_SECRET、DEEPSEEK_API_KEY 和 NEXT_PUBLIC_SITE_URL。
 npm ci
 npm run db:migrate
 npm run build
 npm run podman:build
 ```
 
-Generate the auth secret and SearXNG secret:
+生成认证密钥与 SearXNG 密钥：
 
 ```bash
 openssl rand -base64 32
@@ -55,12 +55,12 @@ openssl rand -hex 32
 
 ## 4. SearXNG
 
-Replace the placeholder `server.secret_key` in `deploy/searxng/settings.yml`, then install and
-start `dotty-searxng.service`. It listens only on `127.0.0.1:8080`.
+先替换 `deploy/searxng/settings.yml` 中 `server.secret_key` 的占位值，再安装并启动
+`dotty-searxng.service`。它只监听 `127.0.0.1:8080`。
 
-## 5. Caddy and systemd
+## 5. Caddy 与 systemd
 
-Set `DOMAIN` and `ACME_EMAIL`, install `deploy/Caddyfile` at `/etc/caddy/Caddyfile`, then:
+设置 `DOMAIN` 和 `ACME_EMAIL`，把 `deploy/Caddyfile` 安装到 `/etc/caddy/Caddyfile`，然后运行：
 
 ```bash
 cp deploy/systemd/dotty.service /etc/systemd/system/
@@ -70,10 +70,10 @@ systemctl daemon-reload
 systemctl enable --now dotty dotty-worker dotty-searxng caddy
 ```
 
-The worker must run as the same `dotty` user as the Podman storage. Change `XDG_RUNTIME_DIR` in
-the unit if the user's UID is not 1000.
+worker 必须使用与 Podman 存储相同的 `dotty` 用户。如果用户 UID 不是 1000，请修改 unit 中的
+`XDG_RUNTIME_DIR`。
 
-## 6. Health checks
+## 6. 健康检查
 
 ```bash
 curl -fsS https://$DOMAIN/api/health
@@ -81,10 +81,10 @@ systemctl status dotty dotty-worker dotty-searxng caddy
 journalctl -u dotty-worker -f
 ```
 
-## Local macOS
+## macOS 本地开发
 
-Podman machine networking can be unreliable behind some macOS VPN/network filters. Colima with Docker is a
-supported local fallback and uses the same container images:
+某些 macOS VPN 或网络过滤工具会导致 Podman machine 网络不稳定。可以使用 Colima + Docker
+作为本地替代方案，容器镜像完全相同：
 
 ```bash
 brew install colima docker
@@ -99,5 +99,5 @@ npm run dev
 npm run worker:start
 ```
 
-Set `PODMAN_BIN=docker` in `.env.local` for the local sandbox. `SEARXNG_ENGINES=mojeek` is a reliable
-default on networks where Brave, DuckDuckGo or Google upstreams are blocked.
+本地沙箱需要在 `.env.local` 中设置 `PODMAN_BIN=docker`。如果 Brave、DuckDuckGo 或 Google
+上游被网络阻止，`SEARXNG_ENGINES=mojeek` 是比较稳定的默认值。
