@@ -351,7 +351,7 @@ function Thinking({ bot }: { bot: Bot }) {
 
 /** The bot's name, on the first line so it lines up with the avatar beside it. */
 function SenderName({ bot }: { bot: Bot }) {
-  return <span className="font-mono text-[12px] leading-none text-ink-muted">{bot.name}</span>;
+  return <span className="font-mono text-[12px] leading-[1.25] text-ink-muted">{bot.name}</span>;
 }
 
 function ChatMessage({ message, bot, streaming }: { message: ThreadMessage; bot: Bot; streaming: boolean }) {

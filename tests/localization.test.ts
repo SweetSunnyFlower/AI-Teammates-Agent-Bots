@@ -76,3 +76,9 @@ test("the sliding chat window does not use user messages as prepend anchors", ()
 
   assert.doesNotMatch(chat, /scrollAnchor=\{m\.role === "user"\}/);
 });
+
+test("chat sender names reserve enough line height for Chinese glyphs", () => {
+  const chat = read("components/chat/bot-chat.tsx");
+
+  assert.match(chat, /function SenderName[\s\S]*?font-mono text-\[12px\] leading-\[1\.25\]/);
+});
