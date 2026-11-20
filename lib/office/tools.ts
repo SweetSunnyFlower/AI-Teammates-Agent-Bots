@@ -8,7 +8,7 @@ import type { BotRole } from "./types";
 export interface ToolDef {
   key: string;
   label: string;
-  group: "核心" | "研究";
+  group: "核心" | "研究" | "沟通";
   roles: BotRole[];
   gated: boolean;
 }
@@ -25,6 +25,7 @@ export const TOOL_CATALOG: ToolDef[] = [
   { key: "propose_bot", label: "提议创建 Bot", group: "核心", roles: ["head"], gated: true },
   { key: "propose_department", label: "提议创建楼层", group: "核心", roles: ["head"], gated: true },
   { key: "propose_routine", label: "提议创建例行任务", group: "核心", roles: ["head"], gated: true },
+  { key: "email.send", label: "发送邮件", group: "沟通", roles: ALL, gated: true },
   { key: "web.search", label: "搜索网页", group: "研究", roles: ALL, gated: false },
   { key: "browser.extract", label: "读取网页内容", group: "研究", roles: ALL, gated: false },
   { key: "watch.add", label: "添加价格监控", group: "研究", roles: ALL, gated: false },

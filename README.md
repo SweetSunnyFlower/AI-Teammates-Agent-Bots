@@ -330,6 +330,26 @@ find db/migrations -maxdepth 1 -name '*.sql' | wc -l
 
 ### 10. 可选集成
 
+SMTP 邮件发送：
+
+```dotenv
+SMTP_HOST=smtp.qq.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=your-provider-authorization-code
+EMAIL_FROM=you@example.com
+```
+
+`SMTP_PASS` 是邮箱服务商生成的授权码，不是登录密码。`EMAIL_FROM` 必须与 `SMTP_USER`
+相同。填写后运行以下命令验证登录和 TLS；该命令不会发送邮件：
+
+```bash
+npm run email:check
+```
+
+每个 Bot 都可以在 **设置 → 工具 → 沟通** 中自行勾选“发送邮件”。聊天中的发信请求只会创建
+后台任务；实际发送前必须在“待我处理”中批准或编辑最终邮件内容。
+
 Composio：
 
 ```dotenv
