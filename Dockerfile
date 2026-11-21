@@ -1,5 +1,6 @@
 ARG NPM_REGISTRY=https://registry.npmjs.org
 FROM node:22-bookworm AS deps
+ARG NPM_REGISTRY
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --registry=${NPM_REGISTRY} --no-audit --no-fund

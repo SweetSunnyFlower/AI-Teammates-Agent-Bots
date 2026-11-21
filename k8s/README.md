@@ -66,3 +66,44 @@ kubectl logs -n dotty job/dotty-migrate
 Code sandboxes are disabled in this first deployment. Set
 `SANDBOX_ENABLED=false` in the ConfigMap until the sandbox is implemented as a
 Kubernetes Job.
+
+## Monitoring and logs
+
+The application exposes Prometheus metrics at `/api/metrics`. The monitoring
+stack runs with the official Docker images inside Minikube because the Docker
+Desktop host cannot reach Minikube Pod IPs directly.
+
+Create the local Grafana admin secret:
+
+```bash
+kubectl create secret generic dotty-grafana -n dotty \
+  --from-literal=admin-password='change-me'
+```
+
+Apply the monitoring resources:
+
+```bash
+kubectl apply -f k8s/80-prometheus.yaml
+kubectl apply -f k8s/81-loki.yaml
+kubectl apply -f k8s/82-promtail.yaml
+kubectl apply -f k8s/83-grafana.yaml
+```
+
+Open Grafana:
+
+```bash
+kubectl port-forward -n dotty svc/dotty-grafana 3001:3000
+```
+
+The provisioned `Dotty Overview` dashboard includes request rate, 5xx rate,
+p95 latency, Web memory, Web CPU, and application logs. Prometheus is also
+available with:
+
+```bash
+kubectl port-forward -n dotty svc/dotty-prometheus 9090:9090
+```
+
+Promtail tails `/var/log/pods/dotty_*/*/*.log` on every node, so it does not
+depend on Kubernetes service discovery. Metrics and logs use `emptyDir` in this
+first version; restarting the monitoring Pods loses retention history. Add PVCs
+or an external store before treating this as a production monitoring setup.

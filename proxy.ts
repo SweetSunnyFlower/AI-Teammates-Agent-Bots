@@ -2,9 +2,17 @@ import { type NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasDatabaseEnv } from "@/lib/db/env";
+import { observeHttpRequest } from "@/lib/metrics";
 
 // Next.js 16: `proxy.ts` replaces `middleware.ts`.
 export async function proxy(request: NextRequest) {
+  const started = performance.now();
+  const response = await handleProxy(request);
+  observeHttpRequest(request, response.status, performance.now() - started);
+  return response;
+}
+
+async function handleProxy(request: NextRequest) {
   const response = NextResponse.next({ request });
   if (!hasDatabaseEnv) return response;
 

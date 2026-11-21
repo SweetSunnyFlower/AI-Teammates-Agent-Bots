@@ -55,6 +55,7 @@
     "nodemailer": "^10.6.1",
     "pg": "8.23.1",
     "pg-boss": "^12.38.2",
+    "prom-client": "^15.1.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",

@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dotty-prometheus
+  namespace: dotty
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dotty-prometheus
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dotty-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dotty-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: dotty-prometheus
+    namespace: dotty
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dotty-prometheus-config
+  namespace: dotty
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: dotty-web
+        metrics_path: /api/metrics
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - dotty
+        relabel_configs:
+          - source_labels: ["__meta_kubernetes_pod_label_app"]
+            action: keep
+            regex: dotty-web
+          - source_labels: ["__meta_kubernetes_pod_phase"]
+            action: keep
+            regex: Running
+          - source_labels: ["__meta_kubernetes_pod_container_port_number"]
+            action: keep
+            regex: "3000"
+          - source_labels: ["__meta_kubernetes_pod_name"]
+            target_label: pod
+          - source_labels: ["__meta_kubernetes_namespace"]
+            target_label: namespace
+          - source_labels: ["__meta_kubernetes_pod_node_name"]
+            target_label: node
+
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotty-prometheus
+  namespace: dotty
+spec:
+  selector:
+    app: dotty-prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotty-prometheus
+  namespace: dotty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dotty-prometheus
+  template:
+    metadata:
+      labels:
+        app: dotty-prometheus
+    spec:
+      serviceAccountName: dotty-prometheus
+      nodeSelector:
+        kubernetes.io/hostname: minikube
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-lifecycle
+          ports:
+            - name: http
+              containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: dotty-prometheus-config
+        - name: data
+          emptyDir: {}
