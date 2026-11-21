@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dotty-config
+  namespace: dotty
+data:
+  BETTER_AUTH_URL: "http://localhost:3000"
+  NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+  SEARXNG_URL: "http://dotty-searxng:8080"
+  SEARXNG_ENGINES: "google cse,360search"
+  SANDBOX_ENABLED: "false"
+  DATABASE_SSL: "false"
+  DATABASE_POOL_SIZE: "10"

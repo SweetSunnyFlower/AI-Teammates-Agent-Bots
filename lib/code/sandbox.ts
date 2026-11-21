@@ -7,8 +7,8 @@ import { z } from "zod";
 import type { ChangedFile } from "@/lib/github/commit";
 
 /**
- * The coding sandbox (D20): a rootless Podman container with the repo cloned on the host.
- * SERVER ONLY (local podman binary).
+ * The coding sandbox (D20): a rootless Docker or Podman container with the repo cloned on the host.
+ * SERVER ONLY (local container runtime binary).
  *
  * Safety: the host clones with a read-only GitHub token; the token never enters the container.
  * The container has no network, a read-only root filesystem, a writable /tmp and only the
@@ -25,7 +25,11 @@ export interface Sandbox {
   delete: () => Promise<void>;
 }
 
-export const hasBox = () => process.env.PODMAN_ENABLED !== "false";
+export const hasBox = () => process.env.SANDBOX_ENABLED !== "false";
+
+/** Docker on macOS/Windows by default; rootless Podman on Linux. */
+export const containerBin = () =>
+  process.env.CONTAINER_BIN?.trim() || (process.platform === "linux" ? "podman" : "docker");
 
 export const REPO_DIR = "/workspace/repo";
 
@@ -72,7 +76,7 @@ export async function createSandbox(input: {
 }) {
   const workspaceDir = await mkdtemp(path.join(process.env.DOTTY_SANDBOX_ROOT || tmpdir(), "dotty-code-"));
   const image =
-    process.env[`PODMAN_${input.runtime.toUpperCase()}_IMAGE`] ||
+    process.env[`SANDBOX_${input.runtime.toUpperCase()}_IMAGE`] ||
     `localhost/dotty-sandbox-${input.runtime}:latest`;
   const sandbox: Sandbox = {
     name: input.name,
@@ -83,7 +87,7 @@ export async function createSandbox(input: {
       await rm(workspaceDir, { recursive: true, force: true });
     },
   };
-  // The token stays on the host for the clone; it is deliberately not passed to Podman.
+  // The token stays on the host for the clone; it is deliberately not passed to the container runtime.
   Object.defineProperty(sandbox, "__readToken", { value: input.readToken, enumerable: false });
   return sandbox;
 }
@@ -98,7 +102,7 @@ export async function run(
   const args = [
     "run",
     "--rm",
-    `--network=${process.env.PODMAN_SANDBOX_NETWORK || "none"}`,
+    `--network=${process.env.SANDBOX_NETWORK || "none"}`,
     "--read-only",
     "--tmpfs",
     "/tmp:rw,size=512m",
@@ -122,7 +126,7 @@ export async function run(
   ];
   return new Promise<{ exit: number; output: string; timedOut: boolean }>((resolve) => {
     execFile(
-      process.env.PODMAN_BIN || "podman",
+      containerBin(),
       args,
       {
         env: {
@@ -253,7 +257,7 @@ export function sandboxTools(
   return {
     run_command: tool({
       description:
-        "在仓库根目录通过 bash 运行命令，可用于安装依赖、构建、测试、lint 和检查内容。输出过长时会截断；网络仅限 GitHub 和包管理器仓库。",
+        "在仓库根目录通过 bash 运行命令，可用于安装依赖、构建、测试、lint 和检查内容。输出过长时会截断；默认无网络，启用 SANDBOX_NETWORK 后才可联网。",
       inputSchema: z.object({
         command: z.string().min(1).max(4000),
         timeoutSeconds: z.number().int().min(5).max(900).default(300),

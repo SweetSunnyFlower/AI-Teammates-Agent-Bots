@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotty-worker
+  namespace: dotty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dotty-worker
+  template:
+    metadata:
+      labels:
+        app: dotty-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: worker
+          image: dotty-app:dev
+          imagePullPolicy: IfNotPresent
+          command: ["node", "--import", "tsx", "jobs/worker.ts"]
+          envFrom:
+            - configMapRef:
+                name: dotty-config
+            - secretRef:
+                name: dotty-secrets
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dotty-db
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://dotty:$(POSTGRES_PASSWORD)@dotty-postgres:5432/dotty"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi

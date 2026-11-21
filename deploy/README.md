@@ -43,7 +43,7 @@ cp .env.example .env.local
 npm ci
 npm run db:migrate
 npm run build
-npm run podman:build
+npm run sandbox:build
 ```
 
 生成认证密钥与 SearXNG 密钥：
@@ -55,8 +55,8 @@ openssl rand -hex 32
 
 ## 4. SearXNG
 
-先替换 `deploy/searxng/settings.yml` 中 `server.secret_key` 的占位值，再安装并启动
-`dotty-searxng.service`。它只监听 `127.0.0.1:8080`。
+在 `.env.local` 中设置 `SEARXNG_SECRET`（不要把密钥写进仓库里的 settings 文件），再安装并
+启动 `dotty-searxng.service`。它只监听 `127.0.0.1:8080`。
 
 ## 5. Caddy 与 systemd
 
@@ -70,8 +70,8 @@ systemctl daemon-reload
 systemctl enable --now dotty dotty-worker dotty-searxng caddy
 ```
 
-worker 必须使用与 Podman 存储相同的 `dotty` 用户。如果用户 UID 不是 1000，请修改 unit 中的
-`XDG_RUNTIME_DIR`。
+在 Linux rootless Podman 部署中，worker 必须使用与 Podman 存储相同的 `dotty` 用户。如果用户
+UID 不是 1000，请修改 unit 中的 `XDG_RUNTIME_DIR`。
 
 ## 6. 健康检查
 
@@ -83,7 +83,7 @@ journalctl -u dotty-worker -f
 
 ## macOS 本地开发
 
-某些 macOS VPN 或网络过滤工具会导致 Podman machine 网络不稳定。可以使用 Colima + Docker
+某些 macOS VPN 或网络过滤工具会导致容器虚拟机网络不稳定。可以使用 Colima + Docker
 作为本地替代方案，容器镜像完全相同：
 
 ```bash
@@ -94,10 +94,10 @@ docker run -d --name dotty-searxng --restart unless-stopped \
   -v "$PWD/deploy/searxng:/etc/searxng:ro" \
   -e SEARXNG_BASE_URL=http://localhost:8080/ \
   docker.io/searxng/searxng:latest
-PODMAN_BIN=docker npm run podman:build -- node
+CONTAINER_BIN=docker npm run sandbox:build -- node
 npm run dev
 npm run worker:start
 ```
 
-本地沙箱需要在 `.env.local` 中设置 `PODMAN_BIN=docker`。如果 Brave、DuckDuckGo 或 Google
+本地沙箱需要在 `.env.local` 中设置 `CONTAINER_BIN=docker`。如果 Brave、DuckDuckGo 或 Google
 上游被网络阻止，`SEARXNG_ENGINES=mojeek` 是比较稳定的默认值。

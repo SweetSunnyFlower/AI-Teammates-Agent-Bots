@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dotty-searxng-settings
+  namespace: dotty
+data:
+  settings.yml: |
+    use_default_settings: true
+
+    general:
+      instance_name: "Dotty Research"
+      contact_url: "http://localhost:8080/"
+
+    server:
+      secret_key: "replace-with-env-override"
+      limiter: false
+      image_proxy: false
+
+    search:
+      safe_search: 1
+      formats:
+        - html
+        - json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotty-searxng
+  namespace: dotty
+spec:
+  selector:
+    app: dotty-searxng
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotty-searxng
+  namespace: dotty
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dotty-searxng
+  template:
+    metadata:
+      labels:
+        app: dotty-searxng
+    spec:
+      containers:
+        - name: searxng
+          image: searxng/searxng:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SEARXNG_BASE_URL
+              value: "http://localhost:8080/"
+            - name: SEARXNG_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dotty-secrets
+                  key: SEARXNG_SECRET
+          volumeMounts:
+            - name: settings
+              mountPath: /etc/searxng/settings.yml
+              subPath: settings.yml
+              readOnly: true
+            - name: cache
+              mountPath: /var/cache/searxng
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: settings
+          configMap:
+            name: dotty-searxng-settings
+        - name: cache
+          emptyDir: {}

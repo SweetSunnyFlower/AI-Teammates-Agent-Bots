@@ -1,5 +1,6 @@
 [Unit]
 Description=Dotty SearXNG search
+# Linux rootless Podman example. macOS/Windows users should start SearXNG with Docker instead.
 After=network-online.target
 Wants=network-online.target
 
@@ -9,6 +10,7 @@ User=dotty
 Group=dotty
 Environment=HOME=/home/dotty
 Environment=XDG_RUNTIME_DIR=/run/user/1000
+EnvironmentFile=-/opt/dotty/.env.local
 ExecStart=/usr/bin/podman run --rm --name dotty-searxng --publish 127.0.0.1:8080:8080 --volume /opt/dotty/deploy/searxng:/etc/searxng:ro,Z docker.io/searxng/searxng:latest
 ExecStop=/usr/bin/podman stop dotty-searxng
 Restart=always

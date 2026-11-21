@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dotty-migrate
+  namespace: dotty
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - until pg_isready -h dotty-postgres -p 5432 -U dotty -d dotty; do sleep 2; done
+      containers:
+        - name: migrate
+          image: dotty-app:dev
+          imagePullPolicy: IfNotPresent
+          command: ["node", "scripts/migrate.mjs"]
+          envFrom:
+            - configMapRef:
+                name: dotty-config
+            - secretRef:
+                name: dotty-secrets
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dotty-db
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://dotty:$(POSTGRES_PASSWORD)@dotty-postgres:5432/dotty"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

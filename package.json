@@ -13,7 +13,7 @@
     "email:check": "node --env-file-if-exists=.env.local --import tsx scripts/email-check.ts",
     "worker:dev": "node --env-file-if-exists=.env.local --watch --import tsx jobs/worker.ts",
     "worker:start": "node --env-file-if-exists=.env.local --import tsx jobs/worker.ts",
-    "podman:build": "node --env-file-if-exists=.env.local scripts/build-sandboxes.mjs",
+    "sandbox:build": "node --env-file-if-exists=.env.local scripts/build-sandboxes.mjs",
     "tunnel": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs tunnel",
     "telegram:webhook": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs telegram",
     "telegram:status": "node --env-file-if-exists=.env.local scripts/chat-setup.mjs telegram-status",

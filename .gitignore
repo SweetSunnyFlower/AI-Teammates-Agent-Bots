@@ -34,6 +34,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local Kubernetes secrets
+k8s/10-secret.yaml
+k8s/secret.yaml
+
 # vercel
 .vercel
 

@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { dbPool } from "@/lib/db/pool";
+import { sendVerificationEmail } from "@/lib/auth/email";
 
 const siteUrl =
   process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ||
@@ -16,9 +17,21 @@ export const auth = betterAuth({
   database: dbPool(),
   emailAndPassword: {
     enabled: true,
-    autoSignIn: true,
-    requireEmailVerification: false,
+    autoSignIn: false,
+    requireEmailVerification: true,
     minPasswordLength: 8,
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 60 * 60,
+    sendVerificationEmail: async ({ user, url }) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.info(`[auth] 验证链接 ${user.email}: ${url}`);
+      }
+      await sendVerificationEmail({ email: user.email, name: user.name, url });
+    },
   },
   user: {
     fields: {
@@ -60,7 +73,7 @@ export const auth = betterAuth({
   },
   advanced: {
     database: { generateId: false },
-    useSecureCookies: process.env.NODE_ENV === "production",
+    useSecureCookies: siteUrl.startsWith("https://"),
   },
   trustedOrigins: [siteUrl],
 });

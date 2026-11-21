@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginCard } from "@/components/auth/login-card";
-import { hasDatabaseEnv } from "@/lib/db/env";
+import { hasAuthCoreEnv, hasAuthEmailEnv } from "@/lib/auth/env";
 import { safeNext } from "@/lib/auth/safe-next";
 
 export const metadata: Metadata = { title: "登录 · Dotty" };
-const envReady = hasDatabaseEnv && Boolean(process.env.BETTER_AUTH_SECRET);
+const envReady = hasAuthCoreEnv;
+const signupReady = hasAuthEmailEnv;
 
 export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {
   return (
@@ -16,7 +17,7 @@ export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {
         ← Dotty
       </Link>
       {/* searchParams is request-time data under Cache Components → read it inside Suspense */}
-      <Suspense fallback={<LoginCard next="/workspace" envReady={envReady} />}>
+      <Suspense fallback={<LoginCard next="/workspace" envReady={envReady} signupReady={signupReady} />}>
         <LoginFromParams searchParams={searchParams} />
       </Suspense>
     </main>
@@ -26,7 +27,14 @@ export default function LoginPage({ searchParams }: PageProps<"/auth/login">) {
 async function LoginFromParams({ searchParams }: { searchParams: PageProps<"/auth/login">["searchParams"] }) {
   const params = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  return <LoginCard next={safeNext(one(params.next))} error={one(params.error)} envReady={envReady} />;
+  return (
+    <LoginCard
+      next={safeNext(one(params.next))}
+      error={one(params.error)}
+      envReady={envReady}
+      signupReady={signupReady}
+    />
+  );
 }
 
 /** A few flat trees and a path so the sign-in page sits in the same garden as the office. */

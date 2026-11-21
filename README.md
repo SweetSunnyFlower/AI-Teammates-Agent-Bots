@@ -14,7 +14,7 @@
 
 ## 🗝️ 主要功能
 
-* 🔐 自托管邮箱密码登录（Better Auth）
+* 🔐 自托管邮箱密码登录 + 邮箱验证（Better Auth）
 * 🏢 等距视角 3D 办公室（React Three Fiber）
 * 🛗 楼层与部门
 * 🤖 总控、主管与执行 Bot
@@ -117,22 +117,22 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 BETTER_AUTH_URL=http://localhost:3000
 DEEPSEEK_API_KEY=<your DeepSeek key>
 SEARXNG_URL=http://127.0.0.1:8080
-SEARXNG_ENGINES=mojeek
-PODMAN_ENABLED=true
-PODMAN_BIN=podman
+SEARXNG_ENGINES="google cse,360search"
+SANDBOX_ENABLED=true
+CONTAINER_BIN=docker
 ```
 
 使用 Colima 的 macOS 本地环境：
 
 ```dotenv
-PODMAN_BIN=docker
+CONTAINER_BIN=docker
 DOTTY_SANDBOX_ROOT=/Users/YOUR_NAME/.dotty/sandboxes
 ```
 
 使用 rootless Podman 的 Linux 本地环境：
 
 ```dotenv
-PODMAN_BIN=podman
+CONTAINER_BIN=podman
 DOTTY_SANDBOX_ROOT=/home/YOUR_USER/.dotty/sandboxes
 ```
 
@@ -186,7 +186,10 @@ npm run db:migrate
 
 迁移脚本是幂等的：已执行的文件会自动跳过。拉取新的迁移后可以再次运行。
 
-### 5. 启动容器运行时
+### 5. 准备容器运行时
+
+项目不要求 Podman。macOS/Windows 使用 Docker 即可；Linux 可以使用 rootless Podman。
+沙箱代码通过 `CONTAINER_BIN` 选择实际运行时。
 
 #### macOS：Colima + Docker
 
@@ -196,14 +199,14 @@ colima start --vm-type=vz
 brew services start colima # 可选：登录后自动启动 Colima
 ```
 
-在 `.env.local` 中设置 `PODMAN_BIN=docker`，并创建沙箱目录：
+在 `.env.local` 中设置 `CONTAINER_BIN=docker`，并创建沙箱目录：
 
 ```bash
 mkdir -p "$HOME/.dotty/sandboxes"
 ```
 
-某些 macOS VPN 或网络过滤工具会影响 Podman machine 网络。Colima 使用不同的网络路径，因此
-是推荐的本地替代方案。
+某些 macOS VPN 或网络过滤工具会影响容器虚拟机网络。Colima 使用不同的网络路径，因此
+是 Docker Desktop 之外的推荐本地替代方案。
 
 #### Linux：rootless Podman
 
@@ -225,18 +228,20 @@ test -w "$HOME/.dotty/sandboxes" && echo 可写
 
 ### 6. 启动 SearXNG
 
-在 `deploy/searxng/settings.yml` 中设置长期有效的 SearXNG 密钥：
+生成一个长期有效的 SearXNG 密钥：
 
 ```bash
 openssl rand -hex 32
 ```
 
-把输出值填入 `server.secret_key`，然后在项目根目录运行：
+把输出值填入 `.env.local` 的 `SEARXNG_SECRET`，不要写进仓库里的
+`deploy/searxng/settings.yml`。然后在项目根目录运行：
 
 ```bash
 mkdir -p "$HOME/.dotty/searxng-cache"
 
-container_bin=docker # Linux 使用 podman
+set -a; source .env.local; set +a
+container_bin="${CONTAINER_BIN:-docker}" # Linux 使用 podman 时设为 CONTAINER_BIN=podman
 "$container_bin" run -d \
   --name dotty-searxng \
   --restart unless-stopped \
@@ -244,7 +249,15 @@ container_bin=docker # Linux 使用 podman
   -v "$PWD/deploy/searxng:/etc/searxng:ro" \
   -v "$HOME/.dotty/searxng-cache:/var/cache/searxng" \
   -e SEARXNG_BASE_URL=http://localhost:8080/ \
+  -e SEARXNG_SECRET="$SEARXNG_SECRET" \
   docker.io/searxng/searxng:latest
+```
+
+如果 Docker Hub 连接被重置，可以先用镜像加速地址拉取，再打回本地标签：
+
+```bash
+docker pull docker.m.daocloud.io/searxng/searxng:latest
+docker tag docker.m.daocloud.io/searxng/searxng:latest searxng/searxng:latest
 ```
 
 验证 JSON 搜索结果：
@@ -260,28 +273,33 @@ curl 'http://127.0.0.1:8080/search?q=OpenAI&format=json&engines=mojeek'
 至少构建你的仓库会用到的运行时：
 
 ```bash
-npm run podman:build -- node
+npm run sandbox:build -- node
 ```
 
 其他运行时可以稍后添加：
 
 ```bash
-npm run podman:build -- python
-npm run podman:build -- golang
-npm run podman:build -- rust
-npm run podman:build -- ruby
+npm run sandbox:build -- python
+npm run sandbox:build -- golang
+npm run sandbox:build -- rust
+npm run sandbox:build -- ruby
 ```
 
-脚本会读取 `.env.local` 中的 `PODMAN_BIN`，因此 macOS 上的 Docker 与 Linux 上的 Podman
+脚本会读取 `.env.local` 中的 `CONTAINER_BIN`，因此 macOS 上的 Docker 与 Linux 上的 Podman
 都可以使用同一命令。
 
 沙箱默认安全策略：
 
-- `PODMAN_SANDBOX_NETWORK=none`
+- `SANDBOX_NETWORK=none`
 - 容器根文件系统只读
 - `/tmp` 临时可写
 - 限制内存、CPU 与 PID
 - 只挂载当前运行的工作目录
+
+默认 `none` 会让 `npm ci`、`pip install` 等依赖安装失败。确实需要联网安装依赖时：
+
+- Docker：设置 `SANDBOX_NETWORK=bridge`
+- rootless Podman：设置 `SANDBOX_NETWORK=slirp4netns`
 
 如果仓库必须在代码运行期间下载依赖，请显式修改网络配置。Docker 可使用 `bridge`，rootless
 Podman 可使用 `slirp4netns`，并请评估由此带来的安全影响。
@@ -300,7 +318,8 @@ npm run dev
 npm run worker:dev
 ```
 
-打开 [http://localhost:3000](http://localhost:3000)，选择**创建账户**，然后创建工作空间。
+打开 [http://localhost:3000](http://localhost:3000)，选择**创建账户**。注册需要输入两次密码，
+并通过邮件里的链接验证邮箱；验证成功后才能进入工作空间。
 聊天创建的任务、例行任务、审批、每日回顾和工程运行都需要 worker 持续运行。
 
 没有 worker 时界面仍能启动，但任务会一直排队。
@@ -328,9 +347,9 @@ find db/migrations -maxdepth 1 -name '*.sql' | wc -l
 - `npm run dev` 与 worker 都持续运行
 - 数据库中的迁移数量与 `find` 打印的 SQL 文件数量一致
 
-### 10. 可选集成
+### 10. SMTP 与可选集成
 
-SMTP 邮件发送：
+注册账户需要 SMTP 发送邮箱验证链接。Bot 的邮件发送工具也复用这套配置：
 
 ```dotenv
 SMTP_HOST=smtp.qq.com
@@ -406,14 +425,14 @@ docker logs --tail 100 dotty-searxng # 或：podman logs --tail 100 dotty-searxn
 curl 'http://127.0.0.1:8080/search?q=test&format=json&engines=mojeek'
 ```
 
-- 在 `.env.local` 中设置 `SEARXNG_ENGINES=mojeek`。
+- 在 `.env.local` 中设置可用的引擎，例如 `SEARXNG_ENGINES="google cse,360search"`。
 - 修改后重启开发服务器。
 - 上游搜索源可能被网络、VPN 或限流阻止。
 
 macOS 上 Podman machine 启动后立即停止
 
 - 使用上面的 Colima/Docker 方案。
-- 只选择一个运行时，并确保 `PODMAN_BIN` 指向它。
+- 只选择一个运行时，并确保 `CONTAINER_BIN` 指向它。
 
 数据库迁移在创建角色时失败
 
@@ -437,7 +456,7 @@ npm run dev
 工程任务提示镜像错误
 
 ```bash
-npm run podman:build -- node
+npm run sandbox:build -- node
 ```
 
 构建与目标仓库匹配的运行时镜像。
