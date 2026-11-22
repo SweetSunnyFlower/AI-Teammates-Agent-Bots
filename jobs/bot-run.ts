@@ -6,7 +6,7 @@ import { z } from "zod";
 import { round4, stepCostCents } from "@/lib/ai/cost";
 import { deepSeekModelFor } from "@/lib/ai/models";
 import { buildChatTools, buildRunInstructions, canCode, loadChatContext } from "@/lib/chat/bot-context";
-import { hasBox } from "@/lib/code/sandbox";
+import { isSandboxEnabled } from "@/lib/code/sandbox";
 import { releaseStaleRuns } from "@/lib/runs/recover";
 import { appToolsFor, planAccessRequest } from "@/lib/integrations/composio";
 import { describeAppTool, isAppTool } from "@/lib/integrations/tool-labels";
@@ -22,9 +22,10 @@ import { engineeringRun } from "./engineering-run";
  *
  *   backlog → doing (bot "working") → done | failed (bot back to "resting" / "error")
  *
- * Every step is logged to `activity` and every status change is a row update, so the office,
- * board and chat update live through Supabase Realtime. Uses the service role: every query is
- * explicitly scoped to the task's workspace.
+ * Every step is logged to `activity` and every status change is a row update. PostgreSQL triggers
+ * publish `pg_notify` events that `/api/events` forwards over SSE, so the office, board and chat
+ * update live. This uses the trusted runtime client: every query is explicitly scoped to the
+ * task's workspace.
  */
 
 type Payload = { taskId: string };
@@ -70,8 +71,8 @@ export const botRun = task({
       return finishFailed(db, t, bot.id, null, `今日费用上限（$${(capCents / 100).toFixed(2)}）已达到，请在设置中提高上限或明天再试。`, "resting");
     }
 
-    // Claim the task (the unique index allows one active run per task). A retry attempt of the
-    // same Trigger run reuses its row.
+    // Claim the task (the unique index allows one active run per task). A retry attempt for the
+    // same pg-boss job reuses its row.
     let run: { id: string } | null = null;
     if (alive === ctx.run.id) {
       const { data } = await db.from("runs").select("id").eq("task_id", t.id).eq("job_id", ctx.run.id).maybeSingle();
@@ -136,13 +137,14 @@ export const botRun = task({
         execute: ({ question, context }) => askUser(pause, question, context),
       }),
     };
-    // Trigger.dev can't wait on two child runs at once, so code runs from one step go one by one.
+    // The job wrapper does not support waiting on two inline child runs at once, so code runs
+    // started from one model step are processed one by one.
     let codeQueue: Promise<unknown> = Promise.resolve();
     const tools = buildChatTools(db, chat, {
       parentTask: { id: t.id, depth: t.depth, source: t.source },
       // Delegated tasks start straight away, queued per workspace.
       onTaskCreated: async (child) => {
-        await botRun.trigger(
+        await botRun.enqueue(
           { taskId: child.id },
           { concurrencyKey: child.assigneeBotId, idempotencyKey: `task-${child.id}`, tags: [`workspace:${child.workspaceId}`, `task:${child.id}`] },
         );
@@ -157,7 +159,7 @@ export const botRun = task({
       onApproval: (request) => waitForApproval(pause, request),
       // Engineering bots with GitHub: a code run in a sandbox (waits for it; one at a time).
       onCodeTask:
-        canCode(chat) && hasBox() && appTools.apps.includes("GitHub")
+        canCode(chat) && isSandboxEnabled() && appTools.apps.includes("GitHub")
           ? (request) => {
               const next = codeQueue.then(() => startCodeRun(t, bot.id, request));
               codeQueue = next.catch(() => undefined);
@@ -268,7 +270,7 @@ async function startCodeRun(
     .update(JSON.stringify([t.id, request.repo, request.instructions, request.issue ?? null, request.pr ?? null, request.baseBranch ?? null]))
     .digest("hex")
     .slice(0, 40);
-  const result = await engineeringRun.triggerAndWait(
+  const result = await engineeringRun.runAndWait(
     {
       workspaceId: t.workspace_id,
       botId,
@@ -303,14 +305,14 @@ const MAX_QUEUE_CHECKS = 240; // ~1 hour, then go ahead anyway
  * on Waiting on me ("waiting") don't count, and neither do rows older than the max run time (left
  * behind by a crash). A soft cap: two runs starting in the same instant may both get through.
  */
-async function waitForFreeDesk(db: Db, workspaceId: string, botId: string, triggerRunId: string) {
+async function waitForFreeDesk(db: Db, workspaceId: string, botId: string, queueJobId: string) {
   for (let check = 0; check < MAX_QUEUE_CHECKS; check++) {
     const { count } = await db
       .from("runs")
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", workspaceId)
       .eq("status", "running")
-      .neq("job_id", triggerRunId)
+      .neq("job_id", queueJobId)
       .gte("started_at", new Date(Date.now() - 65 * 60 * 1000).toISOString());
     if ((count ?? 0) < MAX_PARALLEL_PER_WORKSPACE) return;
     if (check === 0) {
@@ -334,9 +336,9 @@ function reportToChannel(t: TaskRow, markdown: string) {
  * "Hand it to <bot>" on an access card: this run stops and the same task starts over with a bot
  * that has the app (the user picked it; the inbox action checked it belongs to this workspace).
  */
-async function handOff(db: Db, t: TaskRow, botId: string, runId: string, triggerRunId: string, target: { botId: string; botName: string }) {
+async function handOff(db: Db, t: TaskRow, botId: string, runId: string, queueJobId: string, target: { botId: string; botName: string }) {
   const { data: other } = await db.from("bots").select("id").eq("id", target.botId).eq("workspace_id", t.workspace_id).maybeSingle();
-  if (!other) return finishFailed(db, t, botId, triggerRunId, `${target.botName} 已不存在，无法移交任务。`);
+  if (!other) return finishFailed(db, t, botId, queueJobId, `${target.botName} 已不存在，无法移交任务。`);
   const now = new Date().toISOString();
   await db.from("runs").update({ status: "completed", ended_at: now }).eq("id", runId);
   await Promise.all([
@@ -344,7 +346,7 @@ async function handOff(db: Db, t: TaskRow, botId: string, runId: string, trigger
     db.from("bots").update({ status: "resting", status_detail: "休息中", last_active_at: now }).eq("id", botId),
     logActivity(db, t.workspace_id, botId, t.id, "handoff", `已将“${t.title}”交给 ${target.botName}`),
   ]);
-  await botRun.trigger(
+  await botRun.enqueue(
     { taskId: t.id },
     { concurrencyKey: target.botId, idempotencyKey: `task-${t.id}-to-${target.botId}-${runId}`, tags: [`workspace:${t.workspace_id}`, `task:${t.id}`] },
   );

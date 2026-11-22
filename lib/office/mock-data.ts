@@ -1,6 +1,6 @@
 import type { OfficeSnapshot } from "./types";
 
-// Mock office used until Supabase (Phase 1) and the agent runtime (Phase 3) exist.
+// Mock office used for the read-only demo when live workspace data is unavailable.
 // Shape matches the real data model so swapping in live data only changes the loader.
 
 const demo: OfficeSnapshot = {

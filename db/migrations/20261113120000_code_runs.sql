@@ -1,7 +1,7 @@
--- Engineering code runs (D20): an Engineering bot's coding session in an Upstash Box sandbox,
--- ending in a draft pull request. Written only by the Trigger.dev runtime (service role); the
--- workspace owner can read them. Coding has its own daily spend cap so it can't use up the
--- budget of the other bots.
+-- Engineering code runs (D20): an Engineering bot's coding session in a Docker or Podman sandbox,
+-- ending in a draft pull request. Written only by the pg-boss worker's trusted runtime client; the
+-- workspace owner can read them. Coding has its own daily spend cap so it can't use up the budget
+-- of the other bots.
 
 alter table public.workspaces
   add column daily_engineering_cap_cents integer not null default 1000

@@ -1,7 +1,7 @@
 import { enqueue } from "./queue";
 import { logger } from "./logger";
 
-type TriggerOptions = {
+type EnqueueOptions = {
   concurrencyKey?: string;
   idempotencyKey?: string;
   tags?: string[];
@@ -12,8 +12,8 @@ type JobPayload<T> = T;
 export interface DottyTask<T, R> {
   id: "bot-run" | "engineering-run" | "dispatch-routines";
   run: (payload: JobPayload<T>, context: { ctx: { run: { id: string } } }) => Promise<R>;
-  trigger: (payload: JobPayload<T>, options?: TriggerOptions) => Promise<{ id: string | null }>;
-  triggerAndWait: (payload: JobPayload<T>, options?: TriggerOptions) => Promise<{ ok: true; output: R } | { ok: false; error: unknown }>;
+  enqueue: (payload: JobPayload<T>, options?: EnqueueOptions) => Promise<{ id: string | null }>;
+  runAndWait: (payload: JobPayload<T>, options?: EnqueueOptions) => Promise<{ ok: true; output: R } | { ok: false; error: unknown }>;
 }
 
 export function task<T, R>(config: {
@@ -27,11 +27,11 @@ export function task<T, R>(config: {
   return {
     id: config.id,
     run: config.run,
-    async trigger(payload, options = {}) {
+    async enqueue(payload, options = {}) {
       const id = await enqueue(config.id, payload as object, options);
       return { id };
     },
-    async triggerAndWait(payload, options = {}) {
+    async runAndWait(payload, options = {}) {
       try {
         const output = await config.run(payload, { ctx: { run: { id: options.idempotencyKey ?? `inline-${crypto.randomUUID()}` } } });
         return { ok: true, output };
@@ -53,10 +53,10 @@ export const schedules = {
     return {
       id: config.id,
       run: async (payload) => config.run(payload),
-      async trigger(payload, options = {}) {
+      async enqueue(payload, options = {}) {
         return { id: await enqueue(config.id, payload as object, options) };
       },
-      async triggerAndWait(payload, options = {}) {
+      async runAndWait(payload) {
         try {
           return { ok: true, output: await config.run(payload) };
         } catch (error) {

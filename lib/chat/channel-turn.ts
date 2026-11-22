@@ -10,8 +10,9 @@ import { rateLimit } from "@/lib/ratelimit";
 /**
  * One message from Telegram or Slack, answered by a bot — the same bot, memory, tools and rules as
  * the web drawer (the conversation shows up there too). Goes to the Head unless the message
- * starts with "@<bot name>". Uses the service role, scoped to the linked workspace. No streaming:
- * the reply is posted when it's ready (the channel shows "typing…" meanwhile).
+ * starts with "@<bot name>". Uses the trusted runtime database client, explicitly scoped to the
+ * linked workspace. No streaming: the reply is posted when it's ready (the channel shows
+ * "typing…" meanwhile).
  */
 
 const MEMORY_LIMIT = 40;

@@ -30,7 +30,7 @@ async function session(workspaceId: string) {
   if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return null;
   const userId = await getCurrentUserId();
   if (!userId) return null;
-  return { supabase: await createClient(), userId };
+  return { databaseClient: await createClient(), userId };
 }
 
 const sum = (rows: Array<{ cost_cents: number | string | null }> | null) =>
@@ -45,29 +45,29 @@ export async function getWorkspaceSettings(
   since.setUTCHours(0, 0, 0, 0);
   const iso = since.toISOString();
   const [ws, profile, runs, codeRuns, tasks] = await Promise.all([
-    s.supabase
+    s.databaseClient
       .from("workspaces")
       .select(
         "name, icon, daily_spend_cap_cents, daily_engineering_cap_cents, daily_task_cap",
       )
       .eq("id", workspaceId)
       .maybeSingle(),
-    s.supabase
+    s.databaseClient
       .from("profiles")
       .select("timezone")
       .eq("user_id", s.userId)
       .maybeSingle(),
-    s.supabase
+    s.databaseClient
       .from("runs")
       .select("cost_cents")
       .eq("workspace_id", workspaceId)
       .gte("created_at", iso),
-    s.supabase
+    s.databaseClient
       .from("code_runs")
       .select("cost_cents")
       .eq("workspace_id", workspaceId)
       .gte("created_at", iso),
-    s.supabase
+    s.databaseClient
       .from("tasks")
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", workspaceId)
@@ -133,7 +133,7 @@ export async function saveWorkspaceSettings(
     };
   const v = parsed.data;
 
-  const { data, error } = await s.supabase
+  const { data, error } = await s.databaseClient
     .from("workspaces")
     .update({
       name: v.name,
@@ -147,7 +147,7 @@ export async function saveWorkspaceSettings(
   if (error) return { ok: false, error: "保存失败，请重试。" };
   if (!data?.length) return { ok: false, error: "工作空间不存在。" };
 
-  const { error: tzError } = await s.supabase
+  const { error: tzError } = await s.databaseClient
     .from("profiles")
     .upsert(
       { user_id: s.userId, timezone: v.timezone },
@@ -167,7 +167,7 @@ export async function deleteWorkspace(
 ): Promise<Result> {
   const s = await session(workspaceId);
   if (!s) return { ok: false, error: "会话已过期，请重新登录。" };
-  const { data: ws } = await s.supabase
+  const { data: ws } = await s.databaseClient
     .from("workspaces")
     .select("name")
     .eq("id", workspaceId)
@@ -178,7 +178,7 @@ export async function deleteWorkspace(
       ok: false,
       error: "请准确输入工作空间名称后再删除。",
     };
-  const { error } = await s.supabase
+  const { error } = await s.databaseClient
     .from("workspaces")
     .delete()
     .eq("id", workspaceId);

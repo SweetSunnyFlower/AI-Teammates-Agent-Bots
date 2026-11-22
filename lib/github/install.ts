@@ -130,7 +130,7 @@ export interface GitHubLink {
 
 type Db = DbClient;
 
-/** The workspace's GitHub installation (service role or the owner's client). */
+/** The workspace's GitHub installation, read with the trusted runtime or owner-scoped client. */
 export async function githubLink(
   db: Db,
   workspaceId: string,

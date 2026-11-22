@@ -6,9 +6,9 @@ import type { ApprovalDecision, ApprovalRequest } from "@/lib/approvals/types";
 import type { createAdminClient } from "@/lib/db/admin";
 
 /**
- * "Waiting on me": a run pauses on a Trigger.dev waitpoint token until the user decides (web
- * server action → `wait.completeToken`). The database row is the source of truth for the
- * decision — the token only wakes the run — so a run acts only on an item marked `approved`.
+ * "Waiting on me": a pg-boss worker pauses while polling an `inbox_items` row until the user
+ * decides. The database row is the source of truth, so a run acts only on an item marked
+ * `approved`.
  */
 
 type Db = ReturnType<typeof createAdminClient>;

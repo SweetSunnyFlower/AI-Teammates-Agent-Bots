@@ -15,20 +15,20 @@ import { hasDatabaseEnv } from "@/lib/db/env";
 import { createClient } from "@/lib/db/server";
 
 /**
- * Deciding "Waiting on me" items from the web. Users can't update inbox items themselves (RLS:
- * select only), so ownership is checked with the user's own client first; the decision itself is
- * the shared implementation in lib/inbox/decide.ts (also used by Telegram and Slack).
+ * Deciding "Waiting on me" items from the web. The user-scoped client may only read inbox items,
+ * so ownership is checked first; the decision itself goes through the trusted runtime using the
+ * shared implementation in lib/inbox/decide.ts (also used by Telegram and Slack).
  */
 
 type Result = { ok: true } | { ok: false; error: string };
 
 const uuid = z.string().uuid();
 
-/** The item's workspace, if the signed-in user can see the item (RLS). */
+/** The item's workspace, if the signed-in user can see the item through their scoped client. */
 async function webContext(itemId: string): Promise<DecideContext | { error: string }> {
   if (!hasDatabaseEnv || !uuid.safeParse(itemId).success) return { error: "事项不存在。" };
-  const supabase = await createClient();
-  const { data: item } = await supabase.from("inbox_items").select("workspace_id").eq("id", itemId).maybeSingle();
+  const databaseClient = await createClient();
+  const { data: item } = await databaseClient.from("inbox_items").select("workspace_id").eq("id", itemId).maybeSingle();
   if (!item) return { error: "事项不存在，或者你没有访问权限。" };
   return { db: createAdminClient(), workspaceId: item.workspace_id, via: "web" };
 }

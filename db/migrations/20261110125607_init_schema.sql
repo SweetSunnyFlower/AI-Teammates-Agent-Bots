@@ -1,11 +1,11 @@
 -- Dotty v1 schema (docs/plans/2026-11-09-dotty-v1.md §5)
 --
 -- Access model: one owner per workspace. Every workspace-scoped row is visible only to the
--- workspace owner (RLS). The browser never writes directly; server actions write as the signed-in
--- user (so RLS still applies). Agent-runtime tables (runs, activity, inbox_items, recaps,
--- connections) are read-only for users and written by the Trigger.dev runtime with the secret key.
+-- workspace owner. The browser never writes directly; server actions use a user-scoped database
+-- client that adds ownership predicates. Agent-runtime tables (runs, activity, inbox_items, recaps,
+-- connections) are read-only for users and written by the trusted background runtime client.
 --
--- Security notes (Supabase checklist):
+-- Security notes (self-hosted PostgreSQL compatibility schema):
 --   * RLS enabled on every table; policies use `to authenticated` + an ownership predicate.
 --   * `(select auth.uid())` is wrapped in a sub-select so Postgres evaluates it once per query.
 --   * UPDATE policies have both USING and WITH CHECK (rows can't be moved to another workspace).

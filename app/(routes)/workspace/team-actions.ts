@@ -11,7 +11,7 @@ import {
 } from "@/lib/office/schemas";
 import { hasDatabaseEnv } from "@/lib/db/env";
 import { createClient } from "@/lib/db/server";
-import { hasTrigger, startTaskRun } from "@/lib/runs/start";
+import { hasJobQueue, startTaskRun } from "@/lib/runs/start";
 import { releaseStaleRuns } from "@/lib/runs/recover";
 import { createAdminClient } from "@/lib/db/admin";
 
@@ -19,7 +19,7 @@ export type ActionResult = { ok: true; id?: string } | { ok: false; error: strin
 
 const uuid = z.string().uuid();
 
-async function client() {
+async function getUserDatabaseClient() {
   if (!hasDatabaseEnv) throw new Error("数据库尚未配置，请在 .env.local 中添加 DATABASE_URL。");
   return createClient();
 }
@@ -51,10 +51,10 @@ export async function saveDepartment(workspaceId: string, departmentId: string |
     if (!parsed.success) return { ok: false, error: "请检查标红的字段。", fieldErrors: fieldErrors(parsed.error) };
     if (!uuid.safeParse(workspaceId).success) return { ok: false, error: "工作空间不存在。" };
     const v = parsed.data;
-    const supabase = await client();
+    const databaseClient = await getUserDatabaseClient();
 
     if (!departmentId) {
-      const { data, error } = await supabase.rpc("create_department", {
+      const { data, error } = await databaseClient.rpc("create_department", {
         p_workspace_id: workspaceId,
         p_name: v.name,
         p_color: v.color,
@@ -66,9 +66,9 @@ export async function saveDepartment(workspaceId: string, departmentId: string |
     }
 
     // The Head office keeps its type; everything else can change style.
-    const { data: current } = await supabase.from("departments").select("kind").eq("id", departmentId).maybeSingle();
+    const { data: current } = await databaseClient.from("departments").select("kind").eq("id", departmentId).maybeSingle();
     if (!current) return { ok: false, error: "这个楼层已不存在。" };
-    const { error } = await supabase
+    const { error } = await databaseClient
       .from("departments")
       .update({ name: v.name, color: v.color, description: v.description, ...(current.kind === "head" ? {} : { kind: v.kind }) })
       .eq("id", departmentId)
@@ -84,8 +84,8 @@ export async function reorderDepartments(workspaceId: string, bottomUp: string[]
     if (!uuid.safeParse(workspaceId).success || !z.array(uuid).max(20).safeParse(bottomUp).success) {
       return { ok: false, error: "楼层顺序无效。" };
     }
-    const supabase = await client();
-    const { error } = await supabase.rpc("reorder_departments", { p_workspace_id: workspaceId, p_bottom_up: bottomUp });
+    const databaseClient = await getUserDatabaseClient();
+    const { error } = await databaseClient.rpc("reorder_departments", { p_workspace_id: workspaceId, p_bottom_up: bottomUp });
     if (error) return { ok: false, error: friendly(error.message) };
     return { ok: true };
   });
@@ -95,8 +95,8 @@ export async function deleteDepartment(departmentId: string, moveBotsTo: string 
   return run(async () => {
     const parsed = deleteDepartmentSchema.safeParse({ departmentId, moveBotsTo });
     if (!parsed.success) return { ok: false, error: "请选择 Bot 要移动到的楼层。" };
-    const supabase = await client();
-    const { error } = await supabase.rpc("delete_department", {
+    const databaseClient = await getUserDatabaseClient();
+    const { error } = await databaseClient.rpc("delete_department", {
       p_department_id: parsed.data.departmentId,
       p_move_bots_to: parsed.data.moveBotsTo,
     });
@@ -114,8 +114,8 @@ export async function saveBot(workspaceId: string, botId: string | null, input: 
       return { ok: false, error: "Bot 或工作空间不存在。" };
     }
     const v = parsed.data;
-    const supabase = await client();
-    const { data, error } = await supabase.rpc("save_bot", {
+    const databaseClient = await getUserDatabaseClient();
+    const { data, error } = await databaseClient.rpc("save_bot", {
       p_workspace_id: workspaceId,
       p_bot_id: botId,
       p_department_id: v.departmentId,
@@ -136,14 +136,14 @@ export async function saveBot(workspaceId: string, botId: string | null, input: 
 export async function retryTask(taskId: string): Promise<ActionResult> {
   return run(async () => {
     if (!uuid.safeParse(taskId).success) return { ok: false, error: "任务不存在。" };
-    const supabase = await client();
-    const { data: task } = await supabase.from("tasks").select("id, workspace_id, status, assignee_bot_id").eq("id", taskId).maybeSingle();
+    const databaseClient = await getUserDatabaseClient();
+    const { data: task } = await databaseClient.from("tasks").select("id, workspace_id, status, assignee_bot_id").eq("id", taskId).maybeSingle();
     if (!task) return { ok: false, error: "任务不存在，或者你没有访问权限。" };
     if (!["failed", "backlog", "doing"].includes(task.status)) return { ok: false, error: "只有失败、等待中或卡住的任务可以重新启动。" };
-    if (!hasTrigger()) return { ok: false, error: "后台任务尚未启用，请配置 DATABASE_URL 并启动 worker。" };
+    if (!hasJobQueue()) return { ok: false, error: "后台任务尚未启用，请配置 DATABASE_URL 并启动 worker。" };
     // A "doing" task may just be busy — only restart it if its run has really stopped.
     if (await releaseStaleRuns(createAdminClient(), task.id)) return { ok: false, error: "这个任务仍在处理中，请稍等。" };
-    const { error } = await supabase.from("tasks").update({ status: "backlog", result: null }).eq("id", taskId);
+    const { error } = await databaseClient.from("tasks").update({ status: "backlog", result: null }).eq("id", taskId);
     if (error) return { ok: false, error: friendly(error.message) };
     if (!task.assignee_bot_id) return { ok: false, error: "请先为任务指定一个 Bot。" };
     await startTaskRun({ id: task.id, workspaceId: task.workspace_id, assigneeBotId: task.assignee_bot_id }, `retry-${Date.now()}`);
@@ -154,9 +154,9 @@ export async function retryTask(taskId: string): Promise<ActionResult> {
 export async function deleteBot(workspaceId: string, botId: string): Promise<ActionResult> {
   return run(async () => {
     if (!uuid.safeParse(workspaceId).success || !uuid.safeParse(botId).success) return { ok: false, error: "Bot 不存在。" };
-    const supabase = await client();
+    const databaseClient = await getUserDatabaseClient();
     // The Head bot is protected by a database trigger as well.
-    const { error, count } = await supabase
+    const { error, count } = await databaseClient
       .from("bots")
       .delete({ count: "exact" })
       .eq("id", botId)

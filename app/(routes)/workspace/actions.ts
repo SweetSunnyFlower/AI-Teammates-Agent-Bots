@@ -10,7 +10,8 @@ export type CreateWorkspaceState = { error?: string; name?: string; icon?: strin
 
 /**
  * Creates a workspace and its starter building (Head office, Assistant, Research, Engineering
- * floors with a Lead + worker each) through the `create_workspace` RPC — one transaction, RLS applied.
+ * floors with a Lead + worker each) through the `create_workspace` RPC in one transaction. The
+ * user-scoped database client applies ownership predicates to later queries.
  */
 export async function createWorkspace(_prev: CreateWorkspaceState, formData: FormData): Promise<CreateWorkspaceState> {
   const name = String(formData.get("name") ?? "").trim().replace(/\s+/g, " ");
@@ -23,14 +24,14 @@ export async function createWorkspace(_prev: CreateWorkspaceState, formData: For
 
   const userId = await getCurrentUserId();
   if (!userId) redirect("/auth/login?next=/workspace/new");
-  const supabase = await createClient();
+  const databaseClient = await createClient();
 
   // Remember the user's timezone for recaps and activity times (first run, or if it changed).
   if (timezone && isValidTimeZone(timezone)) {
-    await supabase.from("profiles").upsert({ user_id: userId, timezone }, { onConflict: "user_id" });
+    await databaseClient.from("profiles").upsert({ user_id: userId, timezone }, { onConflict: "user_id" });
   }
 
-  const { data: workspaceId, error } = await supabase.rpc("create_workspace", { p_name: name, p_icon: icon });
+  const { data: workspaceId, error } = await databaseClient.rpc("create_workspace", { p_name: name, p_icon: icon });
   if (error || typeof workspaceId !== "string") {
     const message = error?.message.includes("Workspace limit")
       ? "你已达到 10 个工作空间的上限。"

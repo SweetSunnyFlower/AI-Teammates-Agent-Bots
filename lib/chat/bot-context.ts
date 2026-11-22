@@ -6,8 +6,8 @@ import type { ApprovalHandler } from "@/lib/approvals/types";
 import { emailTools } from "@/lib/email/tools";
 import { researchTools } from "@/lib/research/tools";
 
-/** The user's client (chat, RLS applies) or the service-role client (background runs). */
-type Supabase = DbClient;
+/** A user-scoped client for chat, or the trusted runtime client for background jobs. */
+type DatabaseClient = DbClient;
 
 export interface ChatBot {
   id: string;
@@ -33,9 +33,9 @@ export interface AppAccess {
   connected: Array<{ slug: string; name: string }>;
 }
 
-/** Loads the bot (RLS: only the owner's bots are visible) plus what it needs to know. */
-export async function loadChatContext(supabase: Supabase, botId: string) {
-  const { data: bot } = await supabase
+/** Loads the bot plus its workspace context. A user-scoped client only sees the owner's rows. */
+export async function loadChatContext(databaseClient: DatabaseClient, botId: string) {
+  const { data: bot } = await databaseClient
     .from("bots")
     .select("id, workspace_id, department_id, role, name, instructions, tool_keys, app_keys, model")
     .eq("id", botId)
@@ -43,11 +43,11 @@ export async function loadChatContext(supabase: Supabase, botId: string) {
   if (!bot) return null;
 
   const [workspace, floors, bots, notes, tasks] = await Promise.all([
-    supabase.from("workspaces").select("name, daily_task_cap").eq("id", bot.workspace_id).single(),
-    supabase.from("departments").select("id, name, floor_index, description, kind").eq("workspace_id", bot.workspace_id).order("floor_index", { ascending: false }),
-    supabase.from("bots").select("id, name, role, department_id, instructions, app_keys").eq("workspace_id", bot.workspace_id),
-    supabase.from("bot_notes").select("content").eq("bot_id", bot.id).maybeSingle(),
-    openTasksFor(supabase, bot),
+    databaseClient.from("workspaces").select("name, daily_task_cap").eq("id", bot.workspace_id).single(),
+    databaseClient.from("departments").select("id, name, floor_index, description, kind").eq("workspace_id", bot.workspace_id).order("floor_index", { ascending: false }),
+    databaseClient.from("bots").select("id, name, role, department_id, instructions, app_keys").eq("workspace_id", bot.workspace_id),
+    databaseClient.from("bot_notes").select("content").eq("bot_id", bot.id).maybeSingle(),
+    openTasksFor(databaseClient, bot),
   ]);
 
   const roster: Roster = { floors: floors.data ?? [], bots: bots.data ?? [] };
@@ -63,9 +63,9 @@ export async function loadChatContext(supabase: Supabase, botId: string) {
 
 export type ChatContext = NonNullable<Awaited<ReturnType<typeof loadChatContext>>>;
 
-async function openTasksFor(supabase: Supabase, bot: ChatBot) {
+async function openTasksFor(databaseClient: DatabaseClient, bot: ChatBot) {
   // The Head sees the whole board; everyone else sees their own work.
-  let q = supabase
+  let q = databaseClient
     .from("tasks")
     .select("id, title, status, assignee_bot_id, updated_at")
     .eq("workspace_id", bot.workspace_id)
@@ -227,10 +227,10 @@ const MAX_DEPTH = 3; // matches the tasks.depth check in the database
 const childSource = (parentSource?: string) => (parentSource === "telegram" || parentSource === "slack" ? parentSource : "bot");
 
 /**
- * Bot tools, shared by chat and background runs. In chat they run as the signed-in user (RLS
- * applies); in runs they use the service role and every query is scoped to the bot's workspace.
+ * Bot tools, shared by chat and background runs. Chat uses the signed-in user's scoped client; jobs
+ * use the trusted runtime client and explicitly scope every query to the bot's workspace.
  */
-export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: ToolOptions = {}) {
+export function buildChatTools(databaseClient: DatabaseClient, ctx: ChatContext, options: ToolOptions = {}) {
   const { bot, roster } = ctx;
   const has = (key: string) => bot.role === "head" || bot.tool_keys.includes(key);
 
@@ -238,7 +238,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
     list_tasks: tool({
       description: canDelegate(bot) ? "列出整个办公室的未完成任务。" : "列出你的未完成任务。",
       inputSchema: z.object({}),
-      execute: async () => ({ tasks: await openTasksFor(supabase, bot) }),
+      execute: async () => ({ tasks: await openTasksFor(databaseClient, bot) }),
     }),
 
     create_task: tool({
@@ -257,7 +257,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
 
         const since = new Date();
         since.setHours(0, 0, 0, 0);
-        const { count } = await supabase
+        const { count } = await databaseClient
           .from("tasks")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", bot.workspace_id)
@@ -266,7 +266,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
         const depth = options.parentTask ? options.parentTask.depth + 1 : 0;
             if (depth > MAX_DEPTH) return { ok: false, error: "任务最多只能向下分派 3 层，这部分请自己完成。" };
 
-        const { data, error } = await supabase
+        const { data, error } = await databaseClient
           .from("tasks")
           .insert({
             workspace_id: bot.workspace_id,
@@ -294,7 +294,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
         return { ok: true, taskId: data.id, title: title.trim(), assignee: target.name, started };
       },
     }),
-    ...researchTools(supabase, bot.workspace_id, bot.id, bot.tool_keys),
+    ...researchTools(databaseClient, bot.workspace_id, bot.id, bot.tool_keys),
     ...(bot.tool_keys.includes("email.send") ? emailTools({ onApproval: options.onApproval }) : {}),
   };
 
@@ -355,7 +355,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
                 description: "读取你的笔记，用于跨对话记忆。",
             inputSchema: z.object({}),
             execute: async () => {
-              const { data } = await supabase.from("bot_notes").select("content").eq("bot_id", bot.id).maybeSingle();
+              const { data } = await databaseClient.from("bot_notes").select("content").eq("bot_id", bot.id).maybeSingle();
               return { notes: data?.content ?? "" };
             },
           }),
@@ -367,7 +367,7 @@ export function buildChatTools(supabase: Supabase, ctx: ChatContext, options: To
                 description: "用新版本替换你的笔记。保持简短，并保留之前仍有用的事实。",
             inputSchema: z.object({ content: z.string().max(20000) }),
             execute: async ({ content }) => {
-              const { error } = await supabase
+              const { error } = await databaseClient
                 .from("bot_notes")
                 .upsert({ workspace_id: bot.workspace_id, bot_id: bot.id, content }, { onConflict: "bot_id" });
               return error ? { ok: false, error: "保存笔记失败，请重试。" } : { ok: true };

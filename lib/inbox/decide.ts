@@ -1,9 +1,8 @@
-import { wait } from "@/lib/jobs/wait";
 import { z } from "zod";
 import { applyEdits, isEditableAction } from "@/lib/approvals/describe";
 import { hasApp, type AccessPreview } from "@/lib/integrations/app-access";
 import { connectedToolkits, GITHUB, hasComposio } from "@/lib/integrations/composio";
-import { hasTrigger, startTaskRun } from "@/lib/runs/start";
+import { startTaskRun } from "@/lib/runs/start";
 import type { RoutineProposalInput } from "@/lib/routines/propose";
 import { createRoutine } from "@/lib/routines/store";
 import type { createAdminClient } from "@/lib/db/admin";
@@ -11,11 +10,12 @@ import type { createAdminClient } from "@/lib/db/admin";
 /**
  * Deciding "Waiting on me" items — the one implementation behind the web buttons and the Telegram
  * / Slack buttons. SERVER ONLY. Callers must have verified that the person deciding owns
- * `workspaceId` (web: the user's session through RLS; chat: the linked Telegram / Slack account);
- * everything here uses the service role and is scoped to that workspace.
+ * `workspaceId` (web: the signed-in user's workspace; chat: the linked Telegram / Slack account).
+ * Everything here uses the trusted runtime database client and is explicitly scoped to that
+ * workspace.
  *
- * A decision is written only from `pending`, then the paused run is woken through its Trigger.dev
- * waitpoint. The run re-reads the row, so the database decision is what counts.
+ * A decision is written only from `pending`. The paused worker polls the row and resumes after the
+ * status changes, so the database decision is what counts.
  */
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -49,8 +49,8 @@ export async function pendingItem(ctx: DecideContext, itemId: string, kind: Kind
   return { item } as const;
 }
 
-/** Write the decision (only if still pending), then wake the run. Undo the write if waking fails. */
-async function decide(ctx: DecideContext, itemId: string, tokenId: string | null, update: Record<string, unknown>): Promise<DecideResult> {
+/** Write the decision only while the item is still pending; the paused worker observes it by polling. */
+async function decide(ctx: DecideContext, itemId: string, _tokenId: string | null, update: Record<string, unknown>): Promise<DecideResult> {
   const { data: updated, error } = await ctx.db
     .from("inbox_items")
     .update({ ...update, decided_via: ctx.via, decided_at: new Date().toISOString() })
@@ -61,14 +61,6 @@ async function decide(ctx: DecideContext, itemId: string, tokenId: string | null
   if (error) return { ok: false, error: friendly(error.message) };
   if (!updated?.length) return { ok: false, error: "这个事项已经处理过了。" };
 
-  if (tokenId && hasTrigger()) {
-    try {
-      await wait.completeToken(tokenId, { status: update.status });
-    } catch {
-      await ctx.db.from("inbox_items").update(REOPEN).eq("id", itemId);
-      return { ok: false, error: "无法唤醒 Bot，请重试。" };
-    }
-  }
   return { ok: true };
 }
 

@@ -2,7 +2,8 @@ import type { PreviewCall, PrPreview } from "@/lib/approvals/describe";
 import type { AccessPreview } from "@/lib/integrations/app-access";
 
 // Office view-model types. These mirror the v1 data model in
-// docs/plans/2026-11-09-dotty-v1.md §5 and are filled from mock data until Phase 1 lands.
+// docs/plans/2026-11-09-dotty-v1.md §5; the read-only demo uses mock data, while live workspaces
+// are filled by the database loader.
 
 export type BotStatus = "working" | "waiting" | "resting" | "error";
 export type BotRole = "head" | "lead" | "worker";

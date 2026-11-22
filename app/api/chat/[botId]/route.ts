@@ -50,16 +50,16 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
 
   const userId = await getCurrentUserId();
   if (!userId) return json(401, "会话已过期，请重新登录。");
-  const supabase = await createClient();
+  const databaseClient = await createClient();
   const limit = await rateLimit("chat", userId);
   if (!limit.ok) return tooMany(limit, `消息发送过于频繁，请在 ${limit.retryAfter} 秒后重试。`);
 
-  const chat = await loadChatContext(supabase, botId);
+  const chat = await loadChatContext(databaseClient, botId);
   if (!chat) return json(404, "Bot 不存在，或者你没有访问权限。");
   const { bot } = chat;
 
   // Memory = messages after the latest divider (older ones stay visible but are forgotten).
-  const { data: divider } = await supabase
+  const { data: divider } = await databaseClient
     .from("messages")
     .select("created_at")
     .eq("bot_id", bot.id)
@@ -67,7 +67,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  let historyQuery = supabase
+  let historyQuery = databaseClient
     .from("messages")
     .select("ui_id, role, parts")
     .eq("bot_id", bot.id)
@@ -77,11 +77,11 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   if (divider) historyQuery = historyQuery.gt("created_at", divider.created_at);
   const [{ data: rows }, { data: profile }] = await Promise.all([
     historyQuery,
-    supabase.from("profiles").select("timezone").eq("user_id", userId).maybeSingle(),
+    databaseClient.from("profiles").select("timezone").eq("user_id", userId).maybeSingle(),
   ]);
 
   // Save the user's message first so it is never lost, even if the model call fails.
-  const { error: saveError } = await supabase.from("messages").insert({
+  const { error: saveError } = await databaseClient.from("messages").insert({
     workspace_id: bot.workspace_id,
     bot_id: bot.id,
     role: "user",
@@ -96,7 +96,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   // Tasks created in chat start their background run immediately.
   // Connected apps (Composio): only the apps chosen for this bot; it knows who has the others.
   const appTools = await appToolsFor(bot.workspace_id, bot.app_keys);
-  const tools = buildChatTools(supabase, chat, {
+  const tools = buildChatTools(databaseClient, chat, {
     onTaskCreated: async (task) => {
       if (!(await startTaskRun(task))) throw new Error("后台任务尚未配置");
     },
@@ -119,7 +119,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   // The bot is "working" while it replies (the Head plans and hands out tasks right here, not in a
   // background run). Back to resting afterwards — unless a background run took over meanwhile.
   const chatDetail = bot.role === "head" ? "正在规划你的请求" : "正在回复你";
-  const { data: claimed } = await supabase
+  const { data: claimed } = await databaseClient
     .from("bots")
     .update({ status: "working", status_detail: chatDetail, last_active_at: new Date().toISOString() })
     .eq("id", bot.id)
@@ -128,7 +128,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
   const wasResting = Boolean(claimed?.length);
   const backToResting = async () => {
     if (!wasResting) return;
-    await supabase
+    await databaseClient
       .from("bots")
       .update({ status: "resting", status_detail: "休息中", last_active_at: new Date().toISOString() })
       .eq("id", bot.id)
@@ -155,7 +155,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
         const known = new Set(messages.map((m: any) => m.id));
         const replies = finished.filter((m: any) => !known.has(m.id) && m.role === "assistant");
         if (replies.length) {
-          await supabase.from("messages").insert(
+          await databaseClient.from("messages").insert(
             replies.map((m: any) => ({
               workspace_id: bot.workspace_id,
               bot_id: bot.id,
@@ -166,7 +166,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/chat/[botId]">)
             })),
           );
         }
-        await supabase.from("bots").update({ last_active_at: new Date().toISOString() }).eq("id", bot.id);
+        await databaseClient.from("bots").update({ last_active_at: new Date().toISOString() }).eq("id", bot.id);
         await backToResting();
       },
       onError: (error) => {

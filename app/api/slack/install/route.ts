@@ -17,8 +17,8 @@ export async function GET(request: Request) {
 
   const userId = await getCurrentUserId();
   if (!userId) return Response.redirect(new URL("/", url.origin), 302);
-  const supabase = await createClient();
-  const { data: workspace } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
+  const databaseClient = await createClient();
+  const { data: workspace } = await databaseClient.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   if (!workspace) return new Response("工作空间不存在。", { status: 404 });
 
   const authorize = slackAuthorizeUrl(signInstallState({ w: workspaceId, u: userId, o: url.origin }));

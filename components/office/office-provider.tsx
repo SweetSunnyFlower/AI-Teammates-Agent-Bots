@@ -303,8 +303,7 @@ export function OfficeProvider({
     controls.zoomTo(camera.zoom * factor, true);
   }, []);
 
-  // Mock decision: removes the inbox item and wakes the bot. Replaced by the
-  // server action that completes the Trigger.dev waitpoint in Phase 3.
+  // Demo-only decision for the read-only mock office. Live workspaces use the web inbox actions.
   const decideInbox = useCallback((item: InboxItem, decision: "approve" | "skip") => {
     setSnapshot((s) => ({
       ...s,

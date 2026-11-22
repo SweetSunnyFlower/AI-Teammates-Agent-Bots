@@ -7,8 +7,8 @@ import { notifyInboxItem } from "@/lib/chat/notify";
 /**
  * The Head's `propose_routine`: checks the proposal and puts it on Waiting on me as an approval.
  * Nothing is scheduled here — the routine is created only when the user approves the card
- * (`decideApproval` in inbox-actions). Uses a service-role client (users can't write inbox items);
- * callers have already checked the bot belongs to the user.
+ * (`decideApproval` in inbox-actions). Uses the trusted runtime database client because users
+ * cannot write inbox items; callers have already checked the bot belongs to the user.
  */
 export interface RoutineProposal {
   name: string;

@@ -13,12 +13,12 @@ import { createAdminClient } from "@/lib/db/admin";
 /**
  * A code run (D20): an Engineering bot's coding session.
  *
- *   clone the repo into an Upstash Box (read-only token, injected outside the container)
- *   → our AI SDK loop edits files and runs commands through the box
+ *   clone the repo into a local Docker or Podman sandbox (read-only token, injected outside it)
+ *   → our AI SDK loop edits files and runs commands through the sandbox
  *   → Dotty runs the tests → commits through the GitHub API to `dotty/…` → opens a draft PR
  *
  * Started by `run_code_task` inside a bot run, which waits for the result. Spend: at most
- * PER_RUN_CAP_CENTS per run, within the workspace's daily engineering cap. The box is always
+ * PER_RUN_CAP_CENTS per run, within the workspace's daily engineering cap. The sandbox is always
  * deleted at the end.
  */
 
@@ -100,11 +100,11 @@ export const engineeringRun = task({
     const model = deepSeekModelFor(bot.model);
     let costCents = 0;
     let steps = 0;
-    let box: Sandbox | null = null;
+    let sandbox: Sandbox | null = null;
     const abort = new AbortController();
 
     try {
-      // Our own API reads (issue, PR, files) vs. the box's clone token (contents only).
+      // Our own API reads (issue, PR, files) vs. the sandbox's clone token (contents only).
       const apiToken = await installationToken(link.installationId, { repo: repo.name, permissions: READ });
       const cloneToken = await installationToken(link.installationId, { repo: repo.name, permissions: { metadata: "read", contents: "read" } });
       const meta = await gh<{ default_branch: string; archived: boolean }>(apiToken, `/repos/${repo.owner}/${repo.name}`);
@@ -139,12 +139,12 @@ export const engineeringRun = task({
       const runtime = runtimeFor(top.map((f) => f.name));
 
       await Promise.all([setDetail(`正在 ${repo.full} 中编写代码…`), log(`开始在 ${repo.full} 中编写代码${p.issueNumber ? `（Issue #${p.issueNumber}）` : p.prNumber ? `（PR #${p.prNumber}）` : ""}`)]);
-      box = await createSandbox({ name: `dotty-${codeRunId.slice(0, 8)}`, runtime, owner: repo.owner, repo: repo.name, readToken: cloneToken });
-      const parentSha = await cloneRepo(box, repo.owner, repo.name, cloneRef);
+      sandbox = await createSandbox({ name: `dotty-${codeRunId.slice(0, 8)}`, runtime, owner: repo.owner, repo: repo.name, readToken: cloneToken });
+      const parentSha = await cloneRepo(sandbox, repo.owner, repo.name, cloneRef);
 
       // The agent loop.
       let report: FinishReport | null = null;
-      const tools = sandboxTools(box, (r) => (report = r));
+      const tools = sandboxTools(sandbox, (r) => (report = r));
       await generateText({
         model,
         instructions: agentInstructions({ botName: bot.name, repo: repo.full, ref: cloneRef, runtime, followUp: Boolean(p.prNumber) }),
@@ -181,25 +181,25 @@ export const engineeringRun = task({
 
       // Changes first (tests may touch files), then the tests.
       await setDetail(`正在检查 ${repo.full} 中的修改…`);
-      const changes = await collectChanges(box);
+      const changes = await collectChanges(sandbox);
       if (!changes.files.length) {
         await finish({ status: "no_changes", summary: summary.slice(0, 8000), tests: "none", cost_cents: round4(costCents), steps });
         await log(`${repo.full} 的编码已结束，没有可提交的修改`);
         return { ok: true, status: "no_changes", summary, tests: "none", filesChanged: 0, costCents: round4(costCents), unfinished };
       }
 
-      const testCommand = done?.testCommand?.trim() || (await detectTestCommand(box));
+      const testCommand = done?.testCommand?.trim() || (await detectTestCommand(sandbox));
       let tests: "passed" | "failed" | "none" = "none";
       let testOutput = "";
       if (testCommand) {
         await Promise.all([setDetail(`正在 ${repo.full} 中运行测试…`), log(`正在运行测试：\`${testCommand.slice(0, 90)}\``)]);
-        const t = await run(box, testCommand, TEST_TIMEOUT_SECONDS);
+        const t = await run(sandbox, testCommand, TEST_TIMEOUT_SECONDS);
         tests = t.exit === 0 ? "passed" : "failed";
         testOutput = clipOutput(t.output, 6000);
         await log(tests === "passed" ? "测试通过" : `测试失败${t.timedOut ? "（超时）" : `（退出码 ${t.exit}）`}`);
       }
 
-      // Commit and open (or update) the pull request — outside the box, with a write token.
+      // Commit and open (or update) the pull request — outside the sandbox, with a write token.
       await setDetail(`正在 ${repo.full} 中创建 Pull Request…`);
       const token = await writeToken(link.installationId, repo.name);
       const title = (done?.prTitle ?? p.instructions.split("\n")[0]).slice(0, 120);
@@ -267,7 +267,7 @@ export const engineeringRun = task({
       await log(`未能完成 ${repo.full} 的代码修改：${message}`.slice(0, 480));
       return { ok: false, error: message.slice(0, 1000), costCents: round4(costCents) };
     } finally {
-      if (box) await box.delete().catch((error: unknown) => logger.warn("couldn't delete the box", { error: String(error) }));
+      if (sandbox) await sandbox.delete().catch((error: unknown) => logger.warn("couldn't delete the sandbox", { error: String(error) }));
     }
   },
 });

@@ -8,8 +8,9 @@ export const nextRunFor = (enabled: boolean, cron: string, timezone: string) =>
   enabled ? (nextRunAt(cron, timezone)?.toISOString() ?? null) : null;
 
 /**
- * Create a routine in a workspace. Used by the routine dialog (the user's client, RLS applies) and
- * by approving the Head's proposal (service role; the caller has verified the workspace).
+ * Create a routine in a workspace. Used by the routine dialog with the user-scoped database client
+ * and by approving the Head's proposal with the trusted runtime client; callers verify the
+ * workspace first.
  */
 export async function createRoutine(
   db: DbClient,

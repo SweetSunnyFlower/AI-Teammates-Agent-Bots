@@ -22,18 +22,18 @@ export interface ChannelStatus {
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 const uuid = z.string().uuid();
 
-/** The signed-in user's client, if they own the workspace (RLS). */
+/** The signed-in user's database client, returned only if they own the workspace. */
 async function owned(workspaceId: string) {
   if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return null;
-  const supabase = await createClient();
-  const { data } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
-  return data ? supabase : null;
+  const databaseClient = await createClient();
+  const { data } = await databaseClient.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
+  return data ? databaseClient : null;
 }
 
 export async function getChannels(workspaceId: string): Promise<Result<{ status: ChannelStatus }>> {
-  const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "工作空间不存在。" };
-  const { data: rows } = await supabase
+  const databaseClient = await owned(workspaceId);
+  if (!databaseClient) return { ok: false, error: "工作空间不存在。" };
+  const { data: rows } = await databaseClient
     .from("connections")
     .select("provider, meta")
     .eq("workspace_id", workspaceId)
@@ -56,17 +56,17 @@ export async function getChannels(workspaceId: string): Promise<Result<{ status:
 /** A one-time link (15 minutes): opening it in Telegram and pressing Start links that chat. */
 export async function createTelegramLink(workspaceId: string): Promise<Result<{ url: string }>> {
   if (!hasTelegram()) return { ok: false, error: "服务端尚未配置 Telegram，请参考 .env.example 中的聊天渠道配置。" };
-  const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "工作空间不存在。" };
+  const databaseClient = await owned(workspaceId);
+  if (!databaseClient) return { ok: false, error: "工作空间不存在。" };
   const code = randomBytes(24).toString("base64url"); // 32 chars, Telegram's allowed set
-  const { error } = await supabase.from("telegram_link_codes").insert({ code, workspace_id: workspaceId });
+  const { error } = await databaseClient.from("telegram_link_codes").insert({ code, workspace_id: workspaceId });
   if (error) return { ok: false, error: error.message };
   return { ok: true, url: `https://t.me/${telegramBotUsername()}?start=${code}` };
 }
 
 export async function unlinkChannel(workspaceId: string, provider: "telegram" | "slack"): Promise<Result<object>> {
-  const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "工作空间不存在。" };
+  const databaseClient = await owned(workspaceId);
+  if (!databaseClient) return { ok: false, error: "工作空间不存在。" };
   const db = createAdminClient();
   const { data: row } = await db
     .from("connections")

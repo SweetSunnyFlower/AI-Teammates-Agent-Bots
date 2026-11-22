@@ -3,8 +3,8 @@ import { fromCron } from "./schedule";
 
 /**
  * One routine run = one task (`source = routine`, linked by `routine_id`) assigned to the routine's
- * bot, started like any other task. Shared by the every-minute dispatcher (service role) and
- * "Run now" (the user's client, RLS applies).
+ * bot, started like any other task. Shared by the every-minute dispatcher using the trusted runtime
+ * client and "Run now" using the user-scoped database client.
  */
 export interface RoutineRow {
   id: string;

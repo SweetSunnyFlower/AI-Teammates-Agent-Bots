@@ -64,21 +64,22 @@ const toDetail = (t: TaskRow): TaskDetail => ({
 
 /**
  * Everything that happened on a task and the tasks delegated from it: activity (started,
- * handed off, finished…) and every bot's report, oldest first. RLS limits it to the owner.
+ * handed off, finished…) and every bot's report, oldest first. The user-scoped database client
+ * limits the result to the owner's workspace.
  */
 export async function loadTaskThread(taskId: string): Promise<TaskThreadResult> {
   if (!hasDatabaseEnv) return { ok: false, error: "数据库尚未配置。" };
   if (!uuid.safeParse(taskId).success) return { ok: false, error: "任务不存在。" };
-  const supabase = await createClient();
+  const databaseClient = await createClient();
 
-  const { data: task } = await supabase.from("tasks").select(TASK_COLUMNS).eq("id", taskId).maybeSingle<TaskRow>();
+  const { data: task } = await databaseClient.from("tasks").select(TASK_COLUMNS).eq("id", taskId).maybeSingle<TaskRow>();
   if (!task) return { ok: false, error: "任务不存在，或者你没有访问权限。" };
 
   // Walk the delegation tree (max 3 levels below).
   const tree: TaskRow[] = [task];
   let frontier = [task.id];
   for (let level = 0; level < MAX_TREE_DEPTH && frontier.length; level++) {
-    const { data: children } = await supabase.from("tasks").select(TASK_COLUMNS).in("parent_task_id", frontier).returns<TaskRow[]>();
+    const { data: children } = await databaseClient.from("tasks").select(TASK_COLUMNS).in("parent_task_id", frontier).returns<TaskRow[]>();
     const next = children ?? [];
     tree.push(...next);
     frontier = next.map((c) => c.id);
@@ -86,14 +87,14 @@ export async function loadTaskThread(taskId: string): Promise<TaskThreadResult> 
   const ids = tree.map((t: any) => t.id);
 
   const [activity, reports, parent] = await Promise.all([
-    supabase.from("activity").select("id, bot_id, task_id, type, summary, created_at").in("task_id", ids).order("created_at", { ascending: true }).limit(300),
-    supabase
+    databaseClient.from("activity").select("id, bot_id, task_id, type, summary, created_at").in("task_id", ids).order("created_at", { ascending: true }).limit(300),
+    databaseClient
       .from("messages")
       .select("id, bot_id, ui_id, parts, created_at")
       .or(ids.map((id) => `ui_id.like.task-${id}-*`).join(","))
       .order("created_at", { ascending: true })
       .limit(100),
-    task.parent_task_id ? supabase.from("tasks").select(TASK_COLUMNS).eq("id", task.parent_task_id).maybeSingle<TaskRow>() : Promise.resolve({ data: null }),
+    task.parent_task_id ? databaseClient.from("tasks").select(TASK_COLUMNS).eq("id", task.parent_task_id).maybeSingle<TaskRow>() : Promise.resolve({ data: null }),
   ]);
 
   const thread: ThreadItem[] = [
@@ -129,8 +130,8 @@ export async function setTaskStatus(taskId: string, status: string): Promise<{ o
   if (!hasDatabaseEnv) return { ok: false, error: "数据库尚未配置。" };
   const parsed = z.object({ taskId: uuid, status: MOVABLE }).safeParse({ taskId, status });
   if (!parsed.success) return { ok: false, error: "不允许移动到这个状态。" };
-  const supabase = await createClient();
-  const { error, count } = await supabase
+  const databaseClient = await createClient();
+  const { error, count } = await databaseClient
     .from("tasks")
     .update({ status: parsed.data.status }, { count: "exact" })
     .eq("id", parsed.data.taskId);

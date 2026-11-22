@@ -33,8 +33,8 @@ export async function GET(request: Request) {
 
   const userId = await getCurrentUserId();
   if (!userId) return NextResponse.redirect(new URL("/", url.origin), 302);
-  const supabase = await createClient();
-  const { data: workspace } = await supabase
+  const databaseClient = await createClient();
+  const { data: workspace } = await databaseClient
     .from("workspaces")
     .select("id")
     .eq("id", workspaceId)

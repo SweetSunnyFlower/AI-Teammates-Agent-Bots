@@ -14,8 +14,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/office/[workspa
   if (!hasDatabaseEnv || !z.string().uuid().safeParse(workspaceId).success) {
     return Response.json({ apps: [], error: "工作空间不存在。" }, { status: 404, headers });
   }
-  const supabase = await createClient();
-  const { data: workspace } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
+  const databaseClient = await createClient();
+  const { data: workspace } = await databaseClient.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   if (!workspace) return Response.json({ apps: [], error: "工作空间不存在。" }, { status: 404, headers });
   if (!hasComposio() && !hasGitHubApp()) {
     return Response.json({ apps: [], error: "Composio 尚未配置，请在 .env.local 中添加 COMPOSIO_API_KEY。", setup: true }, { headers });

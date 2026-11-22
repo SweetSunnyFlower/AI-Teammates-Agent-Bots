@@ -29,9 +29,4 @@ export const wait = {
     }
     return { ok: false as const, output: null };
   },
-
-  async completeToken(_tokenId: string, _data?: unknown) {
-    // The decision is already committed to inbox_items; the polling waiter observes it.
-    return;
-  },
 };

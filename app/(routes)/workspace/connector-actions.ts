@@ -28,11 +28,11 @@ const uuid = z.string().uuid();
 const HIDDEN_TOOLKITS = new Set(["composio", "github"]);
 const NOT_CONFIGURED = "Composio 尚未配置，请在 .env.local 中添加 COMPOSIO_API_KEY 并重启服务。";
 
-/** Only the workspace owner can see or change its connections (checked through RLS). */
+/** Only the workspace owner can see or change its connections (enforced by the scoped client). */
 async function ownWorkspace(workspaceId: string) {
   if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return false;
-  const supabase = await createClient();
-  const { data } = await supabase.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
+  const databaseClient = await createClient();
+  const { data } = await databaseClient.from("workspaces").select("id").eq("id", workspaceId).maybeSingle();
   return Boolean(data);
 }
 

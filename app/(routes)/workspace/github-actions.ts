@@ -29,21 +29,21 @@ const uuid = z.string().uuid();
 
 async function owned(workspaceId: string) {
   if (!hasDatabaseEnv || !uuid.safeParse(workspaceId).success) return null;
-  const supabase = await createClient();
-  const { data } = await supabase
+  const databaseClient = await createClient();
+  const { data } = await databaseClient
     .from("workspaces")
     .select("id")
     .eq("id", workspaceId)
     .maybeSingle();
-  return data ? supabase : null;
+  return data ? databaseClient : null;
 }
 
 export async function getGitHubStatus(
   workspaceId: string,
 ): Promise<Result<{ status: GitHubStatus }>> {
-  const supabase = await owned(workspaceId);
-  if (!supabase) return { ok: false, error: "工作空间不存在。" };
-  const link = await githubLink(supabase, workspaceId);
+  const databaseClient = await owned(workspaceId);
+  if (!databaseClient) return { ok: false, error: "工作空间不存在。" };
+  const link = await githubLink(databaseClient, workspaceId);
   if (!link)
     return { ok: true, status: { configured: hasGitHubApp(), link: null } };
   let repos: string[] | null = null;

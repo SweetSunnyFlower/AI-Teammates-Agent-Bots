@@ -44,7 +44,7 @@ export const dispatchRoutines = schedules.task({
         db,
         r,
         async (task) => {
-          await botRun.trigger(
+          await botRun.enqueue(
             { taskId: task.id },
             {
               concurrencyKey: task.assigneeBotId,

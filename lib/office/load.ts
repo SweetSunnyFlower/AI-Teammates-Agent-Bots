@@ -41,10 +41,10 @@ export async function getCurrentUser() {
   return { id: session.user.id, email, handle: email ? `@${email.split("@")[0]}` : "@you" };
 }
 
-/** All workspaces the signed-in user owns, oldest first. RLS limits rows to the owner. */
+/** All workspaces the signed-in user owns, oldest first. The scoped client filters every query. */
 export async function listMyWorkspaces(handle = "@you"): Promise<Workspace[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("workspaces").select("id, name, icon").order("created_at", { ascending: true });
+  const databaseClient = await createClient();
+  const { data, error } = await databaseClient.from("workspaces").select("id, name, icon").order("created_at", { ascending: true });
   if (error) throw new Error("加载工作空间失败。");
   return (data ?? []).map((w: any) => ({ id: w.id, name: w.name, icon: w.icon, ownerHandle: handle }));
 }
@@ -57,22 +57,22 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const supabase = await createClient();
+  const databaseClient = await createClient();
   const [workspaces, departments, bots, inbox, tasks, routines, activity, profile, codeRuns] = await Promise.all([
     listMyWorkspaces(user.handle),
-    supabase.from("departments").select("id, name, kind, floor_index, color, description").eq("workspace_id", workspaceId),
-    supabase
+    databaseClient.from("departments").select("id, name, kind, floor_index, color, description").eq("workspace_id", workspaceId),
+    databaseClient
       .from("bots")
       .select("id, department_id, role, name, instructions, tool_keys, app_keys, avatar, model, status, status_detail, last_active_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: true }),
-    supabase
+    databaseClient
       .from("inbox_items")
       .select("id, bot_id, task_id, kind, action, title, preview, created_at")
       .eq("workspace_id", workspaceId)
       .eq("status", "pending")
       .order("created_at", { ascending: false }),
-    supabase
+    databaseClient
       .from("tasks")
       .select("id, title, status, assignee_bot_id, created_by_bot_id, source, updated_at, result, routine_id")
       .eq("workspace_id", workspaceId)
@@ -80,19 +80,19 @@ export async function loadOffice(workspaceId: string): Promise<OfficeSnapshot | 
       .order("position", { ascending: true })
       .order("updated_at", { ascending: false })
       .limit(200),
-    supabase
+    databaseClient
       .from("routines")
       .select("id, bot_id, name, cron, timezone, prompt, enabled, next_run_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: true }),
-    supabase
+    databaseClient
       .from("activity")
       .select("id, bot_id, task_id, type, summary, created_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
       .limit(40),
-    supabase.from("profiles").select("timezone").eq("user_id", user.id).maybeSingle(),
-    supabase
+    databaseClient.from("profiles").select("timezone").eq("user_id", user.id).maybeSingle(),
+    databaseClient
       .from("code_runs")
       .select("task_id, repo, status, pr_number, pr_url, tests, pr_state")
       .eq("workspace_id", workspaceId)

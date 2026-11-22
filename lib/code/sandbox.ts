@@ -25,7 +25,7 @@ export interface Sandbox {
   delete: () => Promise<void>;
 }
 
-export const hasBox = () => process.env.SANDBOX_ENABLED !== "false";
+export const isSandboxEnabled = () => process.env.SANDBOX_ENABLED !== "false";
 
 /** Docker on macOS/Windows by default; rootless Podman on Linux. */
 export const containerBin = () =>
@@ -50,7 +50,7 @@ const LOCAL_EXCLUDES = [
 /** Single-quote for bash. */
 export const sh = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
-/** Pick the box runtime from the repo's top-level files. */
+/** Pick the sandbox runtime from the repo's top-level files. */
 export function runtimeFor(files: string[]): Runtime {
   const has = (name: string) => files.includes(name);
   if (has("package.json")) return "node";
@@ -94,7 +94,7 @@ export async function createSandbox(input: {
 
 /** Run a shell command in the repo; output is stdout+stderr, trimmed to fit the model's context. */
 export async function run(
-  box: Sandbox,
+  sandbox: Sandbox,
   command: string,
   timeoutSeconds = 300,
   cwd = REPO_DIR,
@@ -112,12 +112,12 @@ export async function run(
     "--security-opt=no-new-privileges",
     "--cap-drop=ALL",
     "--volume",
-    `${box.workspaceDir}:/workspace:rw,Z`,
+    `${sandbox.workspaceDir}:/workspace:rw,Z`,
     "--env",
     "HOME=/tmp/home",
     "--workdir",
     cwd,
-    box.image,
+    sandbox.image,
     "timeout",
     String(Math.round(timeoutSeconds)),
     "bash",
@@ -157,16 +157,16 @@ export function clipOutput(text: string, max = 12_000) {
 
 /** Clone `ref` into REPO_DIR (auth comes from the injected header). Returns the checked-out commit. */
 export async function cloneRepo(
-  box: Sandbox,
+  sandbox: Sandbox,
   owner: string,
   repo: string,
   ref: string,
 ) {
   const url = `https://github.com/${owner}/${repo}.git`;
-  const token = (box as Sandbox & { __readToken?: string }).__readToken;
+  const token = (sandbox as Sandbox & { __readToken?: string }).__readToken;
   if (!token) throw new Error("沙箱克隆令牌缺失。");
   const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
-  const repoHostDir = path.join(box.workspaceDir, "repo");
+  const repoHostDir = path.join(sandbox.workspaceDir, "repo");
   await new Promise<void>((resolve, reject) => {
     execFile(
       "git",
@@ -217,16 +217,16 @@ function repoPath(path: string) {
   return clean;
 }
 
-function repoHostPath(box: Sandbox, file: string) {
-  return path.join(box.workspaceDir, "repo", ...file.split("/"));
+function repoHostPath(sandbox: Sandbox, file: string) {
+  return path.join(sandbox.workspaceDir, "repo", ...file.split("/"));
 }
 
-async function readRepoFile(box: Sandbox, file: string, encoding: BufferEncoding = "utf8") {
-  return readFile(repoHostPath(box, file), { encoding });
+async function readRepoFile(sandbox: Sandbox, file: string, encoding: BufferEncoding = "utf8") {
+  return readFile(repoHostPath(sandbox, file), { encoding });
 }
 
-async function writeRepoFile(box: Sandbox, file: string, content: string) {
-  const target = repoHostPath(box, file);
+async function writeRepoFile(sandbox: Sandbox, file: string, content: string) {
+  const target = repoHostPath(sandbox, file);
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, content, "utf8");
 }
@@ -239,7 +239,7 @@ export interface FinishReport {
 
 /** The coding agent's tools. `onFinish` receives the agent's report (the loop stops on it). */
 export function sandboxTools(
-  box: Sandbox,
+  sandbox: Sandbox,
   onFinish: (report: FinishReport) => void,
 ): ToolSet {
   const guard = async <T>(fn: () => Promise<T>) => {
@@ -264,7 +264,7 @@ export function sandboxTools(
       }),
       execute: ({ command, timeoutSeconds }) =>
         guard(async () => {
-          const r = await run(box, command, timeoutSeconds);
+          const r = await run(sandbox, command, timeoutSeconds);
           return {
             ok: r.exit === 0,
             exitCode: r.exit,
@@ -282,7 +282,7 @@ export function sandboxTools(
         guard(async () => {
           const where = path.trim() ? sh(repoPath(path)) : ".";
           const r = await run(
-            box,
+            sandbox,
             `git ls-files --cached --others --exclude-standard -- ${where} | head -800`,
             60,
           );
@@ -306,7 +306,7 @@ export function sandboxTools(
         guard(async () => {
           const where = path.trim() ? sh(repoPath(path)) : ".";
           const r = await run(
-            box,
+            sandbox,
             `git grep --untracked -n -I -E ${ignoreCase ? "-i " : ""}-e ${sh(pattern)} -- ${where} | head -300`,
             60,
           );
@@ -328,7 +328,7 @@ export function sandboxTools(
       execute: ({ path, startLine, lineCount }) =>
         guard(async () => {
           const file = repoPath(path);
-          const text = await readRepoFile(box, file);
+          const text = await readRepoFile(sandbox, file);
           const lines = text.split("\n");
           const slice = lines.slice(startLine - 1, startLine - 1 + lineCount);
           return {
@@ -356,7 +356,7 @@ export function sandboxTools(
       execute: ({ path, content }) =>
         guard(async () => {
           const file = repoPath(path);
-          await writeRepoFile(box, file, content);
+          await writeRepoFile(sandbox, file, content);
           return { ok: true, path: file, bytes: Buffer.byteLength(content) };
         }),
     }),
@@ -373,7 +373,7 @@ export function sandboxTools(
       execute: ({ path, oldText, newText, replaceAll }) =>
         guard(async () => {
           const file = repoPath(path);
-          const text = await readRepoFile(box, file);
+          const text = await readRepoFile(sandbox, file);
           const count = text.split(oldText).length - 1;
           if (count === 0)
             return {
@@ -389,7 +389,7 @@ export function sandboxTools(
           const next = replaceAll
             ? text.split(oldText).join(newText)
             : text.replace(oldText, () => newText);
-          await writeRepoFile(box, file, next);
+          await writeRepoFile(sandbox, file, next);
           return { ok: true, path: file, replaced: replaceAll ? count : 1 };
         }),
     }),
@@ -431,15 +431,15 @@ export function sandboxTools(
 const MAX_FILES = 300;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
-/** Everything the agent changed (staged in the box), read out as files to commit. */
-export async function collectChanges(box: Sandbox) {
-  await run(box, "git add -A", 120);
+/** Everything the agent changed (staged in the sandbox), read out as files to commit. */
+export async function collectChanges(sandbox: Sandbox) {
+  await run(sandbox, "git add -A", 120);
   const raw = await run(
-    box,
+    sandbox,
     "git -c core.quotepath=off diff --cached --raw --no-renames -z",
     120,
   );
-  const stat = await run(box, "git diff --cached --shortstat", 60);
+  const stat = await run(sandbox, "git diff --cached --shortstat", 60);
   const parts = raw.output.split("\0").filter((p) => p !== "");
   const files: ChangedFile[] = [];
   const skipped: string[] = [];
@@ -462,7 +462,7 @@ export async function collectChanges(box: Sandbox) {
       continue;
     }
     if (mode === "120000") {
-      const target = await run(box, `readlink ${sh(path)}`, 30);
+      const target = await run(sandbox, `readlink ${sh(path)}`, 30);
       files.push({
         path,
         mode: "120000",
@@ -473,13 +473,13 @@ export async function collectChanges(box: Sandbox) {
       continue;
     }
     const size = Number(
-      (await run(box, `stat -c %s ${sh(path)}`, 30)).output.trim(),
+      (await run(sandbox, `stat -c %s ${sh(path)}`, 30)).output.trim(),
     );
     if (!Number.isFinite(size) || size > MAX_FILE_BYTES) {
       skipped.push(`${path} (too large)`);
       continue;
     }
-    const content = await readRepoFile(box, path, "base64");
+    const content = await readRepoFile(sandbox, path, "base64");
     files.push({
       path,
       mode: mode === "100755" ? "100755" : "100644",
@@ -502,9 +502,9 @@ export async function collectChanges(box: Sandbox) {
 }
 
 /** The repo's own test command, if we can tell. */
-export async function detectTestCommand(box: Sandbox): Promise<string | null> {
+export async function detectTestCommand(sandbox: Sandbox): Promise<string | null> {
   const probe = await run(
-    box,
+    sandbox,
     `ls -1a; if [ -f package.json ]; then node -e 'const p=require("./package.json");process.stdout.write("\\nTEST_SCRIPT="+((p.scripts&&p.scripts.test)||""))'; fi`,
     60,
   );

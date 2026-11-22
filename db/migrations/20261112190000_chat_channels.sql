@@ -4,8 +4,7 @@
 -- Same tables the adapter would create itself (`autoCreateSchema` is off so the schema is ours).
 -- They hold webhook dedupe records, locks, thread state and Slack installations (bot tokens,
 -- encrypted with SLACK_ENCRYPTION_KEY). The server connects as the database owner through
--- SUPABASE_DB_URL; RLS is on with no policies and the API roles get no privileges, so nothing here
--- is reachable through the Supabase API.
+-- DATABASE_URL; RLS is on with no policies and the compatibility API roles get no privileges.
 create table if not exists public.chat_state_subscriptions (
   key_prefix text not null,
   thread_id text not null,

@@ -1,4 +1,4 @@
--- Background runs (Trigger.dev) + live updates.
+-- Background runs (pg-boss) + live updates.
 --
 -- * Chat threads update live too (run results are posted into the bot's thread).
 -- * runs.steps counts model steps for the activity feed and debugging.

@@ -7,8 +7,8 @@ import { notifyInboxItem } from "./notify";
 /**
  * Tools that only leave a card on Waiting on me (chat can't pause for an answer): asking for an app
  * and the Head's routine proposals. Shared by the web chat and Telegram / Slack. Inbox items are
- * written with the service role (users can only read them); the caller has already established
- * that this bot belongs to the person chatting.
+ * written with the trusted runtime database client (users can only read them); the caller has
+ * already established that this bot belongs to the person chatting.
  */
 export function chatSideTools(chat: ChatContext, appTools: BotApps, timezone: string): Pick<ToolOptions, "onAppAccess" | "onProposeRoutine"> {
   const { bot } = chat;

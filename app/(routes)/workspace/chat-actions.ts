@@ -11,7 +11,7 @@ export type ThreadMessage = UIMessage<{ createdAt: string; divider?: boolean }>;
 const uuid = z.string().uuid();
 const THREAD_LIMIT = 200; // most recent messages loaded into the drawer
 
-/** The bot's whole thread (dividers included), oldest first. RLS limits it to the owner. */
+/** The bot's whole thread (dividers included), oldest first, within the owner's workspace. */
 export async function loadThread(
   botId: string,
 ): Promise<
@@ -24,8 +24,8 @@ export async function loadThread(
     };
   if (!uuid.safeParse(botId).success)
     return { ok: false, error: "Bot 不存在。" };
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const databaseClient = await createClient();
+  const { data, error } = await databaseClient
     .from("messages")
     .select("id, ui_id, role, kind, parts, created_at")
     .eq("bot_id", botId)
@@ -54,15 +54,15 @@ export async function startNewChat(
 > {
   if (!hasDatabaseEnv || !uuid.safeParse(botId).success)
     return { ok: false, error: "Bot 不存在。" };
-  const supabase = await createClient();
-  const { data: bot } = await supabase
+  const databaseClient = await createClient();
+  const { data: bot } = await databaseClient
     .from("bots")
     .select("id, workspace_id")
     .eq("id", botId)
     .maybeSingle();
   if (!bot)
     return { ok: false, error: "Bot 不存在，或者你没有访问权限。" };
-  const { data, error } = await supabase
+  const { data, error } = await databaseClient
     .from("messages")
     .insert({
       workspace_id: bot.workspace_id,
