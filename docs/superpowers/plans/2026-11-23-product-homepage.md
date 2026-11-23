@@ -25,6 +25,8 @@
 
 **Files:**
 - Create: `tests/landing-page.test.ts`
+- Create: `tests/next-css-modules.test.ts`
+- Modify: `next.config.ts`
 - Read: `app/(routes)/(landing)/page.tsx`
 - Read: `app/(routes)/(landing)/landing.module.css`
 - Read: `public/dotty-office.png`
@@ -33,7 +35,7 @@
 - Consumes: the selected “产品现场手册” design in `docs/superpowers/specs/2026-11-23-product-homepage-design.md`.
 - Produces: source-level regression coverage for the required headings, sections, links, static-rendering contract, screenshot asset, and visual-system markers.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/landing-page.test.ts`:
 
@@ -93,7 +95,7 @@ test("the landing page extends the field-notes visual system", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -115,7 +117,7 @@ Expected: the first test fails because the current page lacks the new product-st
 - Consumes: `next/link`, `next/image`, `lucide-react`, and the existing CSS custom properties in `app/globals.css`.
 - Produces: the default-exported server component `LandingPage` at `/` and page metadata with the product title and description.
 
-- [ ] **Step 1: Copy the real product capture**
+- [x] **Step 1: Copy the real product capture**
 
 Run:
 
@@ -125,7 +127,7 @@ cp _design/dotty-home.png public/dotty-office.png
 
 Expected: `public/dotty-office.png` exists and preserves the `1920×1080` office capture.
 
-- [ ] **Step 2: Implement the semantic page structure**
+- [x] **Step 2: Implement the semantic page structure**
 
 Replace the page with a static Server Component whose top-level structure is:
 
@@ -211,7 +213,7 @@ The completed JSX must include:
 
 Use `Bot`, `Building2`, `CalendarClock`, `Code2`, `Database`, `GitPullRequest`, `Layers3`, `Mail`, `Search`, `Server`, `ShieldCheck`, and `Workflow` as inline SVG icons beside text. Do not use emoji.
 
-- [ ] **Step 3: Implement the page-specific CSS Module**
+- [x] **Step 3: Implement the page-specific CSS Module**
 
 Create `app/(routes)/(landing)/landing.module.css` with these required foundations:
 
@@ -275,7 +277,7 @@ Complete the rest of the module with:
 - A `scroll-margin-top` on every anchor target.
 - No horizontal scrolling at 375px.
 
-- [ ] **Step 4: Run the contract tests**
+- [x] **Step 4: Run the contract tests**
 
 Run:
 
@@ -285,7 +287,7 @@ node --import tsx --test tests/landing-page.test.ts
 
 Expected: all four tests pass.
 
-- [ ] **Step 5: Run type checking**
+- [x] **Step 5: Run type checking**
 
 Run:
 
@@ -295,7 +297,7 @@ npx tsc --noEmit
 
 Expected: exit code 0 with no TypeScript errors.
 
-- [ ] **Step 6: Commit the implementation**
+- [x] **Step 6: Commit the implementation**
 
 ```bash
 git add "app/(routes)/(landing)/page.tsx" \
@@ -316,7 +318,7 @@ git commit -m "feat: build product homepage"
 - Consumes: the running development server at `http://localhost:3000`.
 - Produces: verified desktop, tablet, and mobile layouts with no console errors, overflow, clipped text, or broken links.
 
-- [ ] **Step 1: Verify the desktop page**
+- [x] **Step 1: Verify the desktop page**
 
 Open `http://localhost:3000` in the agent browser at `1440×1000`, then confirm:
 
@@ -330,7 +332,7 @@ Open `http://localhost:3000` in the agent browser at `1440×1000`, then confirm:
 
 Take a full-page screenshot and inspect spacing, image sharpness, connector lines, approval sample, and footer alignment.
 
-- [ ] **Step 2: Verify tablet and mobile**
+- [x] **Step 2: Verify tablet and mobile**
 
 Repeat the browser inspection at `768×1024` and `375×812`. Confirm:
 
@@ -343,11 +345,11 @@ Repeat the browser inspection at `768×1024` and `375×812`. Confirm:
 - No text overlaps the image, borders, or footer
 ```
 
-- [ ] **Step 3: Verify interaction and console health**
+- [x] **Step 3: Verify interaction and console health**
 
 Click every navigation anchor and confirm it reaches the correct section. Verify `/auth/login` and `/workspace` link destinations. Read the browser console and confirm zero errors or warnings.
 
-- [ ] **Step 4: Refine the CSS and rerun checks**
+- [x] **Step 4: Refine the CSS and rerun checks**
 
 Fix any spacing, wrapping, contrast, or alignment issues found above, then run:
 
@@ -359,7 +361,7 @@ npm run lint
 
 Expected: all commands exit 0.
 
-- [ ] **Step 5: Commit visual refinements**
+- [x] **Step 5: Commit visual refinements**
 
 ```bash
 git add "app/(routes)/(landing)/page.tsx" \
@@ -379,7 +381,7 @@ git commit -m "style: polish responsive product homepage"
 - Consumes: all previous tasks.
 - Produces: a build-verified and browser-verified homepage on `codex/product-homepage`.
 
-- [ ] **Step 1: Run all automated checks**
+- [x] **Step 1: Run all automated checks**
 
 Run:
 
@@ -392,11 +394,11 @@ npm run build
 
 Expected: all commands exit 0; route output shows `/` as static or prerenderable.
 
-- [ ] **Step 2: Confirm the final browser state**
+- [x] **Step 2: Confirm the final browser state**
 
 Reload `http://localhost:3000` after the production build or development compile and confirm the final heading, screenshot, CTA links, anchors, responsive layout, and console state.
 
-- [ ] **Step 3: Review the diff**
+- [x] **Step 3: Review the diff**
 
 Run:
 
@@ -408,7 +410,7 @@ git diff origin/main...HEAD -- "app/(routes)/(landing)" public/dotty-office.png 
 
 Expected: only the product-homepage spec, plan, page, CSS Module, screenshot asset, and test are included. The pre-existing untracked architecture files remain untouched.
 
-- [ ] **Step 4: Commit any final verification fix**
+- [x] **Step 4: Commit any final verification fix**
 
 If verification required a change:
 
@@ -420,3 +422,12 @@ git commit -m "fix: resolve product homepage verification issues"
 ```
 
 If no change was required, skip this commit.
+
+## Verification note
+
+Browser verification found that the existing Tailwind Turbopack rule used
+`as: "*.css"`, which caused `.module.css` imports to emit global CSS while the
+component received no class-name map. The override was removed from
+`next.config.ts`, and `tests/next-css-modules.test.ts` now prevents the same
+regression. Final desktop and mobile browser checks passed with zero axe WCAG
+2.0/2.1 A/AA violations.
